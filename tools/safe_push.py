@@ -32,6 +32,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Windows GBK console fix — must run before any print() with non-ASCII content
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import detect_layout  # noqa: E402

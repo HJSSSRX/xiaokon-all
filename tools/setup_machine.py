@@ -26,6 +26,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Windows GBK console fix — must run before any print() with non-ASCII content
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 # ───── Paths ─────
 
 def config_dir() -> Path:
@@ -121,22 +129,52 @@ with open(p, 'w', encoding='utf-8') as f:
 " "$MSG_FILE" "$MACHINE_ID"
 """
 
-PRE_COMMIT_HOOK = r"""#!/bin/sh
-# Auto-installed by tools/setup_machine.py
-# Blocks: hand-edited INDEX files, runtime state files.
+def get_hooks_dir() -> Path | None:
+    """Resolve effective hooks dir, honoring core.hooksPath if set.
 
-# Find machine.txt
-if [ -n "$APPDATA" ]; then
-    MACHINE_FILE="$APPDATA/autoforensicai/machine.txt"
-else
-    MACHINE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/autoforensicai/machine.txt"
-fi
-[ -f "$MACHINE_FILE" ] && MACHINE_ID=$(cat "$MACHINE_FILE" | tr -d '\r\n') || MACHINE_ID="unknown"
+    Returns None if no usable hooks dir exists.
+    """
+    # 1. Check core.hooksPath config
+    r = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "config", "--get", "core.hooksPath"],
+        capture_output=True, text=True, check=False,
+    )
+    raw = r.stdout.strip() if r.returncode == 0 else ""
+    if raw:
+        path = Path(raw)
+        if not path.is_absolute():
+            path = REPO_ROOT / raw
+        # Create if missing (so we can install into it)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    # 2. Default: .git/hooks (only valid if .git is a dir, not a worktree pointer)
+    default = REPO_ROOT / ".git" / "hooks"
+    if default.exists():
+        return default
+    return None
 
-STAGED=$(git diff --cached --name-only)
+
+SETUP_MARKER = "Auto-installed by tools/setup_machine.py"
+
+
+def render_combined_pre_commit(existing_content: str | None) -> str:
+    """Build a pre-commit hook that runs our checks first, then any pre-existing hook body.
+
+    If existing_content is None or already a setup_machine combined hook, we just emit
+    a fresh combined version with no existing body.
+    """
+    body = ""
+    if existing_content and SETUP_MARKER not in existing_content:
+        # Strip leading shebang if present
+        lines = existing_content.splitlines()
+        if lines and lines[0].startswith("#!"):
+            lines = lines[1:]
+        body = "\n".join(lines).rstrip()
+
+    our_checks = '''STAGED=$(git diff --cached --name-only)
 
 # Rule 1: runtime state files
-BAD=$(echo "$STAGED" | grep -E '(\.db$|\.db-journal$|/needs.*\.json$|/role_status.*\.json$|^progress\.txt$|\.draft\.md$|machine\.txt$)' || true)
+BAD=$(echo "$STAGED" | grep -E '(\\.db$|\\.db-journal$|/needs.*\\.json$|/role_status.*\\.json$|^progress\\.txt$|\\.draft\\.md$|^machine\\.txt$)' || true)
 if [ -n "$BAD" ]; then
     echo "[pre-commit] BLOCKED: runtime state files in commit:" >&2
     echo "$BAD" | sed 's/^/  /' >&2
@@ -144,40 +182,72 @@ if [ -n "$BAD" ]; then
     exit 1
 fi
 
-# Rule 2: INDEX hand-edit warning (not blocking, but warn)
-INDEX_EDIT=$(echo "$STAGED" | grep -E 'INDEX\.(yaml|md)$' || true)
+# Rule 2: INDEX hand-edit warning (not blocking)
+INDEX_EDIT=$(echo "$STAGED" | grep -E 'INDEX\\.(yaml|md)$' || true)
 if [ -n "$INDEX_EDIT" ]; then
     echo "[pre-commit] WARN: INDEX file edited manually:" >&2
     echo "$INDEX_EDIT" | sed 's/^/  /' >&2
     echo "  Tip: run 'python tools/build_kb_index.py' to auto-rebuild instead." >&2
-fi
+fi'''
+
+    if body:
+        return f"""#!/bin/sh
+# {SETUP_MARKER} — combined pre-commit hook
+# Runs autoforensicai runtime/INDEX checks first, then pre-existing hook body below.
+
+# === autoforensicai checks ===
+{our_checks}
+
+# === pre-existing pre-commit body (preserved verbatim) ===
+{body}
+# === END pre-existing body ===
+
+exit 0
+"""
+    return f"""#!/bin/sh
+# {SETUP_MARKER}
+{our_checks}
 
 exit 0
 """
 
 
 def install_hooks() -> None:
-    hooks_dir = REPO_ROOT / ".git" / "hooks"
-    if not hooks_dir.exists():
-        print(f"  ⚠ no .git/hooks/ at {hooks_dir} (run inside a git clone)")
+    hooks_dir = get_hooks_dir()
+    if hooks_dir is None:
+        print(f"  ⚠ cannot find usable hooks dir (no core.hooksPath, no .git/hooks/)")
         return
+    print(f"  hooks dir: {hooks_dir}")
 
-    for name, content in [("commit-msg", COMMIT_MSG_HOOK), ("pre-commit", PRE_COMMIT_HOOK)]:
-        path = hooks_dir / name
-        # Backup existing
-        if path.exists() and "Auto-installed by tools/setup_machine.py" not in path.read_text(
-            encoding="utf-8", errors="ignore"
-        ):
-            backup = path.with_suffix(".bak")
-            shutil.copy(path, backup)
-            print(f"  ⚠ existing {name} backed up to {backup.name}")
-        path.write_text(content, encoding="utf-8", newline="\n")
-        # chmod +x (no-op on Windows but safe)
-        try:
-            path.chmod(0o755)
-        except Exception:
-            pass
-        print(f"  ✓ installed hook: {name}")
+    # 1. commit-msg (no merge needed; we own this hook)
+    cm_path = hooks_dir / "commit-msg"
+    if cm_path.exists() and SETUP_MARKER not in cm_path.read_text(encoding="utf-8", errors="ignore"):
+        backup = cm_path.with_suffix(".bak")
+        shutil.copy(cm_path, backup)
+        print(f"  ⚠ existing commit-msg backed up to {backup.name}")
+    cm_path.write_text(COMMIT_MSG_HOOK, encoding="utf-8", newline="\n")
+    try:
+        cm_path.chmod(0o755)
+    except Exception:
+        pass
+    print(f"  ✓ installed commit-msg")
+
+    # 2. pre-commit (merge with any pre-existing user hook)
+    pc_path = hooks_dir / "pre-commit"
+    existing = pc_path.read_text(encoding="utf-8", errors="ignore") if pc_path.exists() else None
+    if existing and SETUP_MARKER not in existing:
+        backup = pc_path.with_suffix(".bak")
+        shutil.copy(pc_path, backup)
+        print(f"  ⚠ existing pre-commit (user hook) backed up to {backup.name} and merged into combined hook")
+    pc_path.write_text(render_combined_pre_commit(existing), encoding="utf-8", newline="\n")
+    try:
+        pc_path.chmod(0o755)
+    except Exception:
+        pass
+    if existing and SETUP_MARKER not in existing:
+        print(f"  ✓ installed pre-commit (combined: our checks + your prior hook)")
+    else:
+        print(f"  ✓ installed pre-commit")
 
 
 # ───── .gitignore ─────
@@ -270,11 +340,17 @@ def cmd_status(args) -> int:
             print(f"git user.name: {r.stdout.strip()}")
         except Exception:
             pass
-    hooks_dir = REPO_ROOT / ".git" / "hooks"
+    hooks_dir = get_hooks_dir()
+    if hooks_dir is None:
+        print(f"hooks dir:     (no hooks dir found)")
+        return 0
+    print(f"hooks dir:     {hooks_dir}")
     for h in ["commit-msg", "pre-commit"]:
         p = hooks_dir / h
-        if p.exists() and "setup_machine.py" in p.read_text(encoding="utf-8", errors="ignore"):
+        if p.exists() and SETUP_MARKER in p.read_text(encoding="utf-8", errors="ignore"):
             print(f"hook {h}:    installed")
+        elif p.exists():
+            print(f"hook {h}:    EXISTS (not setup_machine; will be merged on next setup)")
         else:
             print(f"hook {h}:    NOT installed")
     return 0

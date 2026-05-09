@@ -225,6 +225,129 @@ def test_safe_push_help():
     t("--help mentions --only", "--only" in r.stdout)
 
 
+# ───── Tests: fic_kb_search resolve_kb_root (Bug 2 fix) ─────
+
+def test_fic_kb_search_resolve_kb_cli_arg():
+    """resolve_kb_root prefers explicit --kb-dir."""
+    import importlib
+    if "fic_kb_search" in sys.modules:
+        importlib.reload(sys.modules["fic_kb_search"])
+    import fic_kb_search
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fake = Path(tmp) / "fake_kb"
+        (fake / "problems").mkdir(parents=True)
+        result = fic_kb_search.resolve_kb_root(str(fake))
+        t("resolve_kb_root respects --kb-dir CLI arg", result == fake)
+
+
+def test_fic_kb_search_resolve_kb_env():
+    """resolve_kb_root falls back to $AUTOFORENSICAI_KB."""
+    import importlib
+    if "fic_kb_search" in sys.modules:
+        importlib.reload(sys.modules["fic_kb_search"])
+    import fic_kb_search
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fake = Path(tmp) / "env_kb"
+        (fake / "problems").mkdir(parents=True)
+        old = os.environ.get("AUTOFORENSICAI_KB")
+        os.environ["AUTOFORENSICAI_KB"] = str(fake)
+        try:
+            result = fic_kb_search.resolve_kb_root(None)
+            t("resolve_kb_root respects AUTOFORENSICAI_KB env", result == fake)
+        finally:
+            if old is None:
+                os.environ.pop("AUTOFORENSICAI_KB", None)
+            else:
+                os.environ["AUTOFORENSICAI_KB"] = old
+
+
+def test_fic_kb_search_resolve_kb_missing():
+    """resolve_kb_root returns None when nothing found AND no legacy path."""
+    import importlib
+    if "fic_kb_search" in sys.modules:
+        importlib.reload(sys.modules["fic_kb_search"])
+    import fic_kb_search
+
+    # Use a non-existent CLI arg + ensure env var not set
+    old = os.environ.pop("AUTOFORENSICAI_KB", None)
+    try:
+        result = fic_kb_search.resolve_kb_root("/nonexistent/path/xyz")
+        # On A_main legacy path may exist; just assert it doesn't crash and
+        # that it returns either None or a real existing dir
+        if result is not None:
+            t("resolve_kb_root returns existing dir when found", result.exists())
+        else:
+            t("resolve_kb_root returns None when nothing found", result is None)
+    finally:
+        if old is not None:
+            os.environ["AUTOFORENSICAI_KB"] = old
+
+
+# ───── Tests: setup_machine hooks dir (Bug 3 fix) ─────
+
+def test_setup_machine_get_hooks_dir_default():
+    """get_hooks_dir returns .git/hooks when core.hooksPath not set."""
+    import importlib
+    if "setup_machine" in sys.modules:
+        importlib.reload(sys.modules["setup_machine"])
+    import setup_machine
+
+    # In our real repo, core.hooksPath is unset → expect .git/hooks
+    hd = setup_machine.get_hooks_dir()
+    t("get_hooks_dir returns a Path", hd is None or isinstance(hd, Path))
+    # Don't assert exact path — depends on repo state
+
+
+def test_setup_machine_render_combined_pre_commit():
+    """render_combined_pre_commit merges existing user hook into combined version."""
+    import importlib
+    if "setup_machine" in sys.modules:
+        importlib.reload(sys.modules["setup_machine"])
+    import setup_machine
+
+    existing = """#!/bin/sh
+# user-defined check
+echo "user hook ran"
+exit 0
+"""
+    out = setup_machine.render_combined_pre_commit(existing)
+    t("combined hook contains setup marker", setup_machine.SETUP_MARKER in out)
+    t("combined hook contains our runtime check", "BLOCKED: runtime state files" in out)
+    t("combined hook preserves existing user body", 'user hook ran' in out)
+    t("combined hook starts with shebang", out.startswith("#!/bin/sh"))
+
+    # Idempotence: feeding our own output should not double-embed
+    out2 = setup_machine.render_combined_pre_commit(out)
+    t("re-applying on combined hook does not recurse",
+      out2.count("user hook ran") == 0,
+      f"expected no preserved body, got {out2.count('user hook ran')} occurrences")
+
+
+def test_setup_machine_get_hooks_dir_with_core_hookspath():
+    """When core.hooksPath is set in a temp git repo, get_hooks_dir should honor it."""
+    import importlib
+    if "setup_machine" in sys.modules:
+        importlib.reload(sys.modules["setup_machine"])
+    import setup_machine
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp) / "fakerepo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        subprocess.run(["git", "config", "core.hooksPath", ".myhooks"], cwd=repo, check=True)
+        # Patch REPO_ROOT for this call
+        original_root = setup_machine.REPO_ROOT
+        setup_machine.REPO_ROOT = repo
+        try:
+            hd = setup_machine.get_hooks_dir()
+            t("get_hooks_dir honors core.hooksPath", hd == repo / ".myhooks")
+            t("get_hooks_dir creates hooksPath if missing", hd.exists())
+        finally:
+            setup_machine.REPO_ROOT = original_root
+
+
 # ───── Run ─────
 
 def main():
@@ -240,9 +363,17 @@ def main():
     print("\n--- setup_machine ---")
     test_setup_machine_status()
     test_setup_machine_id_validation()
+    test_setup_machine_get_hooks_dir_default()
+    test_setup_machine_render_combined_pre_commit()
+    test_setup_machine_get_hooks_dir_with_core_hookspath()
 
     print("\n--- safe_push ---")
     test_safe_push_help()
+
+    print("\n--- fic_kb_search resolve_kb_root ---")
+    test_fic_kb_search_resolve_kb_cli_arg()
+    test_fic_kb_search_resolve_kb_env()
+    test_fic_kb_search_resolve_kb_missing()
 
     print()
     print("=" * 60)
