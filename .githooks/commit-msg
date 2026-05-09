@@ -1,0 +1,60 @@
+#!/bin/sh
+# Auto-installed by tools/setup_machine.py
+# Enforces [machine: ID] tag in commit messages.
+# Reads MACHINE_ID from ~/.config/autoforensicai/machine.txt (or %APPDATA% on Windows).
+
+MSG_FILE="$1"
+
+# Locate machine.txt (Windows or *nix)
+if [ -n "$APPDATA" ]; then
+    MACHINE_FILE="$APPDATA/autoforensicai/machine.txt"
+else
+    MACHINE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/autoforensicai/machine.txt"
+fi
+
+if [ ! -f "$MACHINE_FILE" ]; then
+    echo "[commit-msg] machine.txt not found at $MACHINE_FILE" >&2
+    echo "             Run: python tools/setup_machine.py" >&2
+    exit 1
+fi
+
+MACHINE_ID=$(cat "$MACHINE_FILE" | tr -d '\r\n')
+
+# Check if message already has [machine: ...]
+if grep -q "\[machine:" "$MSG_FILE"; then
+    exit 0
+fi
+
+# Auto-append [machine: ID] to last non-empty line
+# B_secondary local hotfix: 'python3' on Windows 11 may resolve to a Microsoft
+# Store App Execution Alias stub at /c/.../WindowsApps/python3 that silent-exits 49.
+# Skip any stub path; prefer real 'python' on Windows.
+PYTHON_CMD=""
+for cand in python3 python; do
+    p=$(command -v "$cand" 2>/dev/null) || continue
+    case "$p" in
+        */WindowsApps/*) continue ;;  # Microsoft Store stub
+    esac
+    PYTHON_CMD="$p"
+    break
+done
+if [ -z "$PYTHON_CMD" ]; then
+    echo "[commit-msg] no real Python found (only Microsoft Store stubs?)" >&2
+    exit 1
+fi
+"$PYTHON_CMD" -c "
+import sys
+p = sys.argv[1]
+mid = sys.argv[2]
+with open(p, 'r', encoding='utf-8') as f:
+    lines = f.read().splitlines()
+# Find last non-comment, non-empty line
+for i in range(len(lines) - 1, -1, -1):
+    if lines[i].strip() and not lines[i].lstrip().startswith('#'):
+        lines[i] = lines[i] + ' [machine: ' + mid + ']'
+        break
+else:
+    lines.append('[machine: ' + mid + ']')
+with open(p, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(lines))
+" "$MSG_FILE" "$MACHINE_ID"

