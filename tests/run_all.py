@@ -16,6 +16,7 @@ TESTS = [
     ("test_sim_recon.py",          "仿真巡检 (server/maccms/tidb)"),
     ("test_fic_kb_search.py",      "知识库检索 (v5 prompt 强依赖)"),
     ("test_huoyan_adapter.py",     "火眼 MCP-Server 客户端 (HTTP mock)"),
+    ("test_multi_machine.py",      "多机协作工具 (setup_machine/build_kb_index/safe_push)"),
     ("test_parse_yaml.py",         "YAML 格式回归 (老测试)"),
     ("test_prompt_gen.py",         "Prompt 生成 (老测试)"),
 ]
