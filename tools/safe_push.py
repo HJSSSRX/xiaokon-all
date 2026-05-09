@@ -33,8 +33,10 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "tools"))
+import detect_layout  # noqa: E402
 
-# Logical → git remote name mapping
+# Logical → git remote name mapping (default for layout A)
 REMOTE_MAP = {
     "origin": "origin",   # framework
     "data":   "data",     # knowledge data
@@ -100,19 +102,35 @@ def step_pre_check(args, mid: str):
     with Step(1, "PRE-CHECK"):
         # 1a. clean working tree
         if not is_clean():
-            r = run(["git", "status", "--short"], capture=True)
+            r = run(["git", "status", "--porcelain"], capture=True)
             print("  current dirty state:", file=sys.stderr)
             print(r.stdout, file=sys.stderr)
             die("working tree dirty — commit or stash first")
 
         # 1b. branch
         br = current_branch()
-        if br != "main":
-            die(f"not on main (currently on {br!r}); switch first")
+        if br not in ("main", "master"):
+            die(f"not on main/master (currently on {br!r}); switch first")
         print(f"  ✓ on branch {br}, clean")
 
         # 1c. machine id
         print(f"  ✓ MACHINE_ID = {mid}")
+
+
+def step_detect_layout(args) -> dict:
+    """Detect repo layout — gates which targets we can safely push to."""
+    with Step("1.5", "DETECT LAYOUT"):
+        info = detect_layout.detect()
+        print(f"  layout: {info['layout']}")
+        print(f"  reason: {info['layout_reason']}")
+        # Block dangerous push attempts unless --force-layout is passed
+        unsafe_targets = [t for t, sa in info["push_safety"].items()
+                          if not sa.get("safe") and sa.get("remote")]
+        if unsafe_targets and not args.force_layout:
+            print(f"\n  ⚠ Unsafe push targets in this layout: {unsafe_targets}")
+            print(f"     This run will SKIP them automatically.")
+            print(f"     Use --force-layout if you really know what you're doing.")
+        return info
 
 
 def step_network(args):
@@ -195,23 +213,33 @@ def step_rebase(args):
     if args.skip_rebase:
         with Step(6, "REBASE (skipped)"):
             return
-    with Step(6, "REBASE onto origin/main"):
+    with Step(6, "REBASE onto origin/<remote-branch>"):
         remotes = list_remotes()
         if "origin" not in remotes:
             print("  (no origin: skip rebase)")
             return
+        # Try main first then master
+        upstream = None
+        for cand in (f"origin/main", f"origin/master"):
+            r = run(["git", "rev-parse", "--verify", cand], capture=True, check=False)
+            if r.returncode == 0:
+                upstream = cand
+                break
+        if not upstream:
+            print(f"  (no origin/main or origin/master: skip)")
+            return
         # Check if remote ahead
-        r = run(["git", "rev-list", "--count", "HEAD..origin/main"], capture=True, check=False)
+        r = run(["git", "rev-list", "--count", f"HEAD..{upstream}"], capture=True, check=False)
         try:
             ahead = int(r.stdout.strip() or "0")
         except ValueError:
             ahead = 0
         if ahead == 0:
-            print(f"  ✓ origin/main has 0 commits ahead, no rebase needed")
+            print(f"  ✓ {upstream} has 0 commits ahead, no rebase needed")
             return
-        print(f"  origin/main is ahead by {ahead}, rebasing...")
+        print(f"  {upstream} is ahead by {ahead}, rebasing...")
         r = subprocess.run(
-            ["git", "rebase", "origin/main"], cwd=str(REPO_ROOT), check=False,
+            ["git", "rebase", upstream], cwd=str(REPO_ROOT), check=False,
         )
         if r.returncode != 0:
             print("  ✗ rebase had conflicts. Resolve manually then run:")
@@ -221,53 +249,79 @@ def step_rebase(args):
         print("  ✓ rebased")
 
 
-def step_push(args, mid: str):
+def step_push(args, mid: str, layout_info: dict):
     sslopt = getattr(args, "_sslopt", [])
     with Step(7, "PUSH"):
-        remotes = list_remotes()
-        targets = args.only.split(",") if args.only else list(REMOTE_MAP)
+        local_branch = current_branch()
+        # Each canonical target with its safety from detect_layout
+        # safety[<canonical>] = {"safe": bool, "remote": <local_remote_name>, "reason": ...}
+        safety = layout_info["push_safety"]
+
+        # Map: canonical → (logical alias for --only filter)
+        canonical_to_alias = {"framework": "origin", "data": "data", "all": "all"}
+
+        # Decide what user wants to push
+        if args.only:
+            wanted_aliases = {a.strip() for a in args.only.split(",")}
+        else:
+            wanted_aliases = {"origin", "data", "all"}
+
         any_pushed = False
-        for logical in targets:
-            gr = REMOTE_MAP.get(logical.strip())
-            if not gr:
-                print(f"  ✗ unknown logical remote: {logical}", file=sys.stderr)
+        any_skipped_unsafe = []
+        for canonical, alias in canonical_to_alias.items():
+            if alias not in wanted_aliases:
                 continue
-            if gr not in remotes:
-                print(f"  - {logical} ({gr}): not configured, skip")
+            sa = safety.get(canonical, {})
+            remote = sa.get("remote")
+            if not remote:
+                print(f"  - {canonical}: remote not configured, skip")
                 continue
-            cmd = ["git"] + sslopt + ["push", gr, "main"]
+            if not sa.get("safe") and not args.force_layout:
+                any_skipped_unsafe.append(canonical)
+                print(f"  ✗ {canonical} ({remote}): UNSAFE — {sa.get('reason')}")
+                print(f"     skipped (use --force-layout to override)")
+                continue
+
+            # Build push refspec: local_branch:main (because remotes use 'main')
+            refspec = f"{local_branch}:main" if local_branch != "main" else "main"
+            cmd = ["git"] + sslopt + ["push", remote, refspec]
             if args.dry_run:
                 print(f"  [DRY] would: {' '.join(cmd)}")
                 continue
             r = subprocess.run(cmd, cwd=str(REPO_ROOT), check=False)
             if r.returncode != 0:
-                print(f"  ✗ push to {gr} failed", file=sys.stderr)
-                # Try auto-merge for `all` (which is a sync repo)
-                if gr == "all":
-                    print(f"  → trying merge sync for {gr}...")
-                    r2 = subprocess.run(["git", "fetch", gr], cwd=str(REPO_ROOT), check=False)
+                print(f"  ✗ push to {remote} failed", file=sys.stderr)
+                # Auto-merge fallback for 'all' canonical
+                if canonical == "all":
+                    print(f"  → trying merge sync for {remote}...")
+                    r2 = subprocess.run(["git", "fetch", remote], cwd=str(REPO_ROOT), check=False)
                     if r2.returncode == 0:
                         from datetime import datetime
                         stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-                        merge_msg = f"Merge {gr}/main (auto-sync {stamp}) [machine: {mid}]"
+                        merge_msg = f"Merge {remote}/main (auto-sync {stamp}) [machine: {mid}]"
                         r3 = subprocess.run(
-                            ["git", "merge", "--no-ff", f"{gr}/main", "-m", merge_msg],
+                            ["git", "merge", "--no-ff", f"{remote}/main", "-m", merge_msg],
                             cwd=str(REPO_ROOT), check=False,
                         )
                         if r3.returncode == 0:
                             r4 = subprocess.run(cmd, cwd=str(REPO_ROOT), check=False)
                             if r4.returncode == 0:
-                                print(f"  ✓ {logical} ({gr}) pushed after merge sync")
+                                print(f"  ✓ {canonical} ({remote}) pushed after merge sync")
                                 any_pushed = True
                                 continue
-                            else:
-                                subprocess.run(["git", "reset", "--hard", "HEAD~1"], cwd=str(REPO_ROOT), check=False)
+                            subprocess.run(["git", "reset", "--hard", "HEAD~1"], cwd=str(REPO_ROOT), check=False)
                         else:
                             subprocess.run(["git", "merge", "--abort"], cwd=str(REPO_ROOT), check=False)
                             print(f"  ✗ merge had conflicts, aborted; resolve manually")
                 continue
-            print(f"  ✓ {logical} ({gr}) pushed")
+            print(f"  ✓ {canonical} ({remote}) pushed via {refspec}")
             any_pushed = True
+
+        if any_skipped_unsafe:
+            print(f"\n  Layout safety blocked: {any_skipped_unsafe}")
+            print(f"  layout = {layout_info['layout']}")
+            print(f"  See docs/MULTI_MACHINE_CONTRIBUTION.md for the right workflow.")
+
         if not any_pushed and not args.dry_run:
             die("no pushes succeeded")
 
@@ -280,18 +334,21 @@ def main():
     ap.add_argument("--no-test", action="store_true", help="skip tests/run_all.py")
     ap.add_argument("--skip-rebase", action="store_true", help="skip rebase step")
     ap.add_argument("--only", type=str, help="comma-separated subset: origin,data,all")
+    ap.add_argument("--force-layout", action="store_true",
+                    help="bypass layout safety (push to remotes detect_layout flagged as unsafe)")
     args = ap.parse_args()
 
     print("== safe_push.py ==")
     mid = read_machine_id()
 
     step_pre_check(args, mid)
+    layout_info = step_detect_layout(args)
     step_network(args)
     step_fetch(args)
     step_rebuild_index(args, mid)
     step_test(args)
     step_rebase(args)
-    step_push(args, mid)
+    step_push(args, mid, layout_info)
 
     print(f"\n== DONE ==")
     return 0

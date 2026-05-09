@@ -9,6 +9,73 @@
 
 ---
 
+## 场景 0: 架构识别 (任何场景前必跑)
+
+> **关键**: 不同机器可能用不同的仓库布局. 跑工具前必须先识别本机属于哪种.
+
+```
+本机第一次接触 AutoForensicAI 项目时, 先识别架构. 不要假设和别的机器一样.
+
+# 步骤
+1. 找到 AutoForensicAI 的本地 git checkout 目录 (cwd_repo).
+   常见位置: e:\项目\自动化取证 / e:\xiaokon-all / f:\cloud\DD / ~/autoforensicai
+2. 检查目录里是否已有 tools/detect_layout.py:
+   - 有: cd <cwd_repo> && python tools/detect_layout.py
+   - 没有: 说明本机版本太老, 先从 xiaokon-all 拉最新 (跳到场景 0.1)
+
+# 输出会指出本机是以下哪种布局
+- A_framework_clone: 单一 framework clone (只有 tools/tests/docs)
+- A_data_clone:      单一 data clone (只有 knowledge/cases)
+- A_all_clone:       单一 xiaokon-all monorepo clone (内容齐全)
+- B_monorepo_multi:  monorepo 内容 + 三个 remote 都配置了 (危险, 直推 framework/data 会破坏)
+- A_*_legacy / unknown: 需要清理或迁移
+
+# 不同布局的 push 规则
+- A_framework_clone → 只推 origin (framework)
+- A_data_clone      → 只推 origin (data)
+- A_all_clone       → 只推 origin (all). 不要在这里改代码后试图分发到 framework/data.
+- B_monorepo_multi  → 只能推 xiaokon-all remote, 推 framework/data 是禁止的.
+
+# 如果 detect_layout 输出 "DANGER" 告警
+完全不要忽视. 那意味着直接 git push 会破坏远程仓库. 把完整输出贴给我, 等指示.
+```
+
+### 场景 0.1: 本机太老, 没有 detect_layout (先 sync xiaokon-all)
+
+```
+本机的工具版本比 xiaokon-all 旧, 缺 tools/detect_layout.py 等. 先 sync 上游再说.
+
+# 步骤
+1. 先看本机目录有没有未 push 的本地改动:
+   git -C <cwd_repo> status
+   git -C <cwd_repo> log --all --not --remotes --oneline
+   有未 push 内容 → 先停下贴给我.
+
+2. 找到指向 xiaokon-all 的 remote 名 (可能叫 all / xiaokon-all / origin):
+   git -C <cwd_repo> remote -v | grep -i xiaokon-all
+
+3. fetch + merge xiaokon-all 的最新到本地:
+   git -C <cwd_repo> fetch <xiaokon-all-remote-name>
+   git -C <cwd_repo> merge --no-ff <xiaokon-all-remote-name>/main -m "sync from xiaokon-all"
+   有冲突 → 停下报告.
+
+4. 验证现在 detect_layout.py 有了:
+   ls <cwd_repo>/tools/detect_layout.py
+   ls <cwd_repo>/tools/setup_machine.py
+   ls <cwd_repo>/tools/build_kb_index.py
+   ls <cwd_repo>/tools/safe_push.py
+   ls <cwd_repo>/tests/run_all.py
+   全有 → 跑场景 0 重新识别架构.
+   缺失 → 报告 git log -5 给我.
+
+5. 跑工具自检:
+   python <cwd_repo>/tools/detect_layout.py
+   python <cwd_repo>/tests/run_all.py
+   测试不全绿 → 把 FAIL 的清单贴给我.
+```
+
+---
+
 ## 场景 A: 新机器首次接入 (从零 setup)
 
 > 用于: 一台从未参与的新电脑, 想加入 AutoForensicAI 协作.
@@ -155,6 +222,73 @@ python tools/sync_to_xiaokon_all.py  # 自动拉两边最新, 合并, commit, pu
 如果任何步骤失败, 立刻停下, 把完整报错贴给我, 不要自己 force push.
 
 我的 MACHINE_ID: <自动从 machine.txt 读>
+```
+
+---
+
+## 场景 B-multi: 单仓 + 多 remote 机器的提交流程
+
+> **用于**: detect_layout 显示 `B_monorepo_multi` 的机器 (单一 working tree, 配了 framework/data/all 三个 remote).
+>
+> **核心规则**: **只推 xiaokon-all**, **绝不直推 framework/data** (会污染那两个仓库).
+
+```
+本机 layout = B_monorepo_multi. 这意味着:
+- 本地 working tree 是 monorepo (含 knowledge/cases + tools/tests/docs)
+- 配了 3 个 remote: framework / data / xiaokon-all (具体名字看 git remote -v)
+- 直推 framework remote → 会把 knowledge/cases 注入框架库, 污染
+- 直推 data remote      → 会把 tools/tests/docs 注入数据库, 污染
+- 只有推 xiaokon-all 是安全的
+
+# 提交流程
+
+1. 跑 detect_layout 确认架构:
+   python <cwd_repo>/tools/detect_layout.py
+   必须看到 LAYOUT: B_monorepo_multi, 否则停下用别的场景.
+
+2. 跑 setup_machine (首次或换 ID 时):
+   python <cwd_repo>/tools/setup_machine.py --id <你的 ID>
+   不要用 A_main, 它是主控. 推荐 B_secondary / C_lab1 / D_user1 等.
+
+3. 写新内容:
+   - 复盘 → <cwd_repo>/knowledge/retrospectives/<日期>_<编号>__<MACHINE_ID>.yaml
+   - 工具改进 → <cwd_repo>/tools/*.py (谨慎, 主控可能也在改)
+   - worklog → <cwd_repo>/worklog/<日期>_<主题>__<MACHINE_ID>.md
+
+4. 重建 INDEX (如果改了 retrospectives/):
+   python <cwd_repo>/tools/build_kb_index.py --dir <cwd_repo>
+
+5. 跑测试 (必须 10/10 全绿):
+   python <cwd_repo>/tests/run_all.py
+
+6. commit (commit-msg hook 自动加 [machine: <ID>]):
+   cd <cwd_repo>
+   git add -A
+   git status     # 确认没有 .db / progress.txt / *.draft.md 这种被加进来
+   git commit -m "feat(xxx): <主题>"
+
+7. 推到 xiaokon-all (注意: 本地分支可能是 master, 远程是 main, 要做 mapping):
+   找出 xiaokon-all remote 的实际名字 (可能叫 all / xiaokon-all):
+   git remote -v | grep xiaokon-all  → 假设是 "xiaokon-all"
+   
+   推送命令:
+   git push <xiaokon-all-remote-name> master:main
+   # 如果本地分支已经叫 main: git push <xiaokon-all-remote-name> main
+   
+   不要执行下面的命令, 它们会污染远程:
+   ✗ git push framework master:main   # framework 仓库会混入 knowledge/cases
+   ✗ git push data master:main        # data 仓库会混入 tools/tests/docs
+
+8. 让主控 (A_main) 把 xiaokon-all 上的新内容 split 到 framework + data:
+   贴一条消息: "我 push 了 commit <hash> 到 xiaokon-all, 包含 X/Y/Z, 请主控 split."
+   主控会跑: 
+   git -C e:\xiaokon-all pull
+   # 然后 cherry-pick 或手动 copy 到 e:\项目\自动化取证 + e:\autoforensicai_data, 再分别 push
+
+# 失败兜底
+- detect_layout 输出 layout != B_monorepo_multi → 你不在这个场景, 停下问主控.
+- safe_push.py 在你这运行也会自动检测并拒推 framework/data, 这是设计.
+- 如果非要用 safe_push.py, 加 --only all 参数: python tools/safe_push.py --only all
 ```
 
 ---
