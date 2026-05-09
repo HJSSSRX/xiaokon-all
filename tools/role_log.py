@@ -191,6 +191,146 @@ def log_progress(*, status="in_progress", current_task="",
     })
 
 
+def log_need(item, *, purpose="", candidate_locations=None,
+             candidate_providers=None, blocking_qids=None,
+             deadline_hours=None):
+    """
+    跨检材求助队列 (修复 #1). 比 log_blocker 更结构化:
+    告诉队列你需要什么 + 别人可能在哪找到 + 阻塞了哪些题.
+
+    参数:
+      item                — 需要什么 (一行: e.g. "VeraCrypt 容器密码")
+      purpose             — 为什么需要 (含哪些题, e.g. "解 C-Q8/Q9/Q10")
+      candidate_locations — 可能的位置 (e.g. ["mobile/notes", "mobile/chat_history"])
+      candidate_providers — 可能能给的角色 (e.g. ["mobile_analyst"]; 默认 ["*"] 任何角色)
+      blocking_qids       — 阻塞的题号列表 (e.g. ["C_Q8","C_Q9","C_Q10"])
+      deadline_hours      — 期望多久内拿到 (None = 不急)
+
+    返回 (ok, response). response.id = "N001" 等, 用于后续 fulfill.
+
+    用法示例:
+      ok, n = log_need(
+          item="VeraCrypt 容器密码 (16-32 字符 ASCII)",
+          purpose="解 C-Q8 勒索软件邮箱, 容器在 PC 分区 3",
+          candidate_locations=["mobile/笔记本应用", "mobile/IM 聊天记录"],
+          candidate_providers=["mobile_analyst"],
+          blocking_qids=["C_Q8","C_Q9","C_Q10"],
+          deadline_hours=2,
+      )
+      print(n["id"])  # -> "N001"
+    """
+    return _post({
+        "kind": "need",
+        "item": item,
+        "purpose": purpose,
+        "candidate_locations": list(candidate_locations) if candidate_locations else [],
+        "candidate_providers": list(candidate_providers) if candidate_providers else ["*"],
+        "blocking_qids": list(blocking_qids) if blocking_qids else [],
+        "deadline_hours": deadline_hours,
+    })
+
+
+def claim_need(need_id):
+    """认领一个 need (告诉队列我去找). need_id 形如 'N001'."""
+    data = json.dumps({"by": _role()}, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        f"{_hub_url()}/needs/{need_id}/claim",
+        data=data, headers={"Content-Type": "application/json; charset=utf-8"}, method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return True, json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        return False, str(e)
+
+
+def fulfill_need(need_id, value, *, evidence_path=None):
+    """满足一个 need (找到了). value = 实际值, evidence_path = 证据列表."""
+    data = json.dumps({
+        "by": _role(),
+        "value": value,
+        "evidence_path": list(evidence_path) if evidence_path else [],
+    }, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        f"{_hub_url()}/needs/{need_id}/fulfill",
+        data=data, headers={"Content-Type": "application/json; charset=utf-8"}, method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return True, json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        return False, str(e)
+
+
+def list_open_needs(*, to_me=True):
+    """列出未满足的 needs. to_me=True 只看针对我角色的."""
+    url = f"{_hub_url()}/needs?status=open"
+    if to_me:
+        try:
+            url += f"&to={_role()}"
+        except RuntimeError:
+            pass
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return []
+
+
+# ─── 心跳 + 锁 (v0.4) ───
+
+def heartbeat(current_task=""):
+    """
+    心跳上报 (v0.4 修复 REMOTE-FAIL-06 静默失败).
+    建议每 30 分钟跑一次, hub 看 GET /heartbeat 即知谁掉线.
+    走专用端点 /heartbeat (不走 /log 智能分流).
+    """
+    return _post_raw("/heartbeat", {
+        "from": _role(),
+        "current_task": current_task,
+    })
+
+
+def lock_answer(category, qid, *, reason=""):
+    """
+    答案锁 (v0.4 修复 REMOTE-FAIL-09 并发覆盖). 修改前先锁, 5 分钟自动过期.
+    返回 (ok, response). 如果别人已锁, ok=False + 409.
+    """
+    return _post_raw(f"/answers/{category}/{qid}/lock", {
+        "by": _role(),
+        "reason": reason,
+    })
+
+
+def unlock_answer(category, qid, *, force=False):
+    """释放锁. 只能锁主释放, 除非 force=True."""
+    return _post_raw(f"/answers/{category}/{qid}/unlock", {
+        "by": _role(),
+        "force": force,
+    })
+
+
+def _post_raw(path, payload):
+    """直接 POST 到指定路径 (不走 /log 智能分流)."""
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        f"{_hub_url()}{path}",
+        data=data,
+        headers={"Content-Type": "application/json; charset=utf-8"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return True, json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            return False, json.loads(e.read().decode("utf-8"))
+        except Exception:
+            return False, str(e)
+    except Exception as e:
+        return False, str(e)
+
+
 # ─── 自检 ───
 
 def selftest():

@@ -40,7 +40,30 @@ peek_yaml.txt
 state.txt
 sync_log.txt
 
-# Generated knowledge artifacts (synced via separate data repo)
+# ─── 三库分工 (v0.5.3+) ─────────────────────────────────────
+# 知识库内容统一在 autoforensicai_data 仓库, 框架库不再保存
+# 如果误把这些目录建到 framework, 会被 ignore 防止再次提交
+knowledge/
+cases/
+
+# Generated knowledge artifacts (legacy, synced via separate data repo)
 knowledge/competitions/*/MASTER_SHEET.md
 knowledge/competitions/*/MASTER_SHEET.xlsx
 knowledge/competitions/*/findings_snapshot.yaml
+
+# ─── autoforensicai runtime state (auto-added by setup_machine.py) ───
+data/collab_hub/*.db
+data/collab_hub/*.db-journal
+data/collab_hub/needs_*.json
+data/collab_hub/role_status_*.json
+progress.txt
+worklog/personal_*.md
+*.draft.md
+.cache/
+__pycache__/
+*.pyc
+machine.txt
+.machine_id
+tests/output/
+htmlcov/
+# ─── /autoforensicai runtime state ───

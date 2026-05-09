@@ -364,6 +364,7 @@
   <div class="header-info">
     <span class="heartbeat" title="JS 心跳：代表面板在跑"></span>
     <span id="hub-status">● Hub 连接中</span>
+    <span id="heartbeat-badge" title="角色心跳状态 (v0.4)" style="font-weight:600;">⚪ 检查中...</span>
     <span id="last-update">上次刷新：—</span>
     <span id="hub-uptime" style="font-size:11px;color:var(--text-dim);"></span>
     <button id="toggle-auto" class="toggle-auto on" onclick="toggleAuto()">自动刷新 5s ●</button>
@@ -562,7 +563,9 @@ const ROLE_NAMES = {
   computer_analyst: "计算机",
   mobile_analyst:   "手机",
   server_analyst:   "服务器",
+  internet_analyst: "互联网",
   binary_analyst:   "二进制",
+  main_designer:    "主设计",
 };
 const STATUS_EMOJI = {
   idle: "💤", in_progress: "🟡", paused: "⏸", done: "✅", blocked: "🔴",
@@ -602,33 +605,62 @@ async function fetchJson(url) {
 }
 
 // ─── Render ───
-function renderRoles(progress, findings) {
+function renderRoles(progress, findings, heartbeat) {
   const findingsByRole = {};
   for (const f of findings) {
     findingsByRole[f.from] = (findingsByRole[f.from] || 0) + 1;
   }
 
-  const roles = ["computer_analyst", "mobile_analyst", "server_analyst", "binary_analyst"];
+  // v0.4: heartbeat 优先于 progress.updated 判断在线状态
+  // heartbeat 数据格式: {role: {last, age_seconds, stale, current_task}}
+  const hb = heartbeat || {};
+
+  const roles = ["computer_analyst", "mobile_analyst", "server_analyst",
+                 "internet_analyst", "binary_analyst"];
   const wrap = document.getElementById("roles");
   wrap.innerHTML = roles.map(r => {
     const p = progress[r] || { status: "idle", completed: [], pending: [], updated: "" };
-    const stale = staleClass(p.updated);
+    const h = hb[r];
+
+    // 心跳状态: alive (< 60s) / stale (60-300s) / offline (>300s 或无心跳)
+    let hbStatus, hbDot, hbText;
+    if (h && h.age_seconds !== null && h.age_seconds !== undefined) {
+      if (h.age_seconds < 60) {
+        hbStatus = "alive"; hbDot = "🟢"; hbText = `${h.age_seconds}s 前`;
+      } else if (h.age_seconds < 300) {
+        hbStatus = "stale"; hbDot = "🟡"; hbText = `${Math.floor(h.age_seconds / 60)}m 前`;
+      } else {
+        hbStatus = "offline"; hbDot = "🔴"; hbText = `${Math.floor(h.age_seconds / 60)}m 前 (掉线)`;
+      }
+    } else {
+      hbStatus = "no-heartbeat"; hbDot = "⚫"; hbText = "无心跳";
+    }
+
+    // 综合状态: heartbeat 优先, fallback 到 progress.updated
+    const cardClass = (hbStatus === "offline" || hbStatus === "no-heartbeat")
+                      ? "offline"
+                      : (hbStatus === "stale" ? "stale" : staleClass(p.updated));
     const fcount = findingsByRole[r] || 0;
+
     return `
-      <div class="role-card ${stale}">
+      <div class="role-card ${cardClass}">
         <div class="role-name">
-          <span>${STATUS_EMOJI[p.status] || "?"} ${ROLE_NAMES[r]}</span>
+          <span>${hbDot} ${STATUS_EMOJI[p.status] || "?"} ${ROLE_NAMES[r] || r}</span>
           <span class="role-status status-${p.status}">${p.status}</span>
         </div>
         <div class="role-progress">
           ${(p.completed || []).length} 完成 · ${(p.pending || []).length} 待办 · ${fcount} findings
         </div>
         <div class="role-meta">
-          上次更新：${fmtTimeAgo(p.updated)}
-          ${stale === "offline" ? " · ⚠ 长时间未上报" : ""}
-          ${stale === "stale" ? " · ⏰ 较久未更新" : ""}
+          心跳: ${hbText}
+          ${hbStatus === "offline" ? " · ⚠ 角色掉线" : ""}
+          ${hbStatus === "no-heartbeat" ? " · 未上报心跳" : ""}
         </div>
-        ${p.current_task ? `<div class="role-task">${escHtml(p.current_task)}</div>` : ""}
+        <div class="role-meta" style="font-size:10px; opacity:0.7;">
+          progress: ${fmtTimeAgo(p.updated)}
+        </div>
+        ${(h && h.current_task) ? `<div class="role-task">${escHtml(h.current_task)}</div>`
+          : (p.current_task ? `<div class="role-task">${escHtml(p.current_task)}</div>` : "")}
         ${p.blocker ? `<div class="role-blocker">🚧 ${escHtml(p.blocker)}</div>` : ""}
       </div>
     `;
@@ -1140,13 +1172,15 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 // ─── Main refresh ───
 async function refresh() {
   try {
-    const [ping, progress, findings, answers, session, questions] = await Promise.all([
+    // /heartbeat 是 v0.4 新端点, 老 hub 没有, 用 .catch 兜底成空 dict
+    const [ping, progress, findings, answers, session, questions, heartbeat] = await Promise.all([
       fetchJson(`${HUB}/ping`),
       fetchJson(`${HUB}/progress`),
       fetchJson(`${HUB}/findings`),
       fetchJson(`${HUB}/answers`),
       fetchJson(`${HUB}/session`),
       fetchJson(`${HUB}/questions`),
+      fetchJson(`${HUB}/heartbeat`).catch(() => ({})),
     ]);
 
     _findingsCache = findings || [];
@@ -1161,7 +1195,7 @@ async function refresh() {
 
     updateHubInfo(ping);
     renderTotal(answers || {});
-    renderRoles(progress || {}, findings || []);
+    renderRoles(progress || {}, findings || [], heartbeat || {});
     renderMatrix(answers || {}, findings || []);
     renderTable();
     renderStream(findings || []);
@@ -1169,6 +1203,32 @@ async function refresh() {
     renderQuestions(questions || []);
     renderTimeline(session?.session_log || []);
     renderStrategy(session?.strategy || {});
+
+    // v0.4: 全局掉线计数
+    const hb = heartbeat || {};
+    const watched = ["computer_analyst", "mobile_analyst", "server_analyst",
+                     "internet_analyst", "binary_analyst"];
+    let offlineCount = 0;
+    let aliveCount = 0;
+    for (const r of watched) {
+      const h = hb[r];
+      if (h && h.age_seconds !== null && h.age_seconds !== undefined) {
+        if (h.age_seconds > 300) offlineCount++;
+        else if (h.age_seconds < 60) aliveCount++;
+      } else {
+        offlineCount++;
+      }
+    }
+    const heartbeatBadge = document.getElementById("heartbeat-badge");
+    if (heartbeatBadge) {
+      if (offlineCount > 0) {
+        heartbeatBadge.textContent = `🔴 ${offlineCount} 角色掉线 / ${aliveCount} 活跃`;
+        heartbeatBadge.style.color = "var(--red)";
+      } else {
+        heartbeatBadge.textContent = `🟢 ${aliveCount}/${watched.length} 角色活跃`;
+        heartbeatBadge.style.color = "var(--green)";
+      }
+    }
 
     document.getElementById("issues-count").textContent =
       ((session?.blockers || []).filter(b => b.status !== 'resolved').length) +

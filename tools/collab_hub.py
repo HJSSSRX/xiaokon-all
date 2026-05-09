@@ -132,6 +132,37 @@ def next_blocker_id(blockers):
     return _next_seq_id(blockers, "B")
 
 
+def next_need_id(needs):
+    return _next_seq_id(needs, "N")
+
+
+# /needs allowed values
+NEED_STATUS = ("open", "claimed", "fulfilled", "abandoned")
+NEED_CONFIDENCE_5 = (
+    "platform_confirmed",   # 10 分稳: 平台已确认
+    "self_verified_db",      # 8-9 分: 直接 SQL/文件读到
+    "cross_source_high",     # 6-7 分: 多源交叉验证
+    "single_source_high",    # 3-5 分: 单源, 无验证
+    "gui_observed",          # 2-3 分: 仅看 GUI, 未翻底层
+    "placeholder",           # 0-2 分: 占位, 未做
+)
+# 兼容旧 3 级
+NEED_CONFIDENCE_LEGACY = ("high", "medium", "low")
+
+
+def normalize_confidence(c: str) -> str:
+    """老 3 级 → 5 级映射. 未知值返回 'placeholder' 避免误评高."""
+    c = (c or "").strip().lower()
+    if c in NEED_CONFIDENCE_5:
+        return c
+    legacy_map = {
+        "high": "single_source_high",   # 老 high 实际只是单源高信心
+        "medium": "gui_observed",
+        "low": "placeholder",
+    }
+    return legacy_map.get(c, "placeholder")
+
+
 # ─── HTTP Handler ───
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -260,6 +291,62 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "strategy": load_yaml(shared_path(self.case_dir, "strategy.yaml"), {}),
             })
 
+        # /needs - 跨检材求助队列 (修复 #1)
+        # 用法:
+        #   GET  /needs                  -> 全部 (含已完成)
+        #   GET  /needs?status=open      -> 仅未满足
+        #   GET  /needs?to=mobile_analyst -> 别人对 mobile 的请求
+        #   GET  /needs?from=computer_analyst -> computer 发出的请求
+        if path == "/needs":
+            needs = load_yaml(shared_path(self.case_dir, "needs.yaml"), [])
+            if "status" in query:
+                needs = [n for n in needs if isinstance(n, dict) and n.get("status") == query["status"]]
+            if "to" in query:
+                # candidate_providers 含 to 的 / 或 to == "*" (任何角色)
+                tgt = query["to"]
+                needs = [n for n in needs if isinstance(n, dict) and (
+                    tgt in (n.get("candidate_providers") or []) or
+                    "*" in (n.get("candidate_providers") or [])
+                )]
+            if "from" in query:
+                needs = [n for n in needs if isinstance(n, dict) and n.get("from") == query["from"]]
+            return self._send(200, needs)
+
+        m = re.match(r"^/needs/(N\d+)$", path)
+        if m:
+            needs = load_yaml(shared_path(self.case_dir, "needs.yaml"), [])
+            for n in needs:
+                if isinstance(n, dict) and n.get("id") == m.group(1):
+                    return self._send(200, n)
+            return self._err(404, f"Need {m.group(1)} not found")
+
+        # /heartbeat - 角色探活 (修复 REMOTE-FAIL-06 静默失败)
+        # GET /heartbeat - 列出所有角色心跳 + 是否过期 (>5 分钟无心跳 = stale)
+        if path == "/heartbeat":
+            beats = load_yaml(shared_path(self.case_dir, "heartbeat.yaml"), {})
+            if not isinstance(beats, dict):
+                beats = {}
+            now = datetime.datetime.now()
+            result = {}
+            for role, info in beats.items():
+                last = info.get("last") if isinstance(info, dict) else None
+                stale = True
+                age_seconds = None
+                if last:
+                    try:
+                        last_dt = datetime.datetime.strptime(last, "%Y-%m-%d %H:%M:%S")
+                        age_seconds = int((now - last_dt).total_seconds())
+                        stale = age_seconds > 300  # 5 分钟阈值
+                    except Exception:
+                        pass
+                result[role] = {
+                    "last": last,
+                    "age_seconds": age_seconds,
+                    "stale": stale,
+                    "current_task": info.get("current_task", "") if isinstance(info, dict) else "",
+                }
+            return self._send(200, result)
+
         # Files (whitelisted)
         m = re.match(r"^/files/(.+)$", path)
         if m:
@@ -348,7 +435,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 }
                 return self._dispatch_post(f"/progress/{role}", forwarded)
 
-            return self._err(400, f"Unknown kind: '{kind}'. Valid: answer/finding/blocker/question/progress")
+            # 修复 #1: kind=need 走 /needs (跨检材求助队列)
+            if kind == "need":
+                forwarded = {
+                    "from": role,
+                    "item": body.get("item", ""),
+                    "purpose": body.get("purpose", ""),
+                    "candidate_locations": body.get("candidate_locations", []),
+                    "candidate_providers": body.get("candidate_providers", ["*"]),
+                    "blocking_qids": body.get("blocking_qids", []),
+                    "deadline_hours": body.get("deadline_hours"),
+                }
+                return self._dispatch_post("/needs", forwarded)
+
+            return self._err(400, f"Unknown kind: '{kind}'. Valid: answer/finding/blocker/question/progress/need")
 
         # POST /findings
         if path == "/findings":
@@ -410,6 +510,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     existing = a
                     break
 
+            # 修复 REMOTE-FAIL-09: 锁检查 — 答案被别人锁了, 拒绝写入
+            if qid:
+                lock_path = shared_path(self.case_dir, "answer_locks.yaml")
+                locks = load_yaml(lock_path, {})
+                if isinstance(locks, dict):
+                    lock_key = f"{category}/{qid}"
+                    existing_lock = locks.get(lock_key)
+                    if existing_lock and isinstance(existing_lock, dict):
+                        try:
+                            locked_at = datetime.datetime.strptime(
+                                existing_lock.get("locked_at", ""), "%Y-%m-%d %H:%M:%S")
+                            age = (datetime.datetime.now() - locked_at).total_seconds()
+                            poster = body.get("source_role", "") or body.get("from", "")
+                            # 锁未过期 + 不是锁主 → 拒绝
+                            if age < 300 and existing_lock.get("by") != poster:
+                                return self._err(409, {
+                                    "error": f"Answer {lock_key} locked by {existing_lock.get('by')}",
+                                    "locked_by": existing_lock.get("by"),
+                                    "locked_at": existing_lock.get("locked_at"),
+                                    "your_role": poster,
+                                    "hint": "POST /answers/{cat}/{qid}/lock first or wait for expiry",
+                                })
+                        except Exception:
+                            pass
+
             # Normalize evidence_path: accept str or list
             ev_path = body.get("evidence_path", [])
             if isinstance(ev_path, str):
@@ -417,11 +542,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             elif not isinstance(ev_path, list):
                 ev_path = []
 
+            # 修复 #4: 5 级 confidence 强制规范化 (老 high/medium/low → 5 级)
+            raw_conf = body.get("confidence", "")
+            normalized_conf = normalize_confidence(raw_conf)
+
             entry = {
                 "qid": qid,
                 "question": body.get("question", "") or (existing.get("question", "") if existing else ""),
                 "answer": body.get("answer", ""),
-                "confidence": body.get("confidence", "medium"),
+                "confidence": normalized_conf,
+                "confidence_raw": raw_conf,  # 保留原始值用于审计
                 "source_role": body.get("source_role", ""),
                 "evidence": body.get("evidence", ""),                  # finding ID
                 "analysis": body.get("analysis", "") or (existing.get("analysis", "") if existing else ""),
@@ -541,6 +671,168 @@ class Handler(http.server.BaseHTTPRequestHandler):
             strategy["updated"] = now_str()
             save_yaml(fpath, strategy)
             return self._send(200, strategy)
+
+        # ─── /needs (修复 #1: 跨检材求助队列) ───
+        # POST /needs - 发布求助
+        # body: {from, item, purpose, candidate_locations, candidate_providers, blocking_qids, deadline_hours}
+        if path == "/needs":
+            role = body.get("from", "").strip()
+            if not role:
+                return self._err(400, "Missing 'from' field")
+            item = body.get("item", "").strip()
+            if not item:
+                return self._err(400, "Missing 'item' field (what do you need?)")
+            fpath = shared_path(self.case_dir, "needs.yaml")
+            needs = load_yaml(fpath, [])
+            entry = {
+                "id": next_need_id(needs),
+                "time": now_str(),
+                "from": role,
+                "item": item,
+                "purpose": body.get("purpose", ""),
+                "candidate_locations": body.get("candidate_locations", []),
+                "candidate_providers": body.get("candidate_providers", ["*"]),
+                "blocking_qids": body.get("blocking_qids", []),
+                "deadline_hours": body.get("deadline_hours"),
+                "status": "open",
+                "claimed_by": "",
+                "fulfilled_by": "",
+                "fulfilled_value": "",
+                "fulfilled_at": "",
+                "updated": now_str(),
+            }
+            needs.append(entry)
+            save_yaml(fpath, needs)
+            return self._send(201, entry)
+
+        # POST /needs/{id}/claim - 角色认领 (告诉队列我去找)
+        # body: {by}
+        m = re.match(r"^/needs/(N\d+)/claim$", path)
+        if m:
+            need_id = m.group(1)
+            fpath = shared_path(self.case_dir, "needs.yaml")
+            needs = load_yaml(fpath, [])
+            for n in needs:
+                if isinstance(n, dict) and n.get("id") == need_id:
+                    if n.get("status") != "open":
+                        return self._err(409, f"Need {need_id} status={n.get('status')}, cannot claim")
+                    n["status"] = "claimed"
+                    n["claimed_by"] = body.get("by", "")
+                    n["updated"] = now_str()
+                    save_yaml(fpath, needs)
+                    return self._send(200, n)
+            return self._err(404, f"Need {need_id} not found")
+
+        # POST /needs/{id}/fulfill - 满足需求 (我找到了)
+        # body: {by, value, evidence_path}
+        m = re.match(r"^/needs/(N\d+)/fulfill$", path)
+        if m:
+            need_id = m.group(1)
+            fpath = shared_path(self.case_dir, "needs.yaml")
+            needs = load_yaml(fpath, [])
+            for n in needs:
+                if isinstance(n, dict) and n.get("id") == need_id:
+                    n["status"] = "fulfilled"
+                    n["fulfilled_by"] = body.get("by", "")
+                    n["fulfilled_value"] = body.get("value", "")
+                    n["fulfilled_evidence_path"] = body.get("evidence_path", [])
+                    n["fulfilled_at"] = now_str()
+                    n["updated"] = now_str()
+                    save_yaml(fpath, needs)
+                    return self._send(200, n)
+            return self._err(404, f"Need {need_id} not found")
+
+        # POST /needs/{id}/abandon - 放弃 (找不到 / 不需要了)
+        m = re.match(r"^/needs/(N\d+)/abandon$", path)
+        if m:
+            need_id = m.group(1)
+            fpath = shared_path(self.case_dir, "needs.yaml")
+            needs = load_yaml(fpath, [])
+            for n in needs:
+                if isinstance(n, dict) and n.get("id") == need_id:
+                    n["status"] = "abandoned"
+                    n["abandon_reason"] = body.get("reason", "")
+                    n["updated"] = now_str()
+                    save_yaml(fpath, needs)
+                    return self._send(200, n)
+            return self._err(404, f"Need {need_id} not found")
+
+        # POST /heartbeat - 角色心跳上报 (修复 REMOTE-FAIL-06)
+        # body: {from, current_task}
+        if path == "/heartbeat":
+            role = body.get("from", "").strip()
+            if not role:
+                return self._err(400, "Missing 'from' field")
+            fpath = shared_path(self.case_dir, "heartbeat.yaml")
+            beats = load_yaml(fpath, {})
+            if not isinstance(beats, dict):
+                beats = {}
+            beats[role] = {
+                "last": now_str(),
+                "current_task": body.get("current_task", ""),
+            }
+            save_yaml(fpath, beats)
+            return self._send(200, beats[role])
+
+        # POST /answers/{cat}/{qid}/lock - 答案锁 (修复 REMOTE-FAIL-09 并发覆盖)
+        # body: {by, reason}
+        # 锁超过 5 分钟自动过期
+        m = re.match(r"^/answers/(\w+)/(\w+)/lock$", path)
+        if m:
+            category, qid = m.group(1), m.group(2)
+            fpath = shared_path(self.case_dir, "answer_locks.yaml")
+            locks = load_yaml(fpath, {})
+            if not isinstance(locks, dict):
+                locks = {}
+            key = f"{category}/{qid}"
+            now = datetime.datetime.now()
+            existing = locks.get(key)
+            if existing and isinstance(existing, dict):
+                # 检查是否过期
+                try:
+                    locked_at = datetime.datetime.strptime(existing.get("locked_at", ""),
+                                                           "%Y-%m-%d %H:%M:%S")
+                    age = (now - locked_at).total_seconds()
+                    if age < 300 and existing.get("by") != body.get("by"):
+                        return self._err(409, {
+                            "error": f"Answer {key} locked by {existing.get('by')}",
+                            "locked_by": existing.get("by"),
+                            "locked_at": existing.get("locked_at"),
+                            "age_seconds": int(age),
+                        })
+                except Exception:
+                    pass
+            entry = {
+                "by": body.get("by", ""),
+                "reason": body.get("reason", ""),
+                "locked_at": now_str(),
+            }
+            locks[key] = entry
+            save_yaml(fpath, locks)
+            return self._send(200, entry)
+
+        # POST /answers/{cat}/{qid}/unlock - 显式释放锁
+        m = re.match(r"^/answers/(\w+)/(\w+)/unlock$", path)
+        if m:
+            category, qid = m.group(1), m.group(2)
+            fpath = shared_path(self.case_dir, "answer_locks.yaml")
+            locks = load_yaml(fpath, {})
+            if not isinstance(locks, dict):
+                locks = {}
+            key = f"{category}/{qid}"
+            existing = locks.get(key)
+            if not existing:
+                return self._send(200, {"status": "no-op", "key": key})
+            # 只有锁主才能解锁 (除非 force)
+            by = body.get("by", "")
+            force = body.get("force", False)
+            if not force and existing.get("by") != by:
+                return self._err(403, {
+                    "error": f"Lock owned by {existing.get('by')}, not {by}. Use force=true to override.",
+                })
+            del locks[key]
+            save_yaml(fpath, locks)
+            return self._send(200, {"status": "unlocked", "key": key})
 
         return self._err(404, f"No route for POST {path}")
 
