@@ -67,3 +67,10 @@ machine.txt
 tests/output/
 htmlcov/
 # ─── /autoforensicai runtime state ───
+
+# ─── B_secondary personal debug scripts (keep local, don't sync) ─────
+# diag_windsurf.ps1: Windsurf network/proxy failure snapshot tool
+# launch_windsurf.ps1: Windsurf launcher with --proxy-bypass-list hardening
+# If A_main wants these, they'll be promoted (filename without machine suffix)
+tools/diag_*.ps1
+tools/launch_*.ps1
