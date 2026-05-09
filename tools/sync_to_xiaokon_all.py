@@ -165,6 +165,10 @@ def main():
 
     print(f"\n== Building union into {allrepo} ==")
 
+    if args.dry_run:
+        print(f"  [DRY-RUN] would copy framework {FRAMEWORK_INCLUDES} + data {DATA_INCLUDES}")
+        return 0
+
     # 1. Remove old framework-side dirs that no longer exist in framework
     for inc in FRAMEWORK_INCLUDES:
         target = allrepo / inc.rstrip("/")
