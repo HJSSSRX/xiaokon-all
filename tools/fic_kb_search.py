@@ -14,9 +14,18 @@
 """
 from __future__ import annotations
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
+
+# Windows GBK console fix — must run before any print() with non-ASCII content
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
 try:
     import yaml
@@ -24,7 +33,54 @@ except ImportError:
     print("请先 pip install pyyaml", file=sys.stderr)
     sys.exit(1)
 
-KB_ROOT = Path(r"E:\ffffff-JIANCAI\2026FIC团体赛\case\shared\knowledge_base")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# KB_ROOT is resolved at runtime via resolve_kb_root().
+# Initially None — set in main() / by tests via set_kb_root().
+KB_ROOT: Path | None = None
+
+
+def resolve_kb_root(cli_arg: str | None = None) -> Path | None:
+    """Find the FIC knowledge base directory.
+
+    Search order (first hit wins):
+      1. --kb-dir CLI arg
+      2. $AUTOFORENSICAI_KB env var
+      3. <repo>/cases/2026FIC-*/case/shared/knowledge_base
+      4. <repo>/cases/2026fic*/knowledge_base
+      5. <repo>/data/kb
+      6. legacy hardcoded E:\\ffffff-JIANCAI\\... (only on machine that owns it)
+    Returns None if nothing found.
+    """
+    candidates: list[Path] = []
+    if cli_arg:
+        candidates.append(Path(cli_arg))
+    env = os.environ.get("AUTOFORENSICAI_KB")
+    if env:
+        candidates.append(Path(env))
+    # Auto-discover under cases/
+    cases_dir = REPO_ROOT / "cases"
+    if cases_dir.is_dir():
+        for sub in cases_dir.glob("2026FIC*/case/shared/knowledge_base"):
+            candidates.append(sub)
+        for sub in cases_dir.glob("2026fic*/knowledge_base"):
+            candidates.append(sub)
+        for sub in cases_dir.glob("*/knowledge_base"):
+            candidates.append(sub)
+    candidates.append(REPO_ROOT / "data" / "kb")
+    # Legacy hardcoded path (only valid on A_main)
+    candidates.append(Path(r"E:\ffffff-JIANCAI\2026FIC团体赛\case\shared\knowledge_base"))
+
+    for c in candidates:
+        if c.exists() and (c / "problems").exists():
+            return c
+    return None
+
+
+def set_kb_root(path: Path) -> None:
+    """Test/programmatic override."""
+    global KB_ROOT
+    KB_ROOT = path
 
 
 def load_problems():
@@ -283,8 +339,18 @@ def main():
     p.add_argument("--tech", help="同 tech 子命令")
     p.add_argument("--all", action="store_true")
     p.add_argument("--top", type=int, default=5)
+    p.add_argument("--kb-dir", help="KB 根目录 (默认: 自动检测; 也可设 $AUTOFORENSICAI_KB)")
 
     args = p.parse_args()
+
+    # Resolve KB_ROOT before any data load
+    kb = resolve_kb_root(getattr(args, "kb_dir", None))
+    if kb is None:
+        print("[fic_kb_search] 找不到 KB 根目录. 候选搜索路径全部失败.", file=sys.stderr)
+        print("  解决: 用 --kb-dir <path> 或 export AUTOFORENSICAI_KB=<path>", file=sys.stderr)
+        print("  典型 KB 长这样: <kb>/problems/<category>/*.yaml", file=sys.stderr)
+        sys.exit(2)
+    set_kb_root(kb)
 
     # 兼容: 旧式 --xxx 调用
     if args.cmd is None:

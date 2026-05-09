@@ -33,8 +33,17 @@ import argparse
 import os
 import platform
 import shutil
-import subprocess
 import sys
+
+# Windows GBK console fix — must run before any print() with non-ASCII content
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
