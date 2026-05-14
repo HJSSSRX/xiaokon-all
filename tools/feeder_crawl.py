@@ -10,6 +10,18 @@
     python tools/feeder_crawl.py batch <url_file>
 
 快捷指令: "小空自己托"
+
+外部存储配置:
+    --storage <path>           命令行指定外部存储路径
+    $env:FEEDER_STORAGE=path   环境变量配置外部存储（单独硬盘）
+
+示例:
+    # 使用外部硬盘 E 盘存储
+    python tools/feeder_crawl.py crawl https://example.com --storage E:\feeder_data
+    
+    # 使用环境变量配置
+    $env:FEEDER_STORAGE = "F:\knowledge_feeder"
+    python tools/feeder_crawl.py batch urls.txt
 """
 from __future__ import annotations
 import argparse
@@ -34,6 +46,22 @@ except ImportError:
     sys.exit(1)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+FEEDER_STORAGE_ENV = "FEEDER_STORAGE"
+DEFAULT_FEEDER_DIR = REPO_ROOT / "data" / "feeder"
+
+def get_feeder_storage_path() -> Path:
+    """获取喂食者存储路径，支持外部硬盘配置"""
+    custom_path = os.environ.get(FEEDER_STORAGE_ENV)
+    if custom_path:
+        path = Path(custom_path)
+        path.mkdir(parents=True, exist_ok=True)
+        print(f"📦 使用外部存储: {path}")
+        return path
+    path = DEFAULT_FEEDER_DIR
+    path.mkdir(parents=True, exist_ok=True)
+    print(f"📦 使用默认存储: {path}")
+    return path
 
 
 class FeederCrawler:
@@ -246,7 +274,7 @@ def cmd_crawl(args):
     crawler = FeederCrawler()
     result = crawler.crawl_url(args.url)
     
-    output_dir = Path(args.output) if args.output else REPO_ROOT / "data" / "feeder"
+    output_dir = Path(args.output) if args.output else get_feeder_storage_path()
     output_dir.mkdir(parents=True, exist_ok=True)
     
     filename = f"crawl_{Path(urlparse(args.url).path).name or 'output'}.json"
@@ -334,7 +362,7 @@ def cmd_batch(args):
         result = crawler.crawl_url(url)
         all_results.append(result)
     
-    output_dir = REPO_ROOT / "data" / "feeder"
+    output_dir = get_feeder_storage_path()
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "batch_results.json"
     
@@ -350,6 +378,7 @@ def cmd_batch(args):
 
 def main():
     parser = argparse.ArgumentParser(description="喂食者 - 知识库爬虫工具")
+    parser.add_argument("--storage", help="外部存储路径（如 E:\\feeder_data）")
     subparsers = parser.add_subparsers(dest="cmd", required=True)
     
     p_crawl = subparsers.add_parser("crawl", help="爬取单个URL")
@@ -370,6 +399,9 @@ def main():
     p_batch.add_argument("url_file", help="URL列表文件")
     
     args = parser.parse_args()
+    
+    if args.storage:
+        os.environ[FEEDER_STORAGE_ENV] = args.storage
     
     if args.cmd == "crawl":
         cmd_crawl(args)
