@@ -5,6 +5,8 @@ Collaboration Sync — share findings across machines via Git or LAN.
 Modes:
   1. Git mode (internet):  push/pull shared/ to a GitHub case repo
   2. LAN mode (air-gapped): simple HTTP server for local network sync
+  3. Smart conflict resolution: duplicate detection and version comparison
+  4. Progressive sync: layered synchronization strategy
 
 Usage:
   # ── Git mode ──
@@ -18,6 +20,15 @@ Usage:
   # ── LAN mode (client) ──
   python collab_sync.py lan-pull <case_dir> --server 192.168.1.100:9999
   python collab_sync.py lan-push <case_dir> --server 192.168.1.100:9999
+
+  # ── Progressive sync (智能分层同步) ──
+  python collab_sync.py sync <case_dir> --server 192.168.1.100:9999
+  python collab_sync.py sync <case_dir> --mode git
+
+  # ── Conflict resolution ──
+  python collab_sync.py detect-duplicates <case_dir>
+  python collab_sync.py resolve-conflict <case_dir> --id F001 --keep newer
+  python collab_sync.py version-compare <case_dir> --file findings.yaml
 
   # ── Common ──
   python collab_sync.py post <case_dir> --from mobile --summary "Found trojan MD5" --detail "MD5=ABC..." --related server,traffic
@@ -74,6 +85,329 @@ def next_id(findings):
     ids = [f.get("id", "") for f in findings if isinstance(f, dict)]
     nums = [int(i[1:]) for i in ids if i and i[0] == "F" and i[1:].isdigit()]
     return f"F{max(nums, default=0) + 1:03d}"
+
+
+# ─── 智能冲突解决 ───
+
+def compute_content_hash(item):
+    """计算项目内容的哈希值，用于重复检测"""
+    if not isinstance(item, dict):
+        return None
+    
+    # 提取关键字段进行哈希计算
+    key_fields = ["summary", "detail", "from", "type"]
+    content = ""
+    for field in key_fields:
+        content += str(item.get(field, ""))
+    
+    import hashlib
+    return hashlib.md5(content.encode("utf-8")).hexdigest()
+
+
+def detect_duplicates(case_dir, threshold=0.9):
+    """检测重复的 findings"""
+    sd = shared_dir(case_dir)
+    findings_path = sd / "findings.yaml"
+    findings = load_yaml(findings_path)
+    
+    if not findings:
+        return {"duplicates": [], "total": 0}
+    
+    # 按内容哈希分组
+    hash_groups = {}
+    for item in findings:
+        if isinstance(item, dict):
+            h = compute_content_hash(item)
+            if h:
+                hash_groups.setdefault(h, []).append(item)
+    
+    # 找出重复项（同一哈希有多个项目）
+    duplicates = []
+    for h, items in hash_groups.items():
+        if len(items) > 1:
+            duplicates.append({
+                "hash": h,
+                "count": len(items),
+                "items": items,
+            })
+    
+    return {"duplicates": duplicates, "total": len(duplicates), "checked": len(findings)}
+
+
+def resolve_duplicate(findings, item_id, keep_strategy="newer"):
+    """
+    解决重复项
+    :param findings: findings 列表
+    :param item_id: 要保留的项目 ID
+    :param keep_strategy: 保留策略: newer(最新), older(最早), first(第一个), specified(指定ID)
+    """
+    if not findings:
+        return {"status": "error", "message": "No findings to process"}
+    
+    # 找到指定 ID 的项目
+    target = None
+    for item in findings:
+        if isinstance(item, dict) and item.get("id") == item_id:
+            target = item
+            break
+    
+    if not target:
+        return {"status": "error", "message": f"Item {item_id} not found"}
+    
+    # 找到重复项（基于内容哈希）
+    target_hash = compute_content_hash(target)
+    duplicates = []
+    to_remove = []
+    
+    for i, item in enumerate(findings):
+        if isinstance(item, dict) and item.get("id") != item_id:
+            h = compute_content_hash(item)
+            if h == target_hash:
+                duplicates.append(item)
+                to_remove.append(i)
+    
+    if not duplicates:
+        return {"status": "info", "message": "No duplicates found", "kept": target}
+    
+    # 根据策略决定保留哪个
+    if keep_strategy == "specified":
+        # 保留指定的 item_id
+        kept = target
+    elif keep_strategy == "newer":
+        # 保留最新的（时间戳最大）
+        all_candidates = [target] + duplicates
+        kept = max(all_candidates, key=lambda x: x.get("time", ""))
+    elif keep_strategy == "older":
+        # 保留最早的
+        all_candidates = [target] + duplicates
+        kept = min(all_candidates, key=lambda x: x.get("time", ""))
+    else:  # first
+        # 保留第一个（ID 最小）
+        all_candidates = [target] + duplicates
+        kept = min(all_candidates, key=lambda x: x.get("id", "Z"))
+    
+    # 移除重复项
+    # 从后往前移除，避免索引偏移
+    to_remove.sort(reverse=True)
+    for i in to_remove:
+        del findings[i]
+    
+    return {
+        "status": "resolved",
+        "kept": kept,
+        "removed": len(duplicates),
+        "removed_items": duplicates,
+        "remaining_count": len(findings),
+    }
+
+
+def compare_versions(local_items, remote_items, key_field="id"):
+    """
+    比较本地和远程版本
+    :return: 添加的项、删除的项、修改的项
+    """
+    local_dict = {item.get(key_field): item for item in local_items if isinstance(item, dict)}
+    remote_dict = {item.get(key_field): item for item in remote_items if isinstance(item, dict)}
+    
+    added = []
+    removed = []
+    modified = []
+    
+    # 找出新增的项（远程有，本地没有）
+    for key, remote_item in remote_dict.items():
+        if key not in local_dict:
+            added.append(remote_item)
+    
+    # 找出删除的项（本地有，远程没有）
+    for key, local_item in local_dict.items():
+        if key not in remote_dict:
+            removed.append(local_item)
+    
+    # 找出修改的项（两边都有，但内容不同）
+    for key, local_item in local_dict.items():
+        if key in remote_dict:
+            remote_item = remote_dict[key]
+            if local_item != remote_item:
+                modified.append({
+                    "local": local_item,
+                    "remote": remote_item,
+                    "key": key,
+                })
+    
+    return {
+        "added": added,
+        "removed": removed,
+        "modified": modified,
+        "local_count": len(local_items),
+        "remote_count": len(remote_items),
+    }
+
+
+# ─── 渐进式同步策略 ───
+
+SYNC_PRIORITIES = [
+    {"name": "answers", "file": "answers.yaml", "priority": 1, "sync_interval": 10},
+    {"name": "findings", "file": "findings.yaml", "priority": 2, "sync_interval": 30},
+    {"name": "progress", "file": "progress.yaml", "priority": 3, "sync_interval": 60},
+    {"name": "questions", "file": "questions.yaml", "priority": 4, "sync_interval": 120},
+    {"name": "session_log", "file": "session_log.yaml", "priority": 5, "sync_interval": 300},
+    {"name": "blockers", "file": "blockers.yaml", "priority": 5, "sync_interval": 300},
+    {"name": "strategy", "file": "strategy.yaml", "priority": 5, "sync_interval": 300},
+]
+
+
+def progressive_sync(case_dir, server=None, mode="lan"):
+    """
+    渐进式同步：按优先级分层同步
+    :param case_dir: 案件目录
+    :param server: 服务器地址 (LAN模式)
+    :param mode: 同步模式: lan 或 git
+    """
+    sd = shared_dir(case_dir)
+    results = []
+    
+    for sync_item in SYNC_PRIORITIES:
+        fname = sync_item["file"]
+        priority = sync_item["priority"]
+        
+        try:
+            if mode == "lan" and server:
+                result = sync_lan_file(sd, fname, server)
+            elif mode == "git":
+                result = sync_git_file(case_dir, fname)
+            else:
+                result = {"status": "error", "file": fname, "message": "Unknown mode"}
+            
+            result["priority"] = priority
+            results.append(result)
+            
+            # 低优先级文件如果上次同步时间很近，跳过
+            last_sync = get_last_sync_time(case_dir, fname)
+            if last_sync and priority >= 4:
+                age = (datetime.datetime.now() - last_sync).total_seconds()
+                if age < sync_item["sync_interval"]:
+                    result["skipped"] = True
+                    result["reason"] = "Recent sync"
+                    continue
+            
+        except Exception as e:
+            results.append({
+                "file": fname,
+                "priority": priority,
+                "status": "error",
+                "message": str(e),
+            })
+    
+    summary = {
+        "total": len(results),
+        "success": sum(1 for r in results if r.get("status") == "success"),
+        "failed": sum(1 for r in results if r.get("status") == "error"),
+        "skipped": sum(1 for r in results if r.get("skipped")),
+    }
+    
+    return {"results": results, "summary": summary}
+
+
+def sync_lan_file(shared_dir, fname, server):
+    """同步单个文件 (LAN模式)"""
+    server = server.rstrip("/")
+    if not server.startswith("http"):
+        server = f"http://{server}"
+    
+    fpath = shared_dir / fname
+    local_items = load_yaml(fpath)
+    
+    try:
+        url = f"{server}/{fname}"
+        data = urllib.request.urlopen(url, timeout=5).read()
+        remote_items = yaml.safe_load(data) or []
+        
+        # 比较版本
+        comparison = compare_versions(local_items, remote_items)
+        
+        # 合并：添加远程新增的项
+        local_ids = {item.get("id") for item in local_items if isinstance(item, dict)}
+        added = 0
+        for item in comparison["added"]:
+            if isinstance(item, dict) and item.get("id") not in local_ids:
+                local_items.append(item)
+                added += 1
+        
+        if added > 0:
+            save_yaml(fpath, local_items)
+        
+        # 更新同步时间
+        update_sync_time(shared_dir.parent, fname)
+        
+        return {
+            "file": fname,
+            "status": "success",
+            "added": added,
+            "removed_in_remote": len(comparison["removed"]),
+            "modified": len(comparison["modified"]),
+        }
+    
+    except Exception as e:
+        return {
+            "file": fname,
+            "status": "error",
+            "message": str(e),
+        }
+
+
+def sync_git_file(case_dir, fname):
+    """同步单个文件 (Git模式)"""
+    case_dir = Path(case_dir)
+    fpath = case_dir / "shared" / fname
+    
+    try:
+        # Pull 最新更改
+        git_run(case_dir, "pull", "--rebase")
+        
+        # 检查文件是否有变更
+        result = git_run(case_dir, "status", "--porcelain", "shared/" + fname)
+        if result.stdout.strip():
+            # 有变更，已自动合并
+            return {"file": fname, "status": "success", "updated": True}
+        else:
+            return {"file": fname, "status": "success", "updated": False}
+    
+    except Exception as e:
+        return {
+            "file": fname,
+            "status": "error",
+            "message": str(e),
+        }
+
+
+def get_last_sync_time(case_dir, fname):
+    """获取上次同步时间"""
+    sync_times_path = Path(case_dir) / ".sync_times.yaml"
+    if not sync_times_path.exists():
+        return None
+    
+    sync_times = load_yaml(sync_times_path)
+    if isinstance(sync_times, dict) and fname in sync_times:
+        try:
+            return datetime.datetime.strptime(sync_times[fname], "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return None
+    return None
+
+
+def update_sync_time(case_dir, fname):
+    """更新同步时间"""
+    sync_times_path = Path(case_dir) / ".sync_times.yaml"
+    if sync_times_path.exists():
+        sync_times = load_yaml(sync_times_path)
+    else:
+        sync_times = {}
+    
+    if not isinstance(sync_times, dict):
+        sync_times = {}
+    
+    sync_times[fname] = now_str()
+    save_yaml(sync_times_path, sync_times)
 
 
 # ─── Post a finding ───
@@ -378,6 +712,91 @@ def cmd_lan_push(args):
             print(f"  [!] {fname}: {e}")
 
 
+# ─── Command wrappers for new features ───
+
+def cmd_detect_duplicates(args):
+    result = detect_duplicates(args.case_dir)
+    print(f"\n=== 重复检测结果 ===")
+    print(f"检查了 {result['checked']} 条记录")
+    print(f"发现 {result['total']} 组重复")
+    
+    if result["duplicates"]:
+        for i, group in enumerate(result["duplicates"], 1):
+            print(f"\n[{i}] 哈希: {group['hash']}")
+            print(f"  重复次数: {group['count']}")
+            for item in group["items"]:
+                print(f"    - {item.get('id', '?')} [{item.get('time', '')}] {item.get('summary', '')[:50]}...")
+
+
+def cmd_resolve_conflict(args):
+    sd = shared_dir(args.case_dir)
+    findings_path = sd / "findings.yaml"
+    findings = load_yaml(findings_path)
+    
+    result = resolve_duplicate(findings, args.id, args.keep)
+    
+    if result["status"] == "resolved":
+        save_yaml(findings_path, findings)
+        print(f"\n=== 冲突已解决 ===")
+        print(f"保留: {result['kept'].get('id', '?')} - {result['kept'].get('summary', '')[:50]}")
+        print(f"移除: {result['removed']} 条重复项")
+        print(f"剩余记录: {result['remaining_count']}")
+    else:
+        print(f"\n{result['status'].upper()}: {result['message']}")
+
+
+def cmd_version_compare(args):
+    sd = shared_dir(args.case_dir)
+    local_path = sd / args.file
+    
+    if not local_path.exists():
+        print(f"错误: 文件 {args.file} 不存在")
+        return
+    
+    local_items = load_yaml(local_path)
+    
+    if args.server:
+        server = args.server.rstrip("/")
+        if not server.startswith("http"):
+            server = f"http://{server}"
+        
+        try:
+            url = f"{server}/{args.file}"
+            data = urllib.request.urlopen(url, timeout=5).read()
+            remote_items = yaml.safe_load(data) or []
+        except Exception as e:
+            print(f"无法连接到服务器: {e}")
+            return
+    else:
+        print("需要指定 --server 参数")
+        return
+    
+    comparison = compare_versions(local_items, remote_items)
+    
+    print(f"\n=== 版本比较: {args.file} ===")
+    print(f"本地: {comparison['local_count']} 条")
+    print(f"远程: {comparison['remote_count']} 条")
+    print(f"\n新增 (远程有，本地无): {len(comparison['added'])}")
+    print(f"删除 (本地有，远程无): {len(comparison['removed'])}")
+    print(f"修改: {len(comparison['modified'])}")
+
+
+def cmd_sync(args):
+    if args.mode == "lan" and not args.server:
+        print("LAN 模式需要指定 --server 参数")
+        return
+    
+    result = progressive_sync(args.case_dir, args.server, args.mode)
+    
+    print(f"\n=== 渐进式同步结果 ===")
+    for r in result["results"]:
+        status_icon = "✅" if r["status"] == "success" else "❌"
+        skipped = "(跳过: 近期已同步)" if r.get("skipped") else ""
+        print(f"  {status_icon} [{r['priority']}] {r['file']}: {r['status']} {skipped}")
+    
+    print(f"\n摘要: {result['summary']['success']} 成功, {result['summary']['failed']} 失败, {result['summary']['skipped']} 跳过")
+
+
 # ─── Main ───
 
 def main():
@@ -429,6 +848,29 @@ def main():
     p.add_argument("case_dir")
     p.add_argument("--server", required=True, help="host:port")
 
+    # detect-duplicates
+    p = sub.add_parser("detect-duplicates", help="检测重复的 findings")
+    p.add_argument("case_dir")
+
+    # resolve-conflict
+    p = sub.add_parser("resolve-conflict", help="解决重复冲突")
+    p.add_argument("case_dir")
+    p.add_argument("--id", required=True, help="要保留的记录 ID")
+    p.add_argument("--keep", default="newer", choices=["newer", "older", "first", "specified"],
+                   help="保留策略")
+
+    # version-compare
+    p = sub.add_parser("version-compare", help="比较本地和远程版本")
+    p.add_argument("case_dir")
+    p.add_argument("--file", required=True, help="文件名")
+    p.add_argument("--server", help="服务器地址")
+
+    # sync (progressive)
+    p = sub.add_parser("sync", help="渐进式同步")
+    p.add_argument("case_dir")
+    p.add_argument("--server", help="LAN 服务器地址")
+    p.add_argument("--mode", default="lan", choices=["lan", "git"], help="同步模式")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -444,6 +886,10 @@ def main():
         "lan-serve": cmd_lan_serve,
         "lan-pull": cmd_lan_pull,
         "lan-push": cmd_lan_push,
+        "detect-duplicates": cmd_detect_duplicates,
+        "resolve-conflict": cmd_resolve_conflict,
+        "version-compare": cmd_version_compare,
+        "sync": cmd_sync,
     }
     commands[args.command](args)
 

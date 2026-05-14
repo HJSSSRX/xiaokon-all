@@ -6,6 +6,63 @@
 
 ---
 
+## v0.6 — 2026-05-14 (协作模式增强)
+
+### 里程碑 🎯
+
+**完成协作模式全面升级**, 包含心跳检测增强、答案锁机制、智能冲突解决和渐进式同步策略。
+
+### 新增功能
+
+#### 1. 心跳检测增强 (`collab_hub.py`)
+- **超时告警系统**: 自动检测角色离线状态（5分钟 stale / 30分钟 offline）
+- **告警记录**: `/heartbeat/alerts` 端点记录所有告警事件
+- **重连检测**: 自动识别角色重连，统计重连次数
+- **状态统计**: `/heartbeat` 返回在线/离线/延迟角色汇总
+
+#### 2. 答案锁机制增强 (`collab_hub.py`)
+- **可配置超时**: 默认 5 分钟，支持自定义超时时间
+- **自动清理**: 过期锁自动失效，避免死锁
+- **锁管理 API**: `/answer_locks` 查看所有锁状态，`/answer_locks/clean` 清理过期锁
+- **强制解锁**: 支持 `force=true` 参数强制释放他人锁
+
+#### 3. 智能冲突解决 (`collab_sync.py`)
+- **重复检测**: `detect-duplicates` 命令基于内容哈希识别重复 findings
+- **冲突解决**: `resolve-conflict` 支持多种保留策略（newer/older/first/specified）
+- **版本对比**: `version-compare` 命令比较本地与远程差异
+
+#### 4. 渐进式同步策略 (`collab_sync.py`)
+- **分层优先级**: answers (P1) > findings (P2) > progress (P3) > questions (P4) > others (P5)
+- **智能间隔**: 不同优先级文件采用不同同步间隔
+- **增量同步**: 跳过近期已同步的低优先级文件
+- **统一同步命令**: `sync` 命令支持 LAN 和 Git 两种模式
+
+### API 新增端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/heartbeat?alert=true` | GET | 获取过期告警列表 |
+| `/heartbeat/alerts` | GET | 获取最近告警记录 |
+| `/heartbeat/alerts/clear` | POST | 清除告警 |
+| `/answer_locks` | GET | 获取所有锁状态 |
+| `/answer_locks/clean` | POST | 清理过期锁 |
+
+### 命令行新增命令
+
+| 命令 | 说明 |
+|------|------|
+| `detect-duplicates` | 检测重复的 findings |
+| `resolve-conflict` | 解决重复冲突 |
+| `version-compare` | 比较本地和远程版本 |
+| `sync` | 渐进式同步 |
+
+### 文件改动
+
+- `tools/collab_hub.py` — 心跳检测增强、答案锁增强
+- `tools/collab_sync.py` — 智能冲突解决、渐进式同步
+
+---
+
 ## 目录结构 (项目当前状态)
 
 ```

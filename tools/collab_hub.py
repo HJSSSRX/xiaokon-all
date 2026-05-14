@@ -217,6 +217,44 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._send(204)
 
+    def _get_heartbeat_status(self, age_seconds):
+        """根据心跳间隔返回状态文本"""
+        if age_seconds is None:
+            return "unknown"
+        if age_seconds <= 60:
+            return "online"
+        elif age_seconds <= 300:
+            return "active"
+        elif age_seconds <= 1800:
+            return "stale"
+        else:
+            return "offline"
+
+    def _clean_expired_locks(self, locks):
+        """清理过期的锁"""
+        if not isinstance(locks, dict):
+            return locks
+        
+        now = datetime.datetime.now()
+        cleaned = {}
+        
+        for key, lock in locks.items():
+            if not isinstance(lock, dict) or not lock.get("locked_at"):
+                continue
+            
+            try:
+                locked_at = datetime.datetime.strptime(lock.get("locked_at", ""), "%Y-%m-%d %H:%M:%S")
+                timeout = lock.get("timeout_minutes", 5) * 60
+                age = (now - locked_at).total_seconds()
+                
+                if age < timeout:
+                    cleaned[key] = lock
+            except Exception:
+                # 解析失败，保留锁
+                cleaned[key] = lock
+        
+        return cleaned
+
     def do_GET(self):
         path, query = self._split_path()
 
@@ -322,30 +360,98 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         # /heartbeat - 角色探活 (修复 REMOTE-FAIL-06 静默失败)
         # GET /heartbeat - 列出所有角色心跳 + 是否过期 (>5 分钟无心跳 = stale)
+        # GET /heartbeat?alert=true - 返回过期告警列表
         if path == "/heartbeat":
             beats = load_yaml(shared_path(self.case_dir, "heartbeat.yaml"), {})
+            alerts = load_yaml(shared_path(self.case_dir, "heartbeat_alerts.yaml"), [])
             if not isinstance(beats, dict):
                 beats = {}
             now = datetime.datetime.now()
             result = {}
+            alert_list = []
+            
             for role, info in beats.items():
                 last = info.get("last") if isinstance(info, dict) else None
-                stale = True
+                stale = False
+                offline = False
                 age_seconds = None
+                
                 if last:
                     try:
                         last_dt = datetime.datetime.strptime(last, "%Y-%m-%d %H:%M:%S")
                         age_seconds = int((now - last_dt).total_seconds())
-                        stale = age_seconds > 300  # 5 分钟阈值
+                        stale = age_seconds > 300      # 5 分钟 = stale
+                        offline = age_seconds > 1800   # 30 分钟 = offline
                     except Exception:
                         pass
-                result[role] = {
+                
+                role_status = {
                     "last": last,
                     "age_seconds": age_seconds,
                     "stale": stale,
+                    "offline": offline,
+                    "status": self._get_heartbeat_status(age_seconds),
                     "current_task": info.get("current_task", "") if isinstance(info, dict) else "",
                 }
-            return self._send(200, result)
+                result[role] = role_status
+                
+                # 生成告警
+                if offline:
+                    alert_list.append({
+                        "role": role,
+                        "status": "offline",
+                        "age_seconds": age_seconds,
+                        "last_heartbeat": last,
+                        "message": f"角色 {role} 已离线超过 30 分钟",
+                    })
+                elif stale:
+                    alert_list.append({
+                        "role": role,
+                        "status": "stale",
+                        "age_seconds": age_seconds,
+                        "last_heartbeat": last,
+                        "message": f"角色 {role} 心跳超过 5 分钟未更新",
+                    })
+            
+            # 保存告警记录
+            if alert_list:
+                for alert in alert_list:
+                    alert["time"] = now_str()
+                    alert["id"] = f"ALERT-{len(alerts) + 1:04d}"
+                    alerts.append(alert)
+                # 只保留最近 100 条告警
+                save_yaml(shared_path(self.case_dir, "heartbeat_alerts.yaml"), alerts[-100:])
+            
+            # 根据查询参数返回不同内容
+            if query.get("alert") == "true":
+                return self._send(200, {"alerts": alert_list, "total_alerts": len(alert_list)})
+            
+            # 统计信息
+            total = len(result)
+            stale_count = sum(1 for r in result.values() if r["stale"])
+            offline_count = sum(1 for r in result.values() if r["offline"])
+            
+            return self._send(200, {
+                "roles": result,
+                "summary": {
+                    "total_roles": total,
+                    "online": total - stale_count - offline_count,
+                    "stale": stale_count,
+                    "offline": offline_count,
+                },
+                "alerts": alert_list if query.get("include_alerts") == "true" else None,
+            })
+
+        # GET /heartbeat/alerts - 获取最近告警记录
+        if path == "/heartbeat/alerts":
+            alerts = load_yaml(shared_path(self.case_dir, "heartbeat_alerts.yaml"), [])
+            limit = int(query.get("limit", 20))
+            return self._send(200, alerts[-limit:])
+
+        # POST /heartbeat/alerts/clear - 清除告警
+        if path == "/heartbeat/alerts/clear":
+            save_yaml(shared_path(self.case_dir, "heartbeat_alerts.yaml"), [])
+            return self._send(200, {"status": "cleared"})
 
         # Files (whitelisted)
         m = re.match(r"^/files/(.+)$", path)
@@ -758,7 +864,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._err(404, f"Need {need_id} not found")
 
         # POST /heartbeat - 角色心跳上报 (修复 REMOTE-FAIL-06)
-        # body: {from, current_task}
+        # body: {from, current_task, reconnect_attempts}
         if path == "/heartbeat":
             role = body.get("from", "").strip()
             if not role:
@@ -767,16 +873,41 @@ class Handler(http.server.BaseHTTPRequestHandler):
             beats = load_yaml(fpath, {})
             if not isinstance(beats, dict):
                 beats = {}
+            
+            # 检查是否是重连
+            previous = beats.get(role, {})
+            reconnecting = False
+            reconnect_count = 0
+            
+            if isinstance(previous, dict) and previous.get("last"):
+                try:
+                    last_dt = datetime.datetime.strptime(previous.get("last", ""), "%Y-%m-%d %H:%M:%S")
+                    age = (datetime.datetime.now() - last_dt).total_seconds()
+                    if age > 300:  # 超过 5 分钟没心跳，视为重连
+                        reconnecting = True
+                        reconnect_count = previous.get("reconnect_count", 0) + 1
+                except Exception:
+                    pass
+            
             beats[role] = {
                 "last": now_str(),
                 "current_task": body.get("current_task", ""),
+                "reconnect_count": reconnect_count,
+                "last_reconnect": now_str() if reconnecting else previous.get("last_reconnect", ""),
+                "total_heartbeats": previous.get("total_heartbeats", 0) + 1,
+                "status": "online",
             }
             save_yaml(fpath, beats)
-            return self._send(200, beats[role])
+            
+            response = beats[role].copy()
+            if reconnecting:
+                response["reconnecting"] = True
+                response["message"] = f"检测到重连，累计重连 {reconnect_count} 次"
+            return self._send(200, response)
 
         # POST /answers/{cat}/{qid}/lock - 答案锁 (修复 REMOTE-FAIL-09 并发覆盖)
-        # body: {by, reason}
-        # 锁超过 5 分钟自动过期
+        # body: {by, reason, timeout_minutes}
+        # 锁默认 5 分钟自动过期，可自定义超时时间
         m = re.match(r"^/answers/(\w+)/(\w+)/lock$", path)
         if m:
             category, qid = m.group(1), m.group(2)
@@ -784,28 +915,41 @@ class Handler(http.server.BaseHTTPRequestHandler):
             locks = load_yaml(fpath, {})
             if not isinstance(locks, dict):
                 locks = {}
+            
+            # 先清理过期锁
+            locks = self._clean_expired_locks(locks)
+            
             key = f"{category}/{qid}"
             now = datetime.datetime.now()
             existing = locks.get(key)
+            
             if existing and isinstance(existing, dict):
                 # 检查是否过期
                 try:
                     locked_at = datetime.datetime.strptime(existing.get("locked_at", ""),
                                                            "%Y-%m-%d %H:%M:%S")
+                    timeout = existing.get("timeout_minutes", 5) * 60
                     age = (now - locked_at).total_seconds()
-                    if age < 300 and existing.get("by") != body.get("by"):
+                    if age < timeout and existing.get("by") != body.get("by"):
+                        expires_in = max(0, int(timeout - age))
                         return self._err(409, {
                             "error": f"Answer {key} locked by {existing.get('by')}",
                             "locked_by": existing.get("by"),
                             "locked_at": existing.get("locked_at"),
                             "age_seconds": int(age),
+                            "expires_in_seconds": expires_in,
+                            "hint": "等待锁过期或联系锁主解锁",
                         })
                 except Exception:
                     pass
+            
+            timeout_minutes = body.get("timeout_minutes", 5)
             entry = {
                 "by": body.get("by", ""),
                 "reason": body.get("reason", ""),
                 "locked_at": now_str(),
+                "timeout_minutes": timeout_minutes,
+                "expires_at": (now + datetime.timedelta(minutes=timeout_minutes)).strftime("%Y-%m-%d %H:%M:%S"),
             }
             locks[key] = entry
             save_yaml(fpath, locks)
@@ -819,20 +963,83 @@ class Handler(http.server.BaseHTTPRequestHandler):
             locks = load_yaml(fpath, {})
             if not isinstance(locks, dict):
                 locks = {}
+            
+            # 先清理过期锁
+            locks = self._clean_expired_locks(locks)
+            
             key = f"{category}/{qid}"
             existing = locks.get(key)
             if not existing:
-                return self._send(200, {"status": "no-op", "key": key})
+                return self._send(200, {"status": "no-op", "key": key, "reason": "锁不存在或已过期"})
+            
             # 只有锁主才能解锁 (除非 force)
             by = body.get("by", "")
             force = body.get("force", False)
             if not force and existing.get("by") != by:
                 return self._err(403, {
-                    "error": f"Lock owned by {existing.get('by')}, not {by}. Use force=true to override.",
+                    "error": f"Lock owned by {existing.get('by')}, not {by}",
+                    "locked_by": existing.get("by"),
+                    "hint": "使用 force=true 参数强制解锁",
                 })
+            
             del locks[key]
             save_yaml(fpath, locks)
-            return self._send(200, {"status": "unlocked", "key": key})
+            return self._send(200, {"status": "unlocked", "key": key, "unlocked_by": by})
+
+        # GET /answer_locks - 获取所有锁状态
+        if path == "/answer_locks":
+            fpath = shared_path(self.case_dir, "answer_locks.yaml")
+            locks = load_yaml(fpath, {})
+            if not isinstance(locks, dict):
+                locks = {}
+            
+            # 先清理过期锁
+            locks = self._clean_expired_locks(locks)
+            save_yaml(fpath, locks)
+            
+            # 添加状态信息
+            now = datetime.datetime.now()
+            result = {}
+            for key, lock in locks.items():
+                if isinstance(lock, dict) and lock.get("locked_at"):
+                    try:
+                        locked_at = datetime.datetime.strptime(lock.get("locked_at", ""), "%Y-%m-%d %H:%M:%S")
+                        timeout = lock.get("timeout_minutes", 5) * 60
+                        age = (now - locked_at).total_seconds()
+                        expires_in = max(0, int(timeout - age))
+                        lock = lock.copy()
+                        lock["age_seconds"] = int(age)
+                        lock["expires_in_seconds"] = expires_in
+                        lock["status"] = "active" if expires_in > 0 else "expired"
+                    except Exception:
+                        pass
+                result[key] = lock
+            
+            return self._send(200, {
+                "locks": result,
+                "total": len(result),
+                "active": sum(1 for l in result.values() if isinstance(l, dict) and l.get("status") == "active"),
+            })
+
+        # POST /answer_locks/clean - 清理所有过期锁
+        if path == "/answer_locks/clean":
+            fpath = shared_path(self.case_dir, "answer_locks.yaml")
+            locks = load_yaml(fpath, {})
+            if not isinstance(locks, dict):
+                locks = {}
+            
+            before = len(locks)
+            locks = self._clean_expired_locks(locks)
+            after = len(locks)
+            cleaned = before - after
+            
+            save_yaml(fpath, locks)
+            return self._send(200, {
+                "status": "cleaned",
+                "before": before,
+                "after": after,
+                "cleaned": cleaned,
+            })
 
         return self._err(404, f"No route for POST {path}")
 
