@@ -21,17 +21,8 @@ API:
   GET  /session               -> {session_log, blockers, strategy}
   POST /session/log           {decision, reason, related_findings}
   POST /session/blocker       {from, blocker, needs, routed_to}
-  POST /session/strategy      {current_phase, priorities, deferred, notes}
+  POST /session/strategy      {current_task, priorities, deferred, notes}
   GET  /files/{name}          (whitelisted: role_prompt_*.md, shared/*.yaml)
-
-Usage:
-  python collab_hub.py serve <case_dir> [--port 8765] [--bind 0.0.0.0]
-
-Client examples (curl):
-  curl http://192.168.1.10:8765/ping
-  curl -X POST http://192.168.1.10:8765/findings \
-       -H "Content-Type: application/json" \
-       -d '{"from":"computer_analyst","summary":"OS=Win10","detail":"reg key X"}'
 """
 import argparse
 import datetime
@@ -44,12 +35,14 @@ import threading
 from pathlib import Path
 from urllib.parse import parse_qs
 
-try:
-    import yaml
-except ImportError:
-    import subprocess
-    subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=False)
-    import yaml
+from core import (
+    now_str,
+    load_yaml,
+    save_yaml,
+    shared_path,
+    log,
+    synchronized,
+)
 
 
 # ─── Constants ───
@@ -62,7 +55,6 @@ ROLE_PREFIX = {
     "main_designer": "D",
 }
 
-# A 方案: role -> answer category 自动推断 (用于 /log 智能分流)
 ROLE_TO_CATEGORY = {
     "computer_analyst": "computer_forensics",
     "mobile_analyst": "mobile_forensics",
@@ -71,42 +63,15 @@ ROLE_TO_CATEGORY = {
     "internet_analyst": "internet_forensics",
 }
 
-# Whitelist for /files/ to prevent path traversal
-# Allows: role_prompt_*.md, shared/*.yaml, and any TOP-LEVEL ALL-CAPS .md docs
-# (deployment guides, handoff notes, etc.) but NOT arbitrary user files.
 FILE_WHITELIST = re.compile(
     r"^(role_prompt_\w+\.md|shared/[\w_-]+\.(yaml|md|jsonl)|[A-Z][A-Z0-9_]+\.md|README\.md|import_[\w_]+\.py)$"
 )
 
-_lock = threading.Lock()
-_hub_started_at = now_str() if False else None  # placeholder, set in cmd_serve
+_LOCK = threading.Lock()
+_HUB_STARTED_AT = None
 
 
-# ─── State helpers ───
-
-def now_str():
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-def shared_path(case_dir, name):
-    return Path(case_dir) / "shared" / name
-
-
-def load_yaml(path, default=None):
-    if not path.exists():
-        return default if default is not None else []
-    with open(path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    if data is None:
-        return default if default is not None else []
-    return data
-
-
-def save_yaml(path, data):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-
+# ─── ID Generation ───
 
 def _next_seq_id(items, prefix, key="id"):
     pat = re.compile(rf"^{prefix}(\d+)$")
@@ -136,27 +101,27 @@ def next_need_id(needs):
     return _next_seq_id(needs, "N")
 
 
-# /needs allowed values
+# ─── Confidence Normalization ───
+
 NEED_STATUS = ("open", "claimed", "fulfilled", "abandoned")
 NEED_CONFIDENCE_5 = (
-    "platform_confirmed",   # 10 分稳: 平台已确认
-    "self_verified_db",      # 8-9 分: 直接 SQL/文件读到
-    "cross_source_high",     # 6-7 分: 多源交叉验证
-    "single_source_high",    # 3-5 分: 单源, 无验证
-    "gui_observed",          # 2-3 分: 仅看 GUI, 未翻底层
-    "placeholder",           # 0-2 分: 占位, 未做
+    "platform_confirmed",
+    "self_verified_db",
+    "cross_source_high",
+    "single_source_high",
+    "gui_observed",
+    "placeholder",
 )
-# 兼容旧 3 级
 NEED_CONFIDENCE_LEGACY = ("high", "medium", "low")
 
 
 def normalize_confidence(c: str) -> str:
-    """老 3 级 → 5 级映射. 未知值返回 'placeholder' 避免误评高."""
+    """Map legacy 3-level confidence to 5-level."""
     c = (c or "").strip().lower()
     if c in NEED_CONFIDENCE_5:
         return c
     legacy_map = {
-        "high": "single_source_high",   # 老 high 实际只是单源高信心
+        "high": "single_source_high",
         "medium": "gui_observed",
         "low": "placeholder",
     }
@@ -202,7 +167,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         try:
             raw = self.rfile.read(length).decode("utf-8")
             return json.loads(raw)
-        except Exception as e:
+        except Exception:
             return None
 
     def _split_path(self):
@@ -218,7 +183,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._send(204)
 
     def _get_heartbeat_status(self, age_seconds):
-        """根据心跳间隔返回状态文本"""
         if age_seconds is None:
             return "unknown"
         if age_seconds <= 60:
@@ -231,7 +195,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return "offline"
 
     def _clean_expired_locks(self, locks):
-        """清理过期的锁"""
         if not isinstance(locks, dict):
             return locks
         
@@ -250,7 +213,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if age < timeout:
                     cleaned[key] = lock
             except Exception:
-                # 解析失败，保留锁
                 cleaned[key] = lock
         
         return cleaned
@@ -258,16 +220,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         path, query = self._split_path()
 
-        # Health
         if path == "/ping":
             return self._send(200, {
                 "status": "ok",
                 "version": "v3.1",
                 "time": now_str(),
-                "started_at": _hub_started_at,
+                "started_at": _HUB_STARTED_AT,
             })
 
-        # Dashboard (live web UI) - no-cache headers to defeat browser caching
         if path in ("/", "/dashboard"):
             dash_path = Path(__file__).resolve().parent / "dashboard.html"
             if dash_path.exists():
@@ -284,7 +244,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             return self._err(404, "dashboard.html not found in tools/")
 
-        # Findings
         if path == "/findings":
             findings = load_yaml(shared_path(self.case_dir, "findings.yaml"), [])
             if "from" in query:
@@ -299,11 +258,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self._send(200, f)
             return self._err(404, f"Finding {m.group(1)} not found")
 
-        # Progress
         if path == "/progress":
             return self._send(200, load_yaml(shared_path(self.case_dir, "progress.yaml"), {}))
 
-        # Answers
         if path == "/answers":
             return self._send(200, load_yaml(shared_path(self.case_dir, "answers.yaml"), {}))
 
@@ -312,7 +269,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             answers = load_yaml(shared_path(self.case_dir, "answers.yaml"), {})
             return self._send(200, answers.get(m.group(1), []) if isinstance(answers, dict) else [])
 
-        # Questions
         if path == "/questions":
             questions = load_yaml(shared_path(self.case_dir, "questions.yaml"), [])
             if "to" in query:
@@ -321,7 +277,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 questions = [q for q in questions if isinstance(q, dict) and q.get("from") == query["from"]]
             return self._send(200, questions)
 
-        # Session (recovery snapshot)
         if path == "/session":
             return self._send(200, {
                 "session_log": load_yaml(shared_path(self.case_dir, "session_log.yaml"), []),
@@ -329,18 +284,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "strategy": load_yaml(shared_path(self.case_dir, "strategy.yaml"), {}),
             })
 
-        # /needs - 跨检材求助队列 (修复 #1)
-        # 用法:
-        #   GET  /needs                  -> 全部 (含已完成)
-        #   GET  /needs?status=open      -> 仅未满足
-        #   GET  /needs?to=mobile_analyst -> 别人对 mobile 的请求
-        #   GET  /needs?from=computer_analyst -> computer 发出的请求
         if path == "/needs":
             needs = load_yaml(shared_path(self.case_dir, "needs.yaml"), [])
             if "status" in query:
                 needs = [n for n in needs if isinstance(n, dict) and n.get("status") == query["status"]]
             if "to" in query:
-                # candidate_providers 含 to 的 / 或 to == "*" (任何角色)
                 tgt = query["to"]
                 needs = [n for n in needs if isinstance(n, dict) and (
                     tgt in (n.get("candidate_providers") or []) or
@@ -358,9 +306,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self._send(200, n)
             return self._err(404, f"Need {m.group(1)} not found")
 
-        # /heartbeat - 角色探活 (修复 REMOTE-FAIL-06 静默失败)
-        # GET /heartbeat - 列出所有角色心跳 + 是否过期 (>5 分钟无心跳 = stale)
-        # GET /heartbeat?alert=true - 返回过期告警列表
         if path == "/heartbeat":
             beats = load_yaml(shared_path(self.case_dir, "heartbeat.yaml"), {})
             alerts = load_yaml(shared_path(self.case_dir, "heartbeat_alerts.yaml"), [])
@@ -380,8 +325,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     try:
                         last_dt = datetime.datetime.strptime(last, "%Y-%m-%d %H:%M:%S")
                         age_seconds = int((now - last_dt).total_seconds())
-                        stale = age_seconds > 300      # 5 分钟 = stale
-                        offline = age_seconds > 1800   # 30 分钟 = offline
+                        stale = age_seconds > 300
+                        offline = age_seconds > 1800
                     except Exception:
                         pass
                 
@@ -395,7 +340,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 }
                 result[role] = role_status
                 
-                # 生成告警
                 if offline:
                     alert_list.append({
                         "role": role,
@@ -413,25 +357,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         "message": f"角色 {role} 心跳超过 5 分钟未更新",
                     })
             
-            # 保存告警记录
             if alert_list:
                 for alert in alert_list:
                     alert["time"] = now_str()
                     alert["id"] = f"ALERT-{len(alerts) + 1:04d}"
                     alerts.append(alert)
-                # 只保留最近 100 条告警
                 save_yaml(shared_path(self.case_dir, "heartbeat_alerts.yaml"), alerts[-100:])
             
-            # 根据查询参数返回不同内容
             if query.get("alert") == "true":
                 return self._send(200, {"alerts": alert_list, "total_alerts": len(alert_list)})
             
-            # 统计信息
             total = len(result)
             stale_count = sum(1 for r in result.values() if r["stale"])
             offline_count = sum(1 for r in result.values() if r["offline"])
             
-            # 向后兼容：无查询参数时返回角色字典（原有格式）
             if not query:
                 return self._send(200, result)
             
@@ -446,18 +385,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "alerts": alert_list if query.get("include_alerts") == "true" else None,
             })
 
-        # GET /heartbeat/alerts - 获取最近告警记录
         if path == "/heartbeat/alerts":
             alerts = load_yaml(shared_path(self.case_dir, "heartbeat_alerts.yaml"), [])
             limit = int(query.get("limit", 20))
             return self._send(200, alerts[-limit:])
 
-        # POST /heartbeat/alerts/clear - 清除告警
         if path == "/heartbeat/alerts/clear":
             save_yaml(shared_path(self.case_dir, "heartbeat_alerts.yaml"), [])
             return self._send(200, {"status": "cleared"})
 
-        # Files (whitelisted)
         m = re.match(r"^/files/(.+)$", path)
         if m:
             fname = m.group(1)
@@ -476,13 +412,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if body is None:
             return self._err(400, "Invalid JSON body")
 
-        with _lock:
+        with _LOCK:
             return self._dispatch_post(path, body)
 
     def _dispatch_post(self, path, body):
-        # ─── A 方案: POST /log — 极简协作端点 ───
-        # 远程角色只用一个端点。Hub 根据 kind 自动分流。
-        # Body: {kind: answer|finding|blocker|question|progress, from: <role>, ...}
         if path == "/log":
             kind = (body.get("kind") or "").strip().lower()
             role = (body.get("from") or "").strip()
@@ -490,7 +423,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._err(400, "Missing 'kind' or 'from' field")
 
             if kind == "answer":
-                # 自动从 role 推断 category（除非显式指定）
                 category = body.get("category") or ROLE_TO_CATEGORY.get(role, "")
                 if not category:
                     return self._err(400, f"Cannot infer category from role '{role}'; pass 'category' explicitly")
@@ -545,7 +477,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 }
                 return self._dispatch_post(f"/progress/{role}", forwarded)
 
-            # 修复 #1: kind=need 走 /needs (跨检材求助队列)
             if kind == "need":
                 forwarded = {
                     "from": role,
@@ -560,7 +491,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             return self._err(400, f"Unknown kind: '{kind}'. Valid: answer/finding/blocker/question/progress/need")
 
-        # POST /findings
         if path == "/findings":
             role = body.get("from", "").strip()
             if not role:
@@ -580,7 +510,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, findings)
             return self._send(201, entry)
 
-        # POST /progress/{role}
         m = re.match(r"^/progress/(\w+)$", path)
         if m:
             role = m.group(1)
@@ -599,9 +528,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, progress)
             return self._send(200, progress[role])
 
-        # POST /answers
-        # Extended schema (v3.1): adds analysis / evidence_path / verification_status
-        # Backward-compat: any field omitted falls back to "" or [] / "unverified"
         if path == "/answers":
             category = body.get("category", "").strip()
             if not category:
@@ -612,7 +538,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 answers = {}
             answers.setdefault(category, [])
 
-            # Preserve existing verification fields when re-POSTing same qid
             qid = body.get("qid", "")
             existing = None
             for a in answers[category]:
@@ -620,7 +545,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     existing = a
                     break
 
-            # 修复 REMOTE-FAIL-09: 锁检查 — 答案被别人锁了, 拒绝写入
             if qid:
                 lock_path = shared_path(self.case_dir, "answer_locks.yaml")
                 locks = load_yaml(lock_path, {})
@@ -633,7 +557,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                                 existing_lock.get("locked_at", ""), "%Y-%m-%d %H:%M:%S")
                             age = (datetime.datetime.now() - locked_at).total_seconds()
                             poster = body.get("source_role", "") or body.get("from", "")
-                            # 锁未过期 + 不是锁主 → 拒绝
                             if age < 300 and existing_lock.get("by") != poster:
                                 return self._err(409, {
                                     "error": f"Answer {lock_key} locked by {existing_lock.get('by')}",
@@ -645,14 +568,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         except Exception:
                             pass
 
-            # Normalize evidence_path: accept str or list
             ev_path = body.get("evidence_path", [])
             if isinstance(ev_path, str):
                 ev_path = [ev_path] if ev_path else []
             elif not isinstance(ev_path, list):
                 ev_path = []
 
-            # 修复 #4: 5 级 confidence 强制规范化 (老 high/medium/low → 5 级)
             raw_conf = body.get("confidence", "")
             normalized_conf = normalize_confidence(raw_conf)
 
@@ -661,9 +582,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "question": body.get("question", "") or (existing.get("question", "") if existing else ""),
                 "answer": body.get("answer", ""),
                 "confidence": normalized_conf,
-                "confidence_raw": raw_conf,  # 保留原始值用于审计
+                "confidence_raw": raw_conf,
                 "source_role": body.get("source_role", ""),
-                "evidence": body.get("evidence", ""),                  # finding ID
+                "evidence": body.get("evidence", ""),
                 "analysis": body.get("analysis", "") or (existing.get("analysis", "") if existing else ""),
                 "evidence_path": ev_path or (existing.get("evidence_path", []) if existing else []),
                 "verification_status": body.get("verification_status",
@@ -684,8 +605,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, answers)
             return self._send(200 if updated else 201, entry)
 
-        # POST /answers/{category}/{qid}/verify - flip verification status
-        # body: {verification_status, verified_by, verify_note}
         m = re.match(r"^/answers/(\w+)/(\w+)/verify$", path)
         if m:
             category, qid = m.group(1), m.group(2)
@@ -712,7 +631,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, answers)
             return self._send(200, target)
 
-        # POST /questions
         if path == "/questions":
             fpath = shared_path(self.case_dir, "questions.yaml")
             questions = load_yaml(fpath, [])
@@ -729,7 +647,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, questions)
             return self._send(201, entry)
 
-        # POST /questions/{id}/reply
         m = re.match(r"^/questions/(Q\d+)/reply$", path)
         if m:
             qid = m.group(1)
@@ -743,21 +660,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self._send(200, q)
             return self._err(404, f"Question {qid} not found")
 
-        # POST /session/log
         if path == "/session/log":
             fpath = shared_path(self.case_dir, "session_log.yaml")
-            log = load_yaml(fpath, [])
+            log_data = load_yaml(fpath, [])
             entry = {
                 "time": now_str(),
                 "decision": body.get("decision", ""),
                 "reason": body.get("reason", ""),
                 "related_findings": body.get("related_findings", []),
             }
-            log.append(entry)
-            save_yaml(fpath, log)
+            log_data.append(entry)
+            save_yaml(fpath, log_data)
             return self._send(201, entry)
 
-        # POST /session/blocker
         if path == "/session/blocker":
             fpath = shared_path(self.case_dir, "blockers.yaml")
             blockers = load_yaml(fpath, [])
@@ -774,7 +689,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, blockers)
             return self._send(201, entry)
 
-        # POST /session/strategy (replace)
         if path == "/session/strategy":
             fpath = shared_path(self.case_dir, "strategy.yaml")
             strategy = dict(body)
@@ -782,9 +696,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, strategy)
             return self._send(200, strategy)
 
-        # ─── /needs (修复 #1: 跨检材求助队列) ───
-        # POST /needs - 发布求助
-        # body: {from, item, purpose, candidate_locations, candidate_providers, blocking_qids, deadline_hours}
         if path == "/needs":
             role = body.get("from", "").strip()
             if not role:
@@ -815,8 +726,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, needs)
             return self._send(201, entry)
 
-        # POST /needs/{id}/claim - 角色认领 (告诉队列我去找)
-        # body: {by}
         m = re.match(r"^/needs/(N\d+)/claim$", path)
         if m:
             need_id = m.group(1)
@@ -833,8 +742,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self._send(200, n)
             return self._err(404, f"Need {need_id} not found")
 
-        # POST /needs/{id}/fulfill - 满足需求 (我找到了)
-        # body: {by, value, evidence_path}
         m = re.match(r"^/needs/(N\d+)/fulfill$", path)
         if m:
             need_id = m.group(1)
@@ -852,7 +759,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self._send(200, n)
             return self._err(404, f"Need {need_id} not found")
 
-        # POST /needs/{id}/abandon - 放弃 (找不到 / 不需要了)
         m = re.match(r"^/needs/(N\d+)/abandon$", path)
         if m:
             need_id = m.group(1)
@@ -867,8 +773,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self._send(200, n)
             return self._err(404, f"Need {need_id} not found")
 
-        # POST /heartbeat - 角色心跳上报 (修复 REMOTE-FAIL-06)
-        # body: {from, current_task, reconnect_attempts}
         if path == "/heartbeat":
             role = body.get("from", "").strip()
             if not role:
@@ -878,7 +782,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not isinstance(beats, dict):
                 beats = {}
             
-            # 检查是否是重连
             previous = beats.get(role, {})
             reconnecting = False
             reconnect_count = 0
@@ -887,7 +790,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 try:
                     last_dt = datetime.datetime.strptime(previous.get("last", ""), "%Y-%m-%d %H:%M:%S")
                     age = (datetime.datetime.now() - last_dt).total_seconds()
-                    if age > 300:  # 超过 5 分钟没心跳，视为重连
+                    if age > 300:
                         reconnecting = True
                         reconnect_count = previous.get("reconnect_count", 0) + 1
                 except Exception:
@@ -909,9 +812,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 response["message"] = f"检测到重连，累计重连 {reconnect_count} 次"
             return self._send(200, response)
 
-        # POST /answers/{cat}/{qid}/lock - 答案锁 (修复 REMOTE-FAIL-09 并发覆盖)
-        # body: {by, reason, timeout_minutes}
-        # 锁默认 5 分钟自动过期，可自定义超时时间
         m = re.match(r"^/answers/(\w+)/(\w+)/lock$", path)
         if m:
             category, qid = m.group(1), m.group(2)
@@ -920,7 +820,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not isinstance(locks, dict):
                 locks = {}
             
-            # 先清理过期锁
             locks = self._clean_expired_locks(locks)
             
             key = f"{category}/{qid}"
@@ -928,7 +827,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             existing = locks.get(key)
             
             if existing and isinstance(existing, dict):
-                # 检查是否过期
                 try:
                     locked_at = datetime.datetime.strptime(existing.get("locked_at", ""),
                                                            "%Y-%m-%d %H:%M:%S")
@@ -959,7 +857,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, locks)
             return self._send(200, entry)
 
-        # POST /answers/{cat}/{qid}/unlock - 显式释放锁
         m = re.match(r"^/answers/(\w+)/(\w+)/unlock$", path)
         if m:
             category, qid = m.group(1), m.group(2)
@@ -968,7 +865,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not isinstance(locks, dict):
                 locks = {}
             
-            # 先清理过期锁
             locks = self._clean_expired_locks(locks)
             
             key = f"{category}/{qid}"
@@ -976,7 +872,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not existing:
                 return self._send(200, {"status": "no-op", "key": key, "reason": "锁不存在或已过期"})
             
-            # 只有锁主才能解锁 (除非 force)
             by = body.get("by", "")
             force = body.get("force", False)
             if not force and existing.get("by") != by:
@@ -990,18 +885,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             save_yaml(fpath, locks)
             return self._send(200, {"status": "unlocked", "key": key, "unlocked_by": by})
 
-        # GET /answer_locks - 获取所有锁状态
         if path == "/answer_locks":
             fpath = shared_path(self.case_dir, "answer_locks.yaml")
             locks = load_yaml(fpath, {})
             if not isinstance(locks, dict):
                 locks = {}
             
-            # 先清理过期锁
             locks = self._clean_expired_locks(locks)
             save_yaml(fpath, locks)
             
-            # 添加状态信息
             now = datetime.datetime.now()
             result = {}
             for key, lock in locks.items():
@@ -1025,7 +917,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "active": sum(1 for l in result.values() if isinstance(l, dict) and l.get("status") == "active"),
             })
 
-        # POST /answer_locks/clean - 清理所有过期锁
         if path == "/answer_locks/clean":
             fpath = shared_path(self.case_dir, "answer_locks.yaml")
             locks = load_yaml(fpath, {})
@@ -1048,7 +939,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return self._err(404, f"No route for POST {path}")
 
 
-# ─── Server bootstrap ───
+# ─── Server Bootstrap ───
 
 def get_local_ips():
     ips = set()
@@ -1069,7 +960,7 @@ def get_local_ips():
 
 
 def init_shared_files(case_dir):
-    """Ensure all required shared YAML files exist (do not overwrite)."""
+    """Ensure all required shared YAML files exist."""
     sd = Path(case_dir) / "shared"
     sd.mkdir(parents=True, exist_ok=True)
     defaults = {
@@ -1089,7 +980,7 @@ def init_shared_files(case_dir):
 
 
 def cmd_serve(args):
-    global _hub_started_at
+    global _HUB_STARTED_AT
     case_dir = Path(args.case_dir).resolve()
     if not case_dir.exists():
         print(f"[!] Case directory not found: {case_dir}")
@@ -1097,7 +988,7 @@ def cmd_serve(args):
 
     init_shared_files(case_dir)
     Handler.case_dir = case_dir
-    _hub_started_at = now_str()
+    _HUB_STARTED_AT = now_str()
 
     server = http.server.ThreadingHTTPServer((args.bind, args.port), Handler)
 
