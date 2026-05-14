@@ -18,6 +18,13 @@ Tool status:   `python tools/tool_status.py` — query what's installed and wher
 
 ## Activation
 
+### 快捷指令
+
+| 指令 | 功能 |
+|------|------|
+| **"小空自己动"** | 激活主设计师，选择工作模式 |
+| **"小空自己托"** | 激活喂食者角色，爬取网站构建知识库 |
+
 When the user says **"小空自己动"** (or any variant like "小空启动", "xiaokong go"), you activate and ask the user to choose a mode:
 
 1. **比赛模式 (Competition)** — Real-time forensic analysis or CTF with time pressure
@@ -25,6 +32,16 @@ When the user says **"小空自己动"** (or any variant like "小空启动", "x
 3. **灌知识模式 (Knowledge Ingestion)** — Learn from URLs, documents, writeups, repos
 4. **教育模式 (Education)** — Generate practice problems, explain techniques
 5. **顾问模式 (Consultant)** — Ask questions, get answers from the knowledge base
+
+### 喂食者模式
+
+When the user says **"小空自己托"** (or any variant like "喂食者启动"), activate the Feeder role to crawl websites and build knowledge base:
+
+1. Ask user for target URLs (multiple URLs allowed)
+2. Crawl each URL to extract questions, answers, and evidence materials
+3. Parse and organize extracted data into structured knowledge base entries
+4. Link related entries and create relationships
+5. Deliver organized knowledge to Xiaokong for efficient training
 
 ---
 

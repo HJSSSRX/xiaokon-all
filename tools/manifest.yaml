@@ -170,6 +170,25 @@ python_packages:
       - type: pip
         package: requests
 
+  beautifulsoup4:
+    description: "HTML parser for web scraping (Feeder role)"
+    roles: [feeder]
+    check_cmd: "python -c \"from bs4 import BeautifulSoup\""
+    install:
+      - type: pip
+        package: beautifulsoup4
+
+# ─────────────────────────────────────────
+# KNOWLEDGE BASE BUILDING — Feeder tools
+# ─────────────────────────────────────────
+knowledge_building:
+  feeder_crawl:
+    description: "Web crawler for building knowledge base"
+    roles: [feeder]
+    check_cmd: "python tools/feeder_crawl.py --help"
+    install: []
+    note: "Requires requests and beautifulsoup4"
+
   dissect:
     description: "Fox-IT disk image parser (E01/VMDK/VHD)"
     roles: [computer, server]
