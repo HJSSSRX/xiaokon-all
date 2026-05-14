@@ -431,6 +431,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             stale_count = sum(1 for r in result.values() if r["stale"])
             offline_count = sum(1 for r in result.values() if r["offline"])
             
+            # 向后兼容：无查询参数时返回角色字典（原有格式）
+            if not query:
+                return self._send(200, result)
+            
             return self._send(200, {
                 "roles": result,
                 "summary": {
