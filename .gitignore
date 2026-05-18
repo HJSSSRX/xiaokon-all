@@ -51,6 +51,9 @@ knowledge/competitions/*/MASTER_SHEET.md
 knowledge/competitions/*/MASTER_SHEET.xlsx
 knowledge/competitions/*/findings_snapshot.yaml
 
+# Feeder crawl output (runtime artifacts)
+data/feeder/
+
 # ─── autoforensicai runtime state (auto-added by setup_machine.py) ───
 data/collab_hub/*.db
 data/collab_hub/*.db-journal
