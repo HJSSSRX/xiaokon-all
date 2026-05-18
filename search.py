@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Forensics Knowledge Base Search — standalone, no framework needed.
+[DEPRECATED] Use `python tools/kb_search.py` instead — it has YAML solution support,
+broader term aliases, consultant mode, and is the actively maintained version.
+
+This standalone copy is kept for reference only.
 
 Usage:
     python search.py --ask "内存取证怎么查可疑进程"

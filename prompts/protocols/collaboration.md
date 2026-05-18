@@ -1,13 +1,36 @@
-# Collaboration Protocol — Local + Cross-Machine Sync
+# Collaboration Protocol
+
+> **Current protocol: v3 HTTP Hub** (`tools/collab_hub.py`). This document describes the legacy v2 file-based protocol using `shared/` and `tools/collab_sync.py`. The v2 protocol is retained as a fallback for offline/air-gapped scenarios where running an HTTP server is not possible.
+
+## v3 HTTP Hub (Current)
+
+Start the Hub on the coordinator's machine:
+
+```powershell
+python tools/collab_hub.py serve <case_dir> --port 8765 --bind 0.0.0.0
+```
+
+All roles (local and remote) communicate via REST API:
+- `GET/POST /findings` — Evidence discoveries
+- `GET/POST /progress` — Per-role progress tracking
+- `GET/POST /answers` — Answer table (main designer maintains)
+- `GET/POST /questions` — Cross-role Q&A routing
+- `GET /session` — Full session snapshot (log + blockers + strategy)
+
+See `prompts/main.md` Phase 4 for the complete API reference and usage examples.
+
+---
+
+## v2 File-Based Protocol (Legacy Fallback)
 
 All multi-agent coordination happens through the `shared/` directory in the case workspace. Files are plain YAML — no special software needed.
 
-## Sync Modes
+### Sync Modes
 
-### Mode A: Single Machine (multiple windows)
+#### Mode A: Single Machine (multiple windows)
 All AI windows read/write the same local `shared/` directory. No sync needed.
 
-### Mode B: Internet (GitHub)
+#### Mode B: Internet (GitHub)
 A case repo on GitHub holds the `shared/` directory. Each machine clones it.
 ```
 # First time (Main Designer runs this once):
@@ -18,7 +41,7 @@ python tools/collab_sync.py git-pull <case_dir>       # before reading
 python tools/collab_sync.py git-push <case_dir> -m "mobile: found trojan"  # after writing
 ```
 
-### Mode C: LAN (air-gapped / competition network)
+#### Mode C: LAN (air-gapped / competition network)
 One machine runs a simple HTTP sync server. Others pull/push via HTTP.
 ```
 # On the "hub" machine (e.g., Main Designer's PC):
@@ -29,7 +52,7 @@ python tools/collab_sync.py lan-pull <case_dir> --server 192.168.1.100:9999
 python tools/collab_sync.py lan-push <case_dir> --server 192.168.1.100:9999
 ```
 
-## CLI Shortcuts for Roles
+### CLI Shortcuts for Roles
 ```
 # Post a finding (any mode):
 python tools/collab_sync.py post <case_dir> --from mobile_analyst --summary "Trojan MD5=ABC" --detail "..." --related server_analyst
@@ -41,9 +64,9 @@ python tools/collab_sync.py status <case_dir>
 python tools/collab_sync.py answers <case_dir>
 ```
 
-## File Formats
+### File Formats
 
-### shared/findings.yaml
+#### shared/findings.yaml
 Append-only. Every role writes here when discovering something important.
 ```yaml
 - id: F001
@@ -55,7 +78,7 @@ Append-only. Every role writes here when discovering something important.
   related_to: [server_analyst, network_analyst]
 ```
 
-### shared/questions.yaml
+#### shared/questions.yaml
 Cross-role Q&A. Ask other roles to check something.
 ```yaml
 - id: Q001
@@ -67,7 +90,7 @@ Cross-role Q&A. Ask other roles to check something.
   answer: ""
 ```
 
-### shared/timeline.yaml
+#### shared/timeline.yaml
 Shared timeline of key events, sorted by time.
 ```yaml
 - time: "2026-05-05 03:15:00"
@@ -81,7 +104,7 @@ Shared timeline of key events, sorted by time.
   evidence: "capture.pcap stream #42"
 ```
 
-### shared/progress.yaml
+#### shared/progress.yaml
 Main reads this to track overall status.
 ```yaml
 computer_analyst:
@@ -96,7 +119,7 @@ mobile_analyst:
   pending: []
 ```
 
-## Rules
+### Rules
 1. **Append-only**: Never delete or modify other roles' entries
 2. **Be specific**: Include file paths, timestamps, exact values
 3. **Tag related roles**: So they know to check your finding

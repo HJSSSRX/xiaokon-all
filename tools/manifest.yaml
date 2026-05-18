@@ -11,11 +11,9 @@
 #   wsl     — WSL apt install (for Linux-only tools)
 #   manual  — download URL, user installs manually
 #
-# Karpathy rules reference: E:\项目\andrej-karpathy-skills-main\CLAUDE.md
 
 meta:
   version: "1.0"
-  karpathy_rules: "E:\\项目\\andrej-karpathy-skills-main\\CLAUDE.md"
   scoop_buckets:
     - main
     - extras
@@ -34,7 +32,6 @@ core:
       - type: winget
         id: Python.Python.3.12
     known_paths:
-      - "C:\\Python312\\python.exe"
       - "~/scoop/apps/python/current/python.exe"
 
   7zip:
@@ -68,7 +65,6 @@ core:
       - type: manual
         url: "https://learn.microsoft.com/en-us/sysinternals/downloads/strings"
     known_paths:
-      - "D:\\bianchen\\x86_64-13.1.0-release-win32-seh-msvcrt-rt_v11-rev1\\mingw64\\bin\\strings.EXE"
       - "~/scoop/apps/strings/current/strings.exe"
 
   curl:
@@ -205,8 +201,7 @@ forensics:
     description: "Metadata extraction (images, docs, videos)"
     roles: [all]
     check_cmd: "exiftool -ver"
-    known_paths:
-      - "C:\\Users\\44116\\AppData\\Local\\Programs\\ExifTool\\ExifTool.exe"
+    known_paths: []
     install:
       - type: scoop
         package: exiftool
@@ -217,8 +212,7 @@ forensics:
     description: "SQLite database CLI"
     roles: [all]
     check_cmd: "sqlite3 --version"
-    known_paths:
-      - "C:\\Users\\44116\\AppData\\Local\\Android\\Sdk\\platform-tools\\sqlite3.exe"
+    known_paths: []
     install:
       - type: scoop
         package: sqlite
@@ -267,8 +261,7 @@ forensics:
     description: "Rapid Windows event log threat hunting (EVTX)"
     roles: [computer]
     check_cmd: "chainsaw --version"
-    known_paths:
-      - "F:\\cloud\\Tool\\chainsaw\\chainsaw\\chainsaw.exe"
+    known_paths: []
     install:
       - type: manual
         url: "https://github.com/WithSecureLabs/chainsaw/releases"
@@ -277,8 +270,7 @@ forensics:
     description: "Sigma-based EVTX threat hunting / timeline generator"
     roles: [computer]
     check_cmd: "hayabusa-3.9.0-win-x64 help"
-    known_paths:
-      - "F:\\cloud\\Tool\\hayabusa\\hayabusa-3.9.0-win-x64.exe"
+    known_paths: []
     install:
       - type: manual
         url: "https://github.com/Yamato-Security/hayabusa/releases"
@@ -388,8 +380,7 @@ stego_crypto:
     description: "GPU-accelerated password cracker"
     roles: [stego_crypto, pentest]
     check_cmd: "hashcat --version"
-    known_paths:
-      - "D:\\CTF\\hashcat-7.1.2\\hashcat-7.1.2\\hashcat.exe"
+    known_paths: []
     install:
       - type: scoop
         package: hashcat
@@ -484,8 +475,7 @@ pentest:
     description: "Offline data transformation (encode/decode/crypto)"
     roles: [all]
     check_cmd: null
-    known_paths:
-      - "C:\\Users\\44116\\scoop\\apps\\cyberchef\\current\\CyberChef_v10.19.4.html"
+    known_paths: []
     install:
       - type: manual
         url: "https://github.com/gchq/CyberChef/releases"

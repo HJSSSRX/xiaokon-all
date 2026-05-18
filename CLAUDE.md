@@ -2,8 +2,7 @@
 
 This is a digital forensics and security automation project powered by AI multi-agent coordination.
 
-> **Coding principles**: Follow `E:\项目\andrej-karpathy-skills-main\CLAUDE.md`
-> Think before coding · Simplicity first · Surgical changes · Goal-driven execution
+> **Coding principles**: Think before coding · Simplicity first · Surgical changes · Goal-driven execution
 
 ## Quick Start
 
@@ -25,12 +24,12 @@ knowledge/
   solved/          — Verified solutions with searchable tags
   skills/          — Per-role skill files (techniques, tool usage)
   cards/           — Extracted knowledge cards from external sources
-shared/            — Runtime cross-role coordination (findings, timeline, questions)
 tools/
   manifest.yaml    — Tool manifest (single source of truth)
   tool_status.py   — Query tool availability + paths
   kb_search.py     — Knowledge base search
-  collab_sync.py   — Cross-machine collaboration (Git + LAN)
+  collab_hub.py    — HTTP Hub server for multi-role coordination (v3)
+  collab_sync.py   — Cross-machine collaboration (Git + LAN, legacy v2)
   e01_reader.py    — E01/VMDK image reader
 ```
 
@@ -39,6 +38,6 @@ tools/
 1. **Search before solving**: Run `python tools/kb_search.py --ask "{question}"` or `--tags` before starting any analysis
 2. **CLI over MCP**: Use command-line tools directly (nmap, vol3, strings, tshark, sqlmap, etc.)
 3. **Document everything**: Every session must produce a `knowledge/solved/*.md` file
-4. **Coordinate via files**: Use `shared/` directory for multi-agent communication
+4. **Coordinate via HTTP Hub**: Start `python tools/collab_hub.py serve <case_dir> --port 8765` for multi-agent communication (v3 protocol)
 5. **Consultant mode**: User can ask forensics/security questions anytime — search KB and answer from existing knowledge
 6. **Tool paths**: Run `python tools/tool_status.py --find <tool>` to get exact paths for tools not in PATH

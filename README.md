@@ -100,7 +100,7 @@ forhacker/
 │   │   ├── web_pentester.md     #   Web 渗透/注入/XSS/SSRF
 │   │   └── stego_crypto_analyst.md  # 隐写/编码/密码学
 │   └── protocols/               # 工作流程定义
-│       ├── collaboration.md     #   多角色协作规范
+│       ├── collaboration.md     #   多角色协作规范 (v2 shared/ 协议，当前使用 v3 HTTP Hub)
 │       ├── training_auto.md     #   全自动训练流程
 │       └── knowledge_ingest.md  #   知识灌入流程
 │
@@ -121,9 +121,7 @@ forhacker/
 │   ├── collab_sync.py          # 协作同步 (Git + LAN)
 │   └── e01_reader.py           # E01/VMDK 镜像读取器
 │
-├── shared/                      # 运行时多角色协作目录 (YAML 文件)
 ├── install.ps1                  # 一键部署脚本（读 manifest 自动安装）
-├── bootstrap.ps1                # (旧版) 工具环境检查脚本
 ├── tests/                       # 端到端测试
 │
 ├── CLAUDE.md                    # Claude Code 触发入口
@@ -197,23 +195,21 @@ python tools/kb_search.py --ask "how to find SQL injection"
 
 ## 多 Agent 协作
 
-在比赛模式下，多个 AI 通过 `shared/` 目录的 YAML 文件交换信息，支持三种模式：
+在比赛模式下，多个 AI 通过 **HTTP Hub**（v3 协议）实时通信：
 
-| 模式 | 场景 | 命令 |
-|---|---|---|
-| **单机多窗口** | 同一台电脑多个 AI 窗口 | 直接读写 shared/ |
-| **Git 同步** | 有互联网，多台电脑 | `python tools/collab_sync.py git-push/pull` |
-| **LAN 同步** | 断网/局域网 | `python tools/collab_sync.py lan-serve/pull/push` |
+```powershell
+# 主机启动 Hub（端口 8765，绑定所有网卡）
+python tools/collab_hub.py serve <case_dir> --port 8765 --bind 0.0.0.0
 
-| 文件 | 用途 | 写入方 |
-|---|---|---|
-| `findings.yaml` | 证据发现（追加写入） | 所有角色 |
-| `answers.yaml` | 答案汇总表 | 主设计师 |
-| `questions.yaml` | 跨角色提问与回答 | 所有角色 |
-| `timeline.yaml` | 统一事件时间线 | 所有角色 |
-| `progress.yaml` | 各角色工作进度 | 各角色更新自己 |
+# 各角色通过 HTTP API 通信（findings / progress / answers / questions / session）
+# 远程机通过局域网 IP 连接同一 Hub
+```
+
+Hub API 提供：证据发现提交、实时进度追踪、答案表维护、跨角色提问路由、会话状态快照。
 
 小空（Main Designer）主动监控进度、维护答案表、路由跨角色线索、调整策略。
+
+> 旧版 `shared/` 文件同步协议（v2）见 `prompts/protocols/collaboration.md`，`tools/collab_sync.py` 保留供离线/无 Hub 场景使用。
 
 ---
 
