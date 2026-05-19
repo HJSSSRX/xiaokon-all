@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -88,6 +89,15 @@ def save_yaml(path: Union[str, Path], data: Any, **kwargs) -> None:
     
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, **default_kwargs)
+
+
+def load_yaml_str(content: str, default: Any = None) -> Any:
+    """Parse YAML from a string. Safe wrapper around yaml.safe_load."""
+    try:
+        data = yaml.safe_load(content)
+        return data if data is not None else (default if default is not None else {})
+    except Exception:
+        return default if default is not None else {}
 
 
 # ─── JSON I/O ───
@@ -247,7 +257,6 @@ def log(message: str, level: str = "INFO", prefix: str = "") -> None:
 
 def synchronized(func: Callable) -> Callable:
     """线程同步装饰器"""
-    import threading
     lock = threading.Lock()
     
     def wrapper(*args, **kwargs):

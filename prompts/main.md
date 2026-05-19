@@ -276,10 +276,12 @@ Invoke-RestMethod "$Hub/session/log" -Method POST -Body $body -ContentType "appl
 
 #### 4.5 跨机器协作协调（v3 HTTP Hub）
 
-**协作架构**: 本机运行 Hub (`tools/collab_hub.py`)，4 个角色（含本机和远程机）通过 HTTP API 通信。GitHub 已废弃（hosts 屏蔽 + AI 不会主动 push 等问题，详见 `HANDOFF_COLLAB_V3.md`）。
+**协作架构**: 本机运行 Hub，4 个角色（含本机和远程机）通过 HTTP API 通信。GitHub 已废弃（hosts 屏蔽 + AI 不会主动 push 等问题，详见 `HANDOFF_COLLAB_V3.md`）。
 
-**启动 Hub**:
+**启动 Hub** (两种等价方式):
 ```powershell
+python tools/cli.py hub serve <case_dir> --port 8765 --bind 0.0.0.0
+# 或旧写法 (向后兼容 shim):
 python tools/collab_hub.py serve <case_dir> --port 8765 --bind 0.0.0.0
 ```
 启动后输出 4 个 IP，把对应远程机网段的那个告诉远程机的用户（让它们的 AI 用作 `$Hub` 变量）。

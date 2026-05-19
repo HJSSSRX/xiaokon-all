@@ -18,7 +18,10 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from core import load_yaml
+try:
+    from .core import load_yaml
+except ImportError:
+    from core import load_yaml
 
 DEFAULT_OUT_DIR = Path(r"E:\ffffff-JIANCAI\2026FIC团体赛\case")
 DEFAULT_KB_BASE = r"e:\ffffff-JIANCAI\2026FIC团体赛\case\shared\knowledge_base\techniques"

@@ -6,7 +6,7 @@ from .tool_pool import get_tool_router, run_tool, run_tool_with_retry, ToolRoute
 from .http_base import BaseHandler
 from .ids import next_seq_id, next_finding_id, next_question_id, next_blocker_id, next_need_id
 from .utils import (
-    now_str, load_yaml, save_yaml, log,
+    now_str, load_yaml, load_yaml_str, save_yaml, log,
     shared_dir, shared_path, ensure_dir, repo_root,
     compute_hash, compute_dict_hash, next_seq_id,
     load_json, save_json, get_env_var, set_env_var,
@@ -33,7 +33,7 @@ __all__ = [
     'get_vector_db', 'semantic_search', 'build_kb_index', 'FAISSVectorDB', 'SimpleVectorDB',
     'get_scheduler', 'execute_async', 'execute_sync', 'parallel_map', 'Task', 'TaskStatus', 'TaskPriority',
     'get_tool_router', 'run_tool', 'run_tool_with_retry', 'ToolRouter', 'ProcessToolPool', 'WSLToolPool',
-    'now_str', 'load_yaml', 'save_yaml', 'shared_path', 'log', 'synchronized',
+    'now_str', 'load_yaml', 'load_yaml_str', 'save_yaml', 'shared_path', 'log', 'synchronized',
     'shared_dir', 'compute_dict_hash', 'next_seq_id', 'ensure_dir', 'repo_root',
     'synchronized_decorator',
     'BaseHandler', 'next_finding_id', 'next_question_id', 'next_blocker_id', 'next_need_id',

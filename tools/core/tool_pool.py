@@ -5,6 +5,7 @@ import subprocess
 import shutil
 import os
 import threading
+import time
 from threading import Lock
 from .cache import get_cache
 
@@ -220,7 +221,6 @@ def run_tool_with_retry(tool_name: str, *args, timeout: int = 60, retries: int =
             return result
         last_error = result["stderr"]
         if attempt < retries:
-            import time
             time.sleep(2 ** attempt)
     
     return {

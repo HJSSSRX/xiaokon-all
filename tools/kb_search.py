@@ -21,7 +21,10 @@ import re
 import sys
 from pathlib import Path
 
-from core import semantic_search, build_kb_index, get_cache, cached
+try:
+    from .core import semantic_search, build_kb_index, get_cache, cached
+except ImportError:
+    from core import semantic_search, build_kb_index, get_cache, cached
 
 def get_kb_root():
     script_dir = Path(__file__).resolve().parent.parent

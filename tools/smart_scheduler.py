@@ -21,9 +21,14 @@ _tools_dir = Path(__file__).resolve().parent
 if str(_tools_dir) not in sys.path:
     sys.path.insert(0, str(_tools_dir))
 
-from core import execute_async, execute_sync, parallel_map, TaskPriority
-from core import get_cache, get_scheduler, load_yaml, save_yaml, now_str
-from core import run_tool, run_tool_with_retry, get_tool_router
+try:
+    from .core import execute_async, execute_sync, parallel_map, TaskPriority
+    from .core import get_cache, get_scheduler, load_yaml, save_yaml, now_str
+    from .core import run_tool, run_tool_with_retry, get_tool_router
+except ImportError:
+    from core import execute_async, execute_sync, parallel_map, TaskPriority
+    from core import get_cache, get_scheduler, load_yaml, save_yaml, now_str
+    from core import run_tool, run_tool_with_retry, get_tool_router
 
 class TaskType(Enum):
     MEMORY_ANALYSIS = "memory_analysis"

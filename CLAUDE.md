@@ -25,11 +25,15 @@ knowledge/
   skills/          — Per-role skill files (techniques, tool usage)
   cards/           — Extracted knowledge cards from external sources
 tools/
+  cli.py           — Unified CLI entry point (hub, sync, kb, schedule, lint)
   manifest.yaml    — Tool manifest (single source of truth)
   tool_status.py   — Query tool availability + paths
   kb_search.py     — Knowledge base search
-  collab_hub.py    — HTTP Hub server for multi-role coordination (v3)
-  collab_sync.py   — Cross-machine collaboration (Git + LAN, legacy v2)
+  collab/          — Collaboration package (hub server, sync, conflict resolution)
+  collab_hub.py    — Backward-compat shim → tools/collab/
+  collab_sync.py   — Backward-compat shim → tools/collab/
+  core/            — Shared infrastructure (HTTP base, ID gen, YAML, cache, etc.)
+  feeder/          — Knowledge ingestion from external sources
   e01_reader.py    — E01/VMDK image reader
 ```
 
@@ -38,7 +42,7 @@ tools/
 1. **Search before solving**: Run `python tools/kb_search.py --ask "{question}"` or `--tags` before starting any analysis
 2. **CLI over MCP**: Use command-line tools directly (nmap, vol3, strings, tshark, sqlmap, etc.)
 3. **Document everything**: Every session must produce a `knowledge/solved/*.md` file
-4. **Coordinate via HTTP Hub**: Start `python tools/collab_hub.py serve <case_dir> --port 8765` for multi-agent communication (v3 protocol)
+4. **Coordinate via HTTP Hub**: Start `python tools/cli.py hub serve <case_dir> --port 8765` for multi-agent communication (v3 protocol)
 5. **Consultant mode**: User can ask forensics/security questions anytime — search KB and answer from existing knowledge
 6. **Tool paths**: Run `python tools/tool_status.py --find <tool>` to get exact paths for tools not in PATH
 

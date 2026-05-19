@@ -1,13 +1,14 @@
 # Collaboration Protocol
 
-> **Current protocol: v3 HTTP Hub** (`tools/collab_hub.py`). This document describes the legacy v2 file-based protocol using `shared/` and `tools/collab_sync.py`. The v2 protocol is retained as a fallback for offline/air-gapped scenarios where running an HTTP server is not possible.
+> **Current protocol: v3 HTTP Hub** (`tools/collab/` package, unified via `tools/cli.py`). The old `tools/collab_hub.py` and `tools/collab_sync.py` are backward-compatible shims. The v2 file-based protocol (`shared/` + sync) is retained as a fallback for offline/air-gapped scenarios.
 
 ## v3 HTTP Hub (Current)
 
 Start the Hub on the coordinator's machine:
 
 ```powershell
-python tools/collab_hub.py serve <case_dir> --port 8765 --bind 0.0.0.0
+python tools/cli.py hub serve <case_dir> --port 8765 --bind 0.0.0.0
+# Backward-compatible: python tools/collab_hub.py serve <case_dir> --port 8765 --bind 0.0.0.0
 ```
 
 All roles (local and remote) communicate via REST API:
@@ -34,34 +35,34 @@ All AI windows read/write the same local `shared/` directory. No sync needed.
 A case repo on GitHub holds the `shared/` directory. Each machine clones it.
 ```
 # First time (Main Designer runs this once):
-python tools/collab_sync.py git-init <case_dir> --repo https://github.com/team/case_xxx.git
+python tools/cli.py sync git-init <case_dir> --repo https://github.com/team/case_xxx.git
 
 # Each role does this periodically:
-python tools/collab_sync.py git-pull <case_dir>       # before reading
-python tools/collab_sync.py git-push <case_dir> -m "mobile: found trojan"  # after writing
+python tools/cli.py sync git-pull <case_dir>       # before reading
+python tools/cli.py sync git-push <case_dir> -m "mobile: found trojan"  # after writing
 ```
 
 #### Mode C: LAN (air-gapped / competition network)
 One machine runs a simple HTTP sync server. Others pull/push via HTTP.
 ```
 # On the "hub" machine (e.g., Main Designer's PC):
-python tools/collab_sync.py lan-serve <case_dir> --port 9999
+python tools/cli.py sync lan-serve <case_dir> --port 9999
 
 # On other machines:
-python tools/collab_sync.py lan-pull <case_dir> --server 192.168.1.100:9999
-python tools/collab_sync.py lan-push <case_dir> --server 192.168.1.100:9999
+python tools/cli.py sync lan-pull <case_dir> --server 192.168.1.100:9999
+python tools/cli.py sync lan-push <case_dir> --server 192.168.1.100:9999
 ```
 
 ### CLI Shortcuts for Roles
 ```
 # Post a finding (any mode):
-python tools/collab_sync.py post <case_dir> --from mobile_analyst --summary "Trojan MD5=ABC" --detail "..." --related server_analyst
+python tools/cli.py sync post <case_dir> --from mobile_analyst --summary "Trojan MD5=ABC" --detail "..." --related server_analyst
 
 # Check overall status:
-python tools/collab_sync.py status <case_dir>
+python tools/cli.py sync status <case_dir>
 
 # View answers table:
-python tools/collab_sync.py answers <case_dir>
+python tools/cli.py sync answers <case_dir>
 ```
 
 ### File Formats
@@ -69,7 +70,7 @@ python tools/collab_sync.py answers <case_dir>
 #### shared/findings.yaml
 Append-only. Every role writes here when discovering something important.
 ```yaml
-- id: F001
+- id: F-C001
   time: "2026-05-05 14:23"
   from: computer_analyst
   type: evidence          # evidence | lead | artifact | question
