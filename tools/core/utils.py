@@ -16,11 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-try:
-    import yaml
-except ImportError:
-    subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=False)
-    import yaml
+import yaml  # pyyaml is a core dependency (see requirements.txt)
 
 
 # ─── Time Utilities ───

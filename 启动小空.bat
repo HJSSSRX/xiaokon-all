@@ -7,9 +7,12 @@ echo.
 REM 切换到项目目录
 cd /d "%~dp0"
 
-REM 设置环境变量
-set PATH=D:\nodejs;C:\Users\Lenovo\AppData\Roaming\npm;%PATH%
-set CLAUDE_CODE_GIT_BASH_PATH=D:\git\Git\bin\bash.exe
+REM Auto-detect Node.js and Git Bash from PATH
+for %%i in (node.exe) do set "NODE_DIR=%%~dp$PATH:i"
+if defined NODE_DIR set "PATH=%NODE_DIR%;%PATH%"
+
+for %%i in (bash.exe) do set "BASH_PATH=%%~$PATH:i"
+if defined BASH_PATH set "CLAUDE_CODE_GIT_BASH_PATH=%BASH_PATH%"
 
 echo 工作目录: %CD%
 echo.

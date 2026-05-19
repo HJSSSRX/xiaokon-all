@@ -6,6 +6,49 @@
 
 ---
 
+## v2.0.1 — 2026-05-19 (系统架构优化补充)
+
+### 里程碑
+
+**修复 v2.0 遗留的关键缺陷**, 将 stubbed 占位逻辑替换为真实取证工具调用, 补齐缺失配置解析。
+
+### 修复
+
+#### 1. SmartScheduler 真实工具执行 (`tools/smart_scheduler.py`)
+- **`execute_task` 重写**: 替换硬编码 placeholder + `time.sleep(2)` 为真实取证工具调用
+- 每种 TaskType 映射到对应的 CLI 工具: volatility3/tshark/binwalk/strings/file 等
+- 使用 `run_tool_with_retry` 执行, 自动跳过不可用工具
+- 导入路径加固: 显式添加项目根到 sys.path, 改用 `tools.core` 包路径
+
+#### 2. 缺失 DatabaseConfig (`tools/core/config.py`)
+- 新增 `DatabaseConfig` dataclass, 解析 `config.yaml` 中 `database` 节点
+- 支持 sqlite/postgresql 双模式
+- 添加环境变量映射: `DB_TYPE`, `DB_PATH`, `DB_HOST`, `DB_PORT`, `DB_NAME`
+
+#### 3. 代码质量清理 (`tools/core/vector_db.py`)
+- 4 处方法内部的 `import json` 移至文件顶部
+
+#### 4. FileCache 目录容错 (`tools/core/cache.py`)
+- `clear()` 方法增加目录不存在判断 + `OSError` try/except 保护
+
+#### 5. ProcessScheduler 重试机制 (`tools/core/scheduler.py`)
+- 新增模块级 `_process_task_runner` 函数, 支持 retry + exponential backoff
+- 行为与 `ThreadedScheduler` 保持一致
+
+#### 6. 包结构完善 (`tools/__init__.py`)
+- 新建 `tools/__init__.py`, 使 tools 成为标准 Python 包
+
+### 文件改动
+
+- `tools/smart_scheduler.py` — execute_task 重写 + 导入加固
+- `tools/core/config.py` — DatabaseConfig 新增
+- `tools/core/vector_db.py` — inline import 清理
+- `tools/core/cache.py` — FileCache.clear() 容错
+- `tools/core/scheduler.py` — ProcessScheduler 重试
+- `tools/__init__.py` — 新建
+
+---
+
 ## v0.6 — 2026-05-14 (协作模式增强)
 
 ### 里程碑 🎯

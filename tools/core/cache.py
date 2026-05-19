@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict
+import threading
 import time
 import json
 from pathlib import Path
@@ -139,8 +140,13 @@ class FileCache(CacheBackend):
         return self.get(key) is not None
     
     def clear(self) -> None:
+        if not self._cache_dir.exists():
+            return
         for f in self._cache_dir.glob("*.json"):
-            f.unlink()
+            try:
+                f.unlink()
+            except OSError:
+                pass
 
 def create_cache(cache_type: str = "memory", **kwargs) -> CacheBackend:
     if cache_type == "redis" and REDIS_AVAILABLE:
@@ -151,10 +157,17 @@ def create_cache(cache_type: str = "memory", **kwargs) -> CacheBackend:
         return MemoryCache()
 
 _cache_instance: Optional[CacheBackend] = None
+_cache_lock = threading.Lock()
 
 def get_cache() -> CacheBackend:
     global _cache_instance
-    if _cache_instance is None:
+    if _cache_instance is not None:
+        return _cache_instance
+
+    with _cache_lock:
+        if _cache_instance is not None:
+            return _cache_instance
+
         from .config import load_config
         config = load_config()
         _cache_instance = create_cache(
@@ -162,7 +175,7 @@ def get_cache() -> CacheBackend:
             host=config.cache.host,
             port=config.cache.port
         )
-    return _cache_instance
+        return _cache_instance
 
 def cached(ttl_seconds: int = 3600):
     def decorator(func):

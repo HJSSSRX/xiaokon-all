@@ -47,6 +47,8 @@ import threading
 import urllib.request
 from pathlib import Path
 
+import yaml
+
 from core import (
     now_str,
     load_yaml,

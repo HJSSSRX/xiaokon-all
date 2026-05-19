@@ -3,9 +3,11 @@ Write-Host "  ForHacker + Claude Code - 启动小空" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 设置环境变量
-$env:Path = "D:\nodejs;C:\Users\Lenovo\AppData\Roaming\npm;" + $env:Path
-$env:CLAUDE_CODE_GIT_BASH_PATH = "D:\git\Git\bin\bash.exe"
+# Auto-detect Node.js and Git Bash from PATH
+$nodePath = (Get-Command node -ErrorAction SilentlyContinue).Source
+if ($nodePath) { $env:Path = (Split-Path $nodePath) + ";" + $env:Path }
+$bashPath = (Get-Command bash -ErrorAction SilentlyContinue).Source
+if ($bashPath) { $env:CLAUDE_CODE_GIT_BASH_PATH = $bashPath }
 
 Write-Host "工作目录: $(Get-Location)" -ForegroundColor Gray
 Write-Host ""

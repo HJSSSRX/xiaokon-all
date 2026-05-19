@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Tuple
+import shlex
 import subprocess
 import shutil
 import os
+import threading
 from threading import Lock
 from .cache import get_cache
 
@@ -72,7 +74,9 @@ class WSLToolPool(ToolPool):
         self._cache = get_cache()
     
     def execute(self, tool_name: str, args: List[str] = None, timeout: int = 60) -> Tuple[int, str, str]:
-        wsl_args = ["wsl", "--", "bash", "-lc", f"{tool_name} {' '.join(args or [])}"]
+        safe_tool = shlex.quote(tool_name)
+        safe_args = " ".join(shlex.quote(a) for a in (args or []))
+        wsl_args = ["wsl", "--", "bash", "-lc", f"{safe_tool} {safe_args}"]
         
         try:
             result = subprocess.run(
@@ -114,7 +118,7 @@ class WSLToolPool(ToolPool):
         
         try:
             result = subprocess.run(
-                ["wsl", "--", "bash", "-lc", f"which {tool_name}"],
+                ["wsl", "--", "bash", "-lc", f"which {shlex.quote(tool_name)}"],
                 capture_output=True,
                 timeout=10
             )
@@ -123,16 +127,16 @@ class WSLToolPool(ToolPool):
             return available
         except Exception:
             return False
-    
+
     def get_tool_path(self, tool_name: str) -> Optional[str]:
         cache_key = f"wsl_tool_path_{tool_name}"
         cached = self._cache.get(cache_key)
         if cached:
             return f"WSL:{cached}"
-        
+
         try:
             result = subprocess.run(
-                ["wsl", "--", "bash", "-lc", f"which {tool_name}"],
+                ["wsl", "--", "bash", "-lc", f"which {shlex.quote(tool_name)}"],
                 capture_output=True,
                 timeout=10
             )
@@ -181,12 +185,18 @@ class ToolRouter:
         return self._wsl_pool.get_tool_path(tool_name)
 
 _tool_router_instance: Optional[ToolRouter] = None
+_tool_router_lock = threading.Lock()
 
 def get_tool_router() -> ToolRouter:
     global _tool_router_instance
-    if _tool_router_instance is None:
+    if _tool_router_instance is not None:
+        return _tool_router_instance
+
+    with _tool_router_lock:
+        if _tool_router_instance is not None:
+            return _tool_router_instance
         _tool_router_instance = ToolRouter()
-    return _tool_router_instance
+        return _tool_router_instance
 
 def run_tool(tool_name: str, *args, timeout: int = 60) -> Dict[str, Any]:
     router = get_tool_router()

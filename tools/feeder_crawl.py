@@ -41,7 +41,7 @@ def check_dependencies():
 check_dependencies()
 
 # 导入模块化组件
-from feeder import WebPageParser, FeederOrganizer, get_storage_path, save_article
+from feeder import WebPageParser, organize_article_to_kb, organize_mindmap_to_kb, get_storage_path, save_article
 
 FEEDER_STORAGE_ENV = "FEEDER_STORAGE"
 
@@ -72,14 +72,14 @@ def cmd_fetch(args):
 
     if args.kb_dir:
         print(f"[FEEDER] 正在整理到知识库...")
-        FeederOrganizer.organize_article_to_kb(result, args.kb_dir)
+        organize_article_to_kb(result, args.kb_dir)
 
     print(f"[FEEDER] 完成！")
 
 
 def cmd_mindmap(args):
     """爬取思维导图页面"""
-    from feeder.parsers import WebPageParser as MindmapParser
+    from feeder.parsers import WebPageParser
     print(f"[FEEDER] 正在爬取思维导图: {args.url}")
 
     # 使用示例数据（如果指定）
@@ -105,7 +105,7 @@ def cmd_mindmap(args):
         result = sample_data
     else:
         # 实际爬取（如果网站支持）
-        parser = MindmapParser()
+        parser = WebPageParser()
         result = parser.parse(args.url)
         if "error" in result:
             print(f"[FEEDER] 爬取失败，使用示例数据")
@@ -119,14 +119,15 @@ def cmd_mindmap(args):
     # 保存数据
     output_dir = Path(args.output) if args.output else get_storage_path()
     import json
-    filename = f"mindmap_{abs(hash(args.url))[:8]}.json"
+    from hashlib import md5
+    filename = f"mindmap_{md5(args.url.encode()).hexdigest()[:8]}.json"
     with open(output_dir / filename, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"[FEEDER] 保存到: {output_dir / filename}")
 
     if args.kb_dir:
         print(f"[FEEDER] 正在整理到知识库...")
-        FeederOrganizer.organize_mindmap_to_kb(result, args.kb_dir)
+        organize_mindmap_to_kb(result, args.kb_dir)
 
     print(f"[FEEDER] 完成！")
 

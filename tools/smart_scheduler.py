@@ -9,14 +9,21 @@ This module provides:
 """
 
 import json
+import os
+import sys
 import time
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 from enum import Enum
 from dataclasses import dataclass
 
-from core import execute_async, execute_sync, parallel_map, TaskPriority
-from core import get_cache, get_scheduler, load_yaml, save_yaml, now_str
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from tools.core import execute_async, execute_sync, parallel_map, TaskPriority
+from tools.core import get_cache, get_scheduler, load_yaml, save_yaml, now_str
+from tools.core import run_tool, run_tool_with_retry, get_tool_router
 
 class TaskType(Enum):
     MEMORY_ANALYSIS = "memory_analysis"
@@ -296,59 +303,113 @@ class SmartScheduler:
         }
         return base_times[difficulty]
     
+    _TOOL_COMMANDS = {
+        TaskType.MEMORY_ANALYSIS: [
+            ("volatility3", ["-f", "{evidence}", "windows.pslist"]),
+            ("volatility3", ["-f", "{evidence}", "windows.netscan"]),
+            ("volatility3", ["-f", "{evidence}", "windows.cmdline"]),
+            ("volatility3", ["-f", "{evidence}", "windows.dlllist"]),
+        ],
+        TaskType.DISK_ANALYSIS: [
+            ("fsstat", ["{evidence}"]),
+            ("fls", ["-r", "{evidence}"]),
+        ],
+        TaskType.NETWORK_ANALYSIS: [
+            ("tshark", ["-r", "{evidence}", "-q", "-z", "io,phs"]),
+            ("tshark", ["-r", "{evidence}", "-z", "conv,tcp"]),
+        ],
+        TaskType.LOG_ANALYSIS: [
+            ("strings", ["-n", "8", "{evidence}"]),
+        ],
+        TaskType.STEGO_ANALYSIS: [
+            ("binwalk", ["{evidence}"]),
+            ("strings", ["-n", "6", "{evidence}"]),
+        ],
+        TaskType.CRYPTO_ANALYSIS: [
+            ("strings", ["-n", "4", "{evidence}"]),
+        ],
+        TaskType.REVERSE_ENGINEERING: [
+            ("file", ["{evidence}"]),
+            ("strings", ["-n", "6", "{evidence}"]),
+        ],
+        TaskType.MOBILE_ANALYSIS: [
+            ("unzip", ["-l", "{evidence}"]),
+        ],
+        TaskType.DATA_RECOVERY: [
+            ("file", ["{evidence}"]),
+            ("strings", ["-n", "6", "{evidence}"]),
+        ],
+        TaskType.WEB_PENTEST: [
+            ("curl", ["-sI", "{evidence}"]),
+        ],
+    }
+
     def execute_task(self, task_id: str) -> str:
         task = self._tasks.get(task_id)
         if not task:
             raise ValueError(f"Task {task_id} not found")
-        
+
         if task.status != "assigned":
             raise ValueError(f"Task {task_id} not assigned")
-        
+
         task.status = "running"
         self.save_tasks()
-        
+
+        commands = self._TOOL_COMMANDS.get(task.type, [])
+        evidence = task.evidence_path
+
         def run_analysis():
-            from core import run_tool
-            import subprocess
-            
             result = {
                 "task_id": task.id,
                 "type": task.type.value,
-                "evidence": task.evidence_path,
+                "evidence": evidence,
                 "steps": [],
                 "findings": [],
+                "tool_results": [],
                 "completed_at": now_str(),
             }
-            
-            if task.type == TaskType.MEMORY_ANALYSIS:
-                result["steps"].append("Loading memory dump...")
-                result["steps"].append("Running pslist plugin...")
-                result["steps"].append("Analyzing suspicious processes...")
-                result["findings"].append("Memory analysis completed")
-            
-            elif task.type == TaskType.DISK_ANALYSIS:
-                result["steps"].append("Mounting disk image...")
-                result["steps"].append("Running file system analysis...")
-                result["steps"].append("Extracting artifacts...")
-                result["findings"].append("Disk analysis completed")
-            
-            elif task.type == TaskType.NETWORK_ANALYSIS:
-                result["steps"].append("Loading pcap file...")
-                result["steps"].append("Analyzing network traffic...")
-                result["steps"].append("Identifying suspicious connections...")
-                result["findings"].append("Network analysis completed")
-            
-            else:
-                result["steps"].append(f"Performing {task.type.value}...")
-                result["findings"].append(f"{task.type.value} completed")
-            
-            time.sleep(2)
+
+            router = get_tool_router()
+            available_tools = set()
+
+            for tool_name, arg_template in commands:
+                if tool_name not in available_tools:
+                    if router.is_available(tool_name):
+                        available_tools.add(tool_name)
+                    else:
+                        result["steps"].append(f"Skipped {tool_name} — not available")
+                        continue
+
+                args = [a.format(evidence=evidence) for a in arg_template]
+                step_desc = f"{tool_name} {' '.join(args)}"
+                result["steps"].append(step_desc)
+
+                tool_result = run_tool_with_retry(tool_name, *args, timeout=120, retries=1)
+                result["tool_results"].append(tool_result)
+
+                if tool_result["success"]:
+                    output_preview = tool_result["stdout"][:1000]
+                    if output_preview.strip():
+                        result["findings"].append(
+                            f"[{tool_name}] {output_preview[:200]}"
+                        )
+                else:
+                    result["findings"].append(
+                        f"[{tool_name}] ERROR: {tool_result['stderr'][:200]}"
+                    )
+
+            if not result["findings"]:
+                result["findings"].append(
+                    f"No tools available for {task.type.value}"
+                )
+
+            result["completed_at"] = now_str()
             return result
-        
+
         return execute_async(
             run_analysis,
             priority=task.priority,
-            timeout=task.estimated_time_minutes * 60
+            timeout=max(task.estimated_time_minutes * 60, 600)
         )
     
     def get_progress(self) -> Dict[str, Any]:

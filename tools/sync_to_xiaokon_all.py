@@ -68,7 +68,6 @@ FRAMEWORK_INCLUDES = [
 DATA_INCLUDES = [
     "knowledge/",
     "cases/",
-    "search.py",
 ]
 
 # Files at all-repo top level that we always overwrite from framework's worklog state

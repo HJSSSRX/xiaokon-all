@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """喂食者核心模块 - 存储管理"""
+import json
 import os
+import re
+from hashlib import md5
 from pathlib import Path
 
 FEEDER_STORAGE_ENV = "FEEDER_STORAGE"
@@ -21,14 +24,10 @@ def get_storage_path(custom_path=None) -> Path:
 
 def save_article(data: dict, output_dir: Path = None) -> str:
     """保存文章数据到JSON文件"""
-    import json
-    import re
-    from hashlib import md5
-
     if output_dir is None:
         output_dir = get_storage_path()
 
-    url_hash = str(abs(hash(data.get("url", ""))))[:8]
+    url_hash = md5(data.get("url", "").encode()).hexdigest()[:8]
     safe_title = re.sub(r'[\\/:*?"<>|]', "_", data.get("title", "unknown")[:50])
     filename = f"article_{data.get('site_type', 'unknown')}_{safe_title}_{url_hash}.json"
     output_path = output_dir / filename
@@ -41,7 +40,6 @@ def save_article(data: dict, output_dir: Path = None) -> str:
 
 def load_article(filepath: str) -> dict:
     """加载已保存的文章数据"""
-    import json
     with open(filepath, "r", encoding="utf-8") as f:
         return json.load(f)
 

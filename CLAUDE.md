@@ -47,19 +47,19 @@ tools/
 Use the AI Tag Engine for efficient context retrieval:
 
 ```python
-from feeder import AITagEngine
+from feeder import get_context_for_practice, get_context_for_learning, quick_search
 
 # Get context for solving questions
-context = AITagEngine.get_context_for_practice("knowledge", {
+context = get_context_for_practice("knowledge", {
     "domain": "computer",
     "tags": ["memory_forensics", "volatility"]
 })
 
 # Get learning path
-path = AITagEngine.get_context_for_learning("knowledge", "SQL注入")
+path = get_context_for_learning("knowledge", "SQL注入")
 
 # Quick search by tags
-result = AITagEngine.quick_search("knowledge", ["sql_injection", "php"])
+result = quick_search("knowledge", ["sql_injection", "php"])
 ```
 
 ## Knowledge Base Structure

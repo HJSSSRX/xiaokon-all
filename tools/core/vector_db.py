@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Any, Tuple
+import json
+import threading
 from pathlib import Path
 
 try:
@@ -83,7 +85,6 @@ class FAISSVectorDB(VectorDB):
     def save(self, path: str) -> None:
         if self._index is not None:
             faiss.write_index(self._index, path + ".index")
-            import json
             with open(path + ".metadata", "w", encoding="utf-8") as f:
                 json.dump(self._metadata, f)
     
@@ -95,7 +96,6 @@ class FAISSVectorDB(VectorDB):
             self._index = faiss.read_index(index_path)
         
         if Path(metadata_path).exists():
-            import json
             with open(metadata_path, "r", encoding="utf-8") as f:
                 self._metadata = json.load(f)
     
@@ -157,12 +157,10 @@ class SimpleVectorDB(VectorDB):
             "embeddings": [list(e) if hasattr(e, 'tolist') else e for e in self._embeddings],
             "metadata": self._metadata
         }
-        import json
         with open(path + ".json", "w", encoding="utf-8") as f:
             json.dump(data, f)
     
     def load(self, path: str) -> None:
-        import json
         path = path + ".json"
         if Path(path).exists():
             with open(path, "r", encoding="utf-8") as f:
@@ -180,10 +178,17 @@ def create_vector_db(db_type: str = "faiss", **kwargs) -> VectorDB:
         return SimpleVectorDB()
 
 _vector_db_instance: Optional[VectorDB] = None
+_vector_db_lock = threading.Lock()
 
 def get_vector_db() -> VectorDB:
     global _vector_db_instance
-    if _vector_db_instance is None:
+    if _vector_db_instance is not None:
+        return _vector_db_instance
+
+    with _vector_db_lock:
+        if _vector_db_instance is not None:
+            return _vector_db_instance
+
         from .config import load_config
         config = load_config()
         _vector_db_instance = create_vector_db(
@@ -191,7 +196,7 @@ def get_vector_db() -> VectorDB:
         )
         index_path = str(Path(config.vector_db.path))
         _vector_db_instance.load(index_path)
-    return _vector_db_instance
+        return _vector_db_instance
 
 def build_kb_index(kb_root: str):
     from pathlib import Path
