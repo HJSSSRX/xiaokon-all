@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: forhacker-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  hub:
+    build: .
+    container_name: forhacker-hub
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./knowledge:/app/knowledge
+      - ./data:/app/data
+      - ./cases:/app/cases
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - CACHE_TYPE=redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    restart: unless-stopped
+
+volumes:
+  redis_data:

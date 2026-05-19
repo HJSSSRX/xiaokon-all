@@ -1,75 +1,56 @@
-#!/usr/bin/env python3
-"""
-Core module initialization
+from .config import load_config, Config
+from .cache import get_cache, cached, create_cache, MemoryCache, RedisCache, FileCache
+from .vector_db import get_vector_db, semantic_search, build_kb_index, FAISSVectorDB, SimpleVectorDB
+from .scheduler import get_scheduler, execute_async, execute_sync, parallel_map, Task, TaskStatus, TaskPriority
+from .tool_pool import get_tool_router, run_tool, run_tool_with_retry, ToolRouter, ProcessToolPool, WSLToolPool
 
-Export commonly used utilities and configuration classes.
-"""
-from .utils import (
-    now_str,
-    now_iso,
-    parse_datetime,
-    load_yaml,
-    save_yaml,
-    load_json,
-    save_json,
-    compute_hash,
-    compute_dict_hash,
-    ensure_dir,
-    shared_path,
-    shared_dir,
-    repo_root,
-    next_seq_id,
-    validate_path,
-    log,
-    synchronized,
-    memoize,
-    get_env_var,
-    set_env_var,
-    safe_call,
-    CoreError,
-)
+import datetime
+import json
+import os
+from pathlib import Path
 
-from .config import (
-    ConfigManager,
-    FeederConfig,
-    HubConfig,
-    config,
-    feeder_config,
-    hub_config,
-    init_config,
-)
+def now_str():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def load_yaml(path, default=None):
+    import yaml
+    path = Path(path)
+    if not path.exists():
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    except Exception:
+        return default
+
+def save_yaml(path, data):
+    import yaml
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+
+def shared_path(case_dir, filename):
+    return str(Path(case_dir) / "shared" / filename)
+
+def log(message):
+    print(f"[{now_str()}] {message}")
+
+class synchronized:
+    def __init__(self, lock):
+        self._lock = lock
+    
+    def __enter__(self):
+        self._lock.acquire()
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._lock.release()
 
 __all__ = [
-    # utils
-    "now_str",
-    "now_iso",
-    "parse_datetime",
-    "load_yaml",
-    "save_yaml",
-    "load_json",
-    "save_json",
-    "compute_hash",
-    "compute_dict_hash",
-    "ensure_dir",
-    "shared_path",
-    "shared_dir",
-    "repo_root",
-    "next_seq_id",
-    "validate_path",
-    "log",
-    "synchronized",
-    "memoize",
-    "get_env_var",
-    "set_env_var",
-    "safe_call",
-    "CoreError",
-    
-    # config
-    "ConfigManager",
-    "FeederConfig",
-    "HubConfig",
-    "config",
-    "feeder_config",
-    "hub_config",
-    "init_config",
+    'load_config', 'Config',
+    'get_cache', 'cached', 'create_cache', 'MemoryCache', 'RedisCache', 'FileCache',
+    'get_vector_db', 'semantic_search', 'build_kb_index', 'FAISSVectorDB', 'SimpleVectorDB',
+    'get_scheduler', 'execute_async', 'execute_sync', 'parallel_map', 'Task', 'TaskStatus', 'TaskPriority',
+    'get_tool_router', 'run_tool', 'run_tool_with_retry', 'ToolRouter', 'ProcessToolPool', 'WSLToolPool',
+    'now_str', 'load_yaml', 'save_yaml', 'shared_path', 'log', 'synchronized'
 ]

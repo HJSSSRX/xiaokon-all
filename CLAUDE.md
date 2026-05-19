@@ -41,3 +41,45 @@ tools/
 4. **Coordinate via HTTP Hub**: Start `python tools/collab_hub.py serve <case_dir> --port 8765` for multi-agent communication (v3 protocol)
 5. **Consultant mode**: User can ask forensics/security questions anytime — search KB and answer from existing knowledge
 6. **Tool paths**: Run `python tools/tool_status.py --find <tool>` to get exact paths for tools not in PATH
+
+## AI Tag System
+
+Use the AI Tag Engine for efficient context retrieval:
+
+```python
+from feeder import AITagEngine
+
+# Get context for solving questions
+context = AITagEngine.get_context_for_practice("knowledge", {
+    "domain": "computer",
+    "tags": ["memory_forensics", "volatility"]
+})
+
+# Get learning path
+path = AITagEngine.get_context_for_learning("knowledge", "SQL注入")
+
+# Quick search by tags
+result = AITagEngine.quick_search("knowledge", ["sql_injection", "php"])
+```
+
+## Knowledge Base Structure
+
+```
+knowledge/
+├── sources/           # Track 1: Direct knowledge (articles, docs)
+│   ├── articles/      # By domain (web, binary, forensics...)
+│   ├── cheatsheets/   # Quick reference
+│   └── _index.yaml
+├── practice/          # Track 2: Learned from problems
+│   ├── solved/        # Solved problems by competition
+│   ├── patterns/      # Common solution patterns
+│   └── _index.yaml
+├── skills/            # Fusion layer: Skills from both tracks
+│   ├── computer/      # By forensics domain
+│   ├── mobile/
+│   ├── network/
+│   └── _index.yaml
+└── _relations/        # Tag-based linking
+    ├── tag_index.yaml
+    └── tag_index_cache.json  # AI-optimized cache
+```

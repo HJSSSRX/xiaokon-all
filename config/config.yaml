@@ -1,0 +1,43 @@
+database:
+  type: sqlite
+  path: "data/forhacker.sqlite"
+  host: localhost
+  port: 5432
+  database: forhacker
+  username: ""
+  password: ""
+
+cache:
+  type: memory
+  host: localhost
+  port: 6379
+  ttl_seconds: 3600
+
+vector_db:
+  enabled: true
+  type: faiss
+  path: "data/vector_index/index"
+  host: localhost
+  port: 19530
+
+hub:
+  host: "0.0.0.0"
+  port: 8765
+  workers: 4
+  timeout_seconds: 30
+
+tool:
+  manifest_path: "tools/manifest.yaml"
+  install_timeout: 300
+  check_interval: 60
+
+kb:
+  root_path: "knowledge"
+  max_results: 10
+  similarity_threshold: 0.7
+
+scheduler:
+  enabled: true
+  max_workers: 8
+  task_timeout: 300
+  retry_attempts: 3
