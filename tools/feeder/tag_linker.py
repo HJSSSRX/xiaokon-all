@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import yaml
+from ..core import load_yaml, save_yaml, ensure_dir, now_str
 from collections import defaultdict
 
 
@@ -137,7 +138,7 @@ def link_by_tags(kb_dir: str) -> dict:
                 tag_map[tag_lower]["skills"].append(relative_path)
 
     relations_dir = kb_path / "_relations"
-    relations_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(relations_dir)
 
     tag_index_file = relations_dir / "tag_index.yaml"
     with open(tag_index_file, "w", encoding="utf-8") as f:

@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import yaml
+from ..core import load_yaml, save_yaml, ensure_dir, now_str
 import json
 from collections import defaultdict
 
@@ -40,7 +41,7 @@ def load_index(kb_dir: str, use_cache: bool = True) -> dict:
                 "k": info.get("skills", []),
             }
 
-        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.ensure_dir(parent)
         with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(optimized, f, ensure_ascii=False)
 

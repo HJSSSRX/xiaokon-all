@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import yaml
+from ..core import load_yaml, save_yaml, ensure_dir, now_str
 from datetime import datetime
 
 from . import skill_generator
@@ -14,11 +15,11 @@ def organize_article_to_kb(data: dict, kb_dir: str, reindex: bool = True) -> str
     kb_path = Path(kb_dir)
 
     sources_dir = kb_path / "sources" / "articles"
-    sources_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(sources_dir)
 
     domain = _infer_domain(data)
     domain_dir = sources_dir / domain
-    domain_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(domain_dir)
 
     title = data.get("title", "unknown").strip()
     safe_name = re.sub(r'[\\/:*?"<>|]', "_", title[:50])
@@ -56,13 +57,13 @@ def organize_solved_to_kb(data: dict, kb_dir: str, reindex: bool = True) -> str:
     kb_path = Path(kb_dir)
 
     practice_dir = kb_path / "practice" / "solved"
-    practice_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(practice_dir)
 
     competition = data.get("competition", "unknown")
     question_id = data.get("question_id", "unknown")
 
     comp_dir = practice_dir / competition
-    comp_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(comp_dir)
 
     practice_entry = {
         "type": "practice",
@@ -98,7 +99,7 @@ def link_source_to_practice(kb_dir: str, source_path: str, practice_path: str):
     """关联知识来源到题目"""
     kb_path = Path(kb_dir)
     relations_dir = kb_path / "_relations"
-    relations_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(relations_dir)
 
     stp_file = relations_dir / "source_to_practice.yaml"
     stp_data = {}
@@ -164,10 +165,10 @@ def search_related_knowledge(kb_dir: str, tags: list) -> dict:
 def organize_mindmap_to_kb(data: dict, kb_dir: str):
     """将思维导图数据组织到知识库"""
     kb_path = Path(kb_dir)
-    kb_path.mkdir(parents=True, exist_ok=True)
+    ensure_dir(kb_path)
 
     mindmaps_dir = kb_path / "sources" / "mindmaps"
-    mindmaps_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(mindmaps_dir)
 
     categories = data.get("categories", [])
     knowledge_items = data.get("knowledge_items", [])
@@ -185,7 +186,7 @@ def organize_mindmap_to_kb(data: dict, kb_dir: str):
         yaml.dump(mindmap_entry, f, allow_unicode=True, sort_keys=False)
 
     skills_dir = kb_path / "skills"
-    skills_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(skills_dir)
 
     for category in categories:
         cat_name = category.get("name", "unknown")
@@ -310,7 +311,7 @@ def _update_practice_index(kb_path: Path, competition: str, question_id: str, en
 def _update_skills_index(kb_path: Path, domain: str, name: str, data: dict):
     """更新技能索引（融合层）"""
     skills_dir = kb_path / "skills" / domain
-    skills_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(skills_dir)
 
     text_content = data.get("text_content", "")
     code_blocks = data.get("code_blocks", [])

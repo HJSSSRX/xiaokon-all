@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import yaml
+from ..core import load_yaml, save_yaml, ensure_dir, now_str
 from datetime import datetime
 
 
@@ -72,7 +73,7 @@ def generate_skill_from_source(data: dict, kb_dir: str) -> str:
     domain, subcategory = _infer_domain_from_source(data)
 
     skill_dir = kb_path / "skills" / domain
-    skill_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(skill_dir)
 
     title = data.get("title", "unknown").strip()
     safe_name = re.sub(r'[\\/:*?"<>|]', "_", title[:50])
@@ -116,7 +117,7 @@ def generate_skill_from_practice(data: dict, kb_dir: str) -> str:
     domain, subcategory = _infer_domain_from_practice(data)
 
     skill_dir = kb_path / "skills" / domain
-    skill_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(skill_dir)
 
     competition = data.get("competition", "unknown")
     question_id = data.get("question_id", "unknown")
@@ -201,7 +202,7 @@ def merge_skills(kb_dir: str, skill_paths: list, output_name: str) -> str:
     safe_name = re.sub(r'[\\/:*?"<>|]', "_", output_name)
     domain = merged_skill["domain"] or "computer"
     skill_file = kb_path / "skills" / domain / f"{safe_name}.yaml"
-    skill_file.parent.mkdir(parents=True, exist_ok=True)
+    skill_file.ensure_dir(parent)
 
     with open(skill_file, "w", encoding="utf-8") as f:
         yaml.dump(merged_skill, f, allow_unicode=True, sort_keys=False)
