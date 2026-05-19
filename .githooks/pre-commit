@@ -38,4 +38,67 @@ case "$EMAIL" in
     ;;
 esac
 
+# ─── Python import sanity gate ──────────────────────────────────────
+# Runs only when .py files are staged. Blocks the commit if any
+# infrastructure module fails to import, preventing regressions in
+# core / collab / cli / shim layers.
+#
+# Check       : pre-commit
+# Scope       : staged .py files only
+# Falls back  : skip if Python not found
+# Bypass once : GIT_BYPASS_IMPORT=1 git commit ...
+
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep '\.py$' || true)
+
+if [ -n "$STAGED_PY" ]; then
+  PY=""
+  for cand in python3 python; do
+    path=$(command -v "$cand" 2>/dev/null) || continue
+    # test that Python actually runs (some Store stubs exit silently)
+    if "$path" -c "print(1)" >/dev/null 2>&1; then
+      PY="$path"
+      break
+    fi
+  done
+
+  if [ -z "$PY" ]; then
+    echo "[pre-commit] warn: no working Python found; skipping import check"
+  else
+    "$PY" -c "
+import importlib, sys
+modules = [
+    'tools.core',
+    'tools.collab',
+    'tools.collab_hub',
+    'tools.collab_sync',
+    'tools.cli',
+    'tools.smart_scheduler',
+    'tools.kb_search',
+    'tools.captain',
+    'tools.answer_format_lint',
+    'tools.generate_role_prompts_v5',
+]
+failed = []
+for m in modules:
+    try:
+        importlib.import_module(m)
+    except Exception as e:
+        failed.append(f'  {m}  ->  {e}')
+if failed:
+    print('[pre-commit] IMPORT CHECK FAILED — these modules are broken:')
+    for line in failed:
+        print(line)
+    print()
+    print('  Fix the imports before committing, or bypass once:')
+    print('    GIT_BYPASS_IMPORT=1 git commit ...')
+    sys.exit(1)
+print('[pre-commit] import check passed (' + str(len(modules)) + ' modules)')
+"
+    rc=$?
+    if [ "$rc" != 0 ] && [ "$GIT_BYPASS_IMPORT" != "1" ]; then
+      exit 1
+    fi
+  fi
+fi
+
 exit 0
