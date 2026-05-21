@@ -111,6 +111,38 @@ training/batch_2026-05-05/
 └── batch_report.md       ← Main compiles this
 ```
 
+## Dual-Perspective Training (双端视角)
+
+Training mode should explicitly connect forensics and offensive use of the same technique. For each solved challenge, answer:
+
+```
+## 双端视角
+
+### 取证场景
+{How this knowledge helps in forensics: what traces to look for, how to interpret artifacts}
+
+### 攻防场景
+{How this knowledge helps in offense: what weakness to exploit, how to bypass detection}
+
+### 转换点
+{The pivot: same technique, different direction}
+```
+
+**Example** — SQLite WAL 文件:
+| | 取证 | 攻防 |
+|---|---|---|
+| 场景 | 从 WAL 恢复被删除的聊天记录 | 注入后覆盖 WAL 擦除操作痕迹 |
+| 工具 | `sqlite3 .recover` | `PRAGMA journal_mode=OFF` |
+| 转换点 | SQLite 的 WAL 即操作日志 — 谁控制了它，谁就控制了"真相" |
+
+**Example** — inet_ntoa:
+| | 取证 | 攻防 |
+|---|---|---|
+| 场景 | 从 `user_last_login_ip` (int) 提取真实 IP | 将攻击 IP 编码为 int 绕过 WAF IP 黑名单 |
+| 转换点 | 同一转换函数 — 取证用它还原，攻击用它伪装 |
+
+This dual perspective gets embedded in the solution file and fed back into the knowledge base, so future AI roles can pull both contexts automatically.
+
 ## What Makes Training Different from Competition
 | Aspect | Training | Competition |
 |---|---|---|
@@ -118,5 +150,5 @@ training/batch_2026-05-05/
 | Time pressure | No | Yes |
 | Goal | Build KB + validate pipeline | Find answers fast |
 | KB search | Test if it helps | Use it to save time |
-| Documentation | Thorough | Good enough |
+| Documentation | Thorough (含双端视角) | Good enough |
 | Retry on failure | Yes, with analysis | Move on if stuck |

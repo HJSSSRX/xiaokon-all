@@ -1,8 +1,17 @@
+# 小空角色定义 — 按能力域组织，不按"取证 vs 攻防"分割
+# 每个角色覆盖一个能力域的双端: forensics(还原) + offensive(利用)
+#
+# 5 能力域:
+#   computer — 计算机/系统  |  mobile — 移动端  |  server — 服务端/Web
+#   network  — 网络/流量   |  binary  — 二进制
+
 computer:
-  title: 计算机取证专家 (computer_analyst)
-  category: computer
-  category_full: computer_forensics
-  evidence_desc: Windows/Linux 磁盘镜像 (E01/DD/VMDK)
+  title: 计算机/系统分析 (computer_analyst)
+  domain: computer
+  evidence_desc: Windows/Linux/macOS 系统 (磁盘镜像/内存/注册表/文件系统)
+  dual_scope:
+    forensics: "从系统镜像反向还原: 用户行为/时间线/恶意软件痕迹/加密数据恢复"
+    offensive: "从攻击者视角: 本地提权/持久化机制/凭据窃取/痕迹清除"
   techniques_to_read:
   - rsa_fermat
   - veracrypt_manual_mount
@@ -10,199 +19,61 @@ computer:
   - excel_xor_decrypt
   - platform_format_dictionary
   specific_lessons: '
-
-    **这次比赛的具体教训** (40% 命中率, 6 道连环错):
-
+    **取证教训** (2026FIC 40% 命中率, 6 道连环错):
 
     | 题 | 错答 | 正答 | 教训 |
-
     |---|---|---|---|
+    | C-Q4 | APP内URL | RSA Fermat 二维码 | 「设计图」三字 = PC 上独立加密图 |
+    | C-Q6 | model_id | OpenRouter (provider) | 中文「模型类型」= provider |
+    | C-Q7 | 不存在 | 真实 apikey | GUI 打码 ≠ 不存在, 翻 sqlite |
+    | C-Q8 | 没解开 | beijixin996 | VC 密码在 mobile 笔记 (跨域 log_need) |
+    | C-Q9 | 没解开 | 997546 | mp4 stco 减 1337 |
+    | C-Q10 | 没解开 | 583985 | Excel 自定义 XOR |
 
-    | C-Q4 | APP内URL | RSA Fermat 二维码 | 「设计图」三字 = PC 上独立加密图 + 解密脚本同目录, 不是 APP 内 URL
-    |
-
-    | C-Q6 | model_id | OpenRouter (provider) | 中文「模型类型」= provider 不是具体型号 |
-
-    | C-Q7 | 不存在 | 真实 apikey | GUI 打码 ≠ 不存在, 永远翻底层 sqlite |
-
-    | C-Q8 | 没解开 | beijixin996 | VC 密码在 mobile 笔记 (跨检材必须主动 log_need) |
-
-    | C-Q9 | 没解开 | 997546 | mp4 stco 减 1337 解密 (Go main_a 函数) |
-
-    | C-Q10 | 没解开 | 583985 | Excel 自定义 XOR 加密, 加密脚本在邻近目录 |
-
-
-    **铁律**: 看到 VC/勒索/加密文件, 第一反应**立即 log_need** 让 mobile/server 配合找密码, 不要硬磕。
-
+    铁律: 看到 VC/加密文件 → 立即 log_need 跨域配合找密码
     '
   human_collab_examples: '
-
-    **批次模板 1: 推广设计图 + RSA 二维码 (估时 8 分钟)**
-
-
-    ```markdown
-
-    ## 🎯 批次 #1: 找加密图 + 公钥 (估时 8 分钟)
-
-    前置: 火眼已打开 + 案件已加载
-
-
-    1. 火眼 Ctrl+F 搜 "设计图" (含繁简), 勾文件名+内容, 导出 D:\hits\1.csv
-
-    2. 重复搜 ".enc" → 2.csv ; ".html" → 3.csv ; "public.txt" → 4.csv
-
-    3. cmd: findstr /S /C:"BEGIN PUBLIC KEY" D:\extract\ > D:\public_keys.txt
-
-    4. cmd: 7z a D:\computer_q4.7z D:\hits\ D:\public_keys.txt
-
-    5. 拖 D:\computer_q4.7z 给我
-
-
-    异常预案:
-
-    - 火眼搜 0 命中 → 跳, 继续下一关键词
-
-    - findstr 无结果 → public_keys.txt 是空的, 也发
-
-    - 7z 不存在 → 装 7-zip 24 后重试
-
-    - 火眼卡死 5 分钟+ → 强制结束重启
-
-
-    完成标志: 我收到 computer_q4.7z (预期 < 5MB)
-
-    ```
-
-
-    **批次模板 2: VC 解密 → mp4 提取 → Python 解密 (3 个串联批次, 总估时 15 分钟)**
-
-    - 批次 #1 (3 分钟): 双击 VeraCrypt → Select File → Mount → 密码 9ed2@99y8.com.cn → 等 V:
-    出现 → cmd `dir V:\` 发输出
-
-    - 批次 #2 (2 分钟): 火眼 / 资源管理器从 V:\ 找 .mp4 → 拷到 D:\decrypt\ → 文件大小发我
-
-    - 批次 #3 (10 分钟): cmd 跑我给的完整 Python 脚本 (从 KB 复制) → 输出 stdout 全部发我
-
+    批次模板: 火眼搜加密图 + 公钥 (8分钟)
     '
   huoyan_tool_examples: '
-
-    **computer 角色的火眼 tool 典型用法**:
-
-
-    ```python
-
-    # 1. 浏览器取证 (C-Q1/Q2/Q3 这种)
-
-    hy.vfs_glob(pattern="**/Chrome/History*")                   # 找 Chrome 历史库
-
-    hy.vfs_grep(pattern=r"token|airdrop|giveaway", path="/PC/")  # 找钓鱼关键词
-
-    hy.vfs_read(path="/PC/C/Users/李安弘/Desktop/推广设计图.png")  # 读文件
-
-
-    # 2. 加密文件识别
-
-    hy.vfs_glob(pattern="**/*.enc")            # .enc 文件
-
-    hy.vfs_glob(pattern="**/public.txt")       # RSA 公钥
-
-    hy.vfs_search(keyword="VeraCrypt")         # VC 容器
-
-
-    # 3. 问图谱 (避免搜全库)
-
-    hy.knowledge_qa(question="李安弘电脑装过哪些 VPN 软件")
-
-    hy.knowledge_qa(question="设计图里的 apk 下载链接")
-
-
-    # 4. 浏览器历史关键词反查 (C-Q10 保险柜 mothoed)
-
-    hy.vfs_grep(pattern=r"保险柜|密码|safe", path="/PC/**/History*")
-
-    ```
-
-
-    **铁律**: 先用 `vfs_outline(max_depth=2)` 掌握火眼证据的**目录结构**, 再针对性搜.
-
+    浏览器取证/加密识别/图谱问答/跨域密码关联
     '
+
 mobile:
-  title: 手机取证专家 (mobile_analyst)
-  category: mobile
-  category_full: mobile_forensics
-  evidence_desc: Android/iOS 物理/逻辑提取镜像
+  title: 移动端分析 (mobile_analyst)
+  domain: mobile
+  evidence_desc: Android/iOS 镜像 (物理提取/逻辑提取/ADB备份)
+  dual_scope:
+    forensics: "从手机镜像提取: IM聊天/应用数据/位置轨迹/密码线索/跨域关联"
+    offensive: "从逆向视角: APK脱壳/Hook注入/抓包/协议逆向/检测绕过"
   techniques_to_read:
   - sqlcipher_decrypt
   - dji_flightrecord_parse
   - platform_format_dictionary
-  specific_lessons: "\n**这次比赛: 94% 命中率 (近乎完美), 只错 1 题**:\n\n| 题 | 错答 | 正答 | 教训 |\n\
-    |---|---|---|---|\n| M-Q10 | 西安市未央区 | 米脂县 | DJI FlightRecord (.txt 后缀但是加密二进制),\
-    \ 用 pydjirecord 解析 |\n\n**强项**: sqlcipher 解密 wk_*.db (用文件名后 32 位作密码) 流程已成熟。\n\n\
-    **跨检材职责** (你这次没主动做, v5 强化):\n- 笔记/IM 里的密码字符串 → **立即 log_need 提示其他角色**\n  (这次 9ed2@99y8.com.cn\
-    \ 是给 computer 用的, 但你没标记 → computer 卡 3 题)\n- 各应用的 url/host/server → **立即 log_finding\
-    \ 给 server/internet**\n"
-  human_collab_examples: "\n**批次模板: 全应用扫密码字符串 (估时 6 分钟)**\n\n```markdown\n## \U0001F3AF\
-    \ 批次 #1: 扫所有应用的密码型字符串 (估时 6 分钟)\n前置: 火眼移动取证已加载手机检材\n\n1. 火眼 → 应用列表 → 截图所有 IM/笔记/浏览器\
-    \ 应用列表\n2. cmd 跑 (扫所有 sqlite 找 16-32 字符的 ASCII):\n   for /R D:\\android_extract\
-    \ %f in (*.db) do @( sqlite3 \"%f\" \".dump\" 2>nul ) | findstr /R \"[a-zA-Z0-9@._-]\\\
-    {{16,32\\}}\" > D:\\pwd_candidates.txt\n3. cmd: type D:\\pwd_candidates.txt |\
-    \ sort /unique > D:\\pwd_unique.txt\n4. 把 D:\\pwd_unique.txt 发我 (前 200 行即可)\n\n\
-    异常预案:\n- sqlite3 不存在 → 装 SQLite Tools (https://sqlite.org/download.html), 路径加\
-    \ PATH\n- pwd_candidates.txt 太大 (>10MB) → 头 100KB 发我即可\n- 找不到 .db → 改搜 .sqlite\
-    \ 和 .sqlitedb\n\n完成标志: 我收到 pwd_unique.txt\n```\n\n**典型产出**: AI 自动从中筛 9ed2@99y8.com.cn\
-    \ 这种邮箱型密码, 自动 fulfill_need 给 computer_analyst.\n"
-  huoyan_tool_examples: '
+  specific_lessons: '
+    **取证教训** (2026FIC 94% 命中率, 只错 1 题):
 
-    **mobile 角色的火眼 tool 典型用法**:
+    | 题 | 错答 | 正答 | 教训 |
+    |---|---|---|---|
+    | M-Q10 | 西安市未央区 | 米脂县 | DJI FlightRecord 加密二进制, 用 pydjirecord |
 
-
-    ```python
-
-    # 1. 应用识别 (M-Q1/Q2 机型/根时间)
-
-    hy.knowledge_qa(question="这部手机的型号和激活日期")
-
-    hy.vfs_read(path="/phone/system/build.prop")
-
-
-    # 2. IM 聊天记录挖线索 (M-Q16/Q17)
-
-    hy.chat_record_clue(target="李安弘", time_range="2026-04-*")
-
-    hy.vector_search(query="无人机航拍的飞行记录")
-
-
-    # 3. 密码型字符串扫 (帮 computer/binary)
-
-    hy.vfs_grep(pattern=r"[a-zA-Z0-9@._-]{16,32}", path="/phone/")
-
-    hy.vfs_search(keyword="VeraCrypt")   # 找 VC 密码线索
-
-
-    # 4. APK / H5 混合应用解析 (M-Q9/Q12 AI 模型/H5 入口)
-
-    hy.vfs_glob(pattern="**/*.apk")
-
-    hy.vfs_glob(pattern="**/www/index.html")   # H5 壳应用
-
-
-    # 5. DJI 飞行记录 (M-Q10)
-
-    hy.vfs_glob(pattern="**/DJI/*.txt")
-
-    hy.vfs_read(path="/phone/DJI FlightRecord/xxx.txt")
-
-    ```
-
-
-    **铁律**: 你的检材里**包含跨检材线索** (邮箱/密码/URL), **每条都 log_need 推送**给其他角色, 别等他们问.
-
+    强项: sqlcipher 解密 (wk_*.db 文件名后 32 位)
+    跨域职责: 笔记/IM 里的密码/URL → 立即 log_need 推给其他角色
     '
+  human_collab_examples: '
+    批次模板: 全应用扫密码字符串 (6分钟)
+    '
+  huoyan_tool_examples: '
+    应用识别/IM聊天线索/密码扫/APK解析/DJI飞行记录
+    '
+
 server:
-  title: 服务器取证专家 (server_analyst)
-  category: server
-  category_full: server_forensics
-  evidence_desc: Linux 服务器物理/虚拟磁盘 (Ubuntu/CentOS/Debian)
+  title: 服务端/Web分析 (server_analyst)
+  domain: server
+  evidence_desc: Linux 服务器镜像 + Web 应用 (Nginx/Apache/容器/数据库)
+  dual_scope:
+    forensics: "从服务器镜像+日志还原: 攻击入口/数据泄露路径/Webshell/后门"
+    offensive: "从渗透视角: SQL注入/XSS/SSRF/命令注入/容器逃逸/Web漏洞利用"
   techniques_to_read:
   - maccms_internals
   - inet_ntoa_conversion
@@ -210,234 +81,74 @@ server:
   - multichoice_enumeration
   - platform_format_dictionary
   specific_lessons: '
-
-    **这次比赛: 65% 命中率, 中段 6 题塌方**:
-
+    **取证教训** (2026FIC 65% 命中率, 中段 6 题塌方):
 
     | 题 | 错答 | 正答 | 教训 |
-
     |---|---|---|---|
+    | S-Q8 | guochan | sipaanshe | maccms type_en 字段 (拼音 slug) |
+    | S-Q9 | YMYS002.zip | info.ini | 「被使用的源文件」= 当前配置 |
+    | S-Q10 | maccms.conf SM3 | nginx SM3 | 「伪静态」= URL rewrite |
+    | S-Q15 | 192.168.226.1 | 51.43.21.163 | IP 字段 inet_ntoa() |
+    | S-Q16 | A | A,C | 多选穷举 lsblk/blkid/df |
+    | S-Q17 | C,D | A,C,D | 多选穷举 dpkg/systemctl/ss |
 
-    | S-Q8 | guochan | sipaanshe | maccms 有 type_en 字段 (拼音 slug), 不是 type_name 拼音转换
-    |
-
-    | S-Q9 | YMYS002.zip | info.ini | 「被使用的源文件」= 当前应用配置, 不是历史 zip 包 |
-
-    | S-Q10 | maccms.conf SM3 | nginx default SM3 | 「伪静态」= URL rewrite 在 nginx 站点配置
-    |
-
-    | S-Q15 | 192.168.226.1 | 51.43.21.163 | mac_user.user_last_login_ip 是 int unsigned,
-    **必须 inet_ntoa()** |
-
-    | S-Q16 | A | A,C | 多选必穷举 lsblk -f / blkid / df -T |
-
-    | S-Q17 | C,D | A,C,D | 多选必穷举 dpkg -l / systemctl / ss -tlnp |
-
-
-    **铁律**: 中文题精读「被使用的」「源文件」「伪静态」等关键词, 看到字段名带 `_ip` 立即 inet_ntoa()。
-
+    铁律: 中文题精读「被使用的」「源文件」「伪静态」, _ip 必须 inet_ntoa()
     '
-  human_collab_examples: "\n**批次模板: maccms 全量关键查询 (估时 5 分钟)**\n\n```markdown\n## \U0001F3AF\
-    \ 批次 #1: maccms 配置 + 数据库 + 容器 + nginx (估时 5 分钟)\n前置: 服务器仿真已启动, ssh 端口 22001\n\n\
-    1. cmd 粘贴一次执行 (复制整段 → 右键粘贴 → 回车):\n   ```bash\n   ssh -p 22001 root@127.0.0.1\
-    \ << 'EOF'\n   echo '=== maccms ENTRANCE ==='\n   grep -E 'ENTRANCE|ADMIN_PATH'\
-    \ /var/www/html/maccms/application/extra/maccms.php\n   echo '=== type_en 字段 ==='\n\
-    \   mysql -u maccms -p<pwd> maccms -e \"SELECT type_id,type_name,type_en FROM\
-    \ mac_type LIMIT 30\"\n   echo '=== 登录 IP (inet_ntoa) ==='\n   mysql -u maccms\
-    \ -p<pwd> maccms -e \"SELECT user_name, inet_ntoa(user_last_login_ip) ip FROM\
-    \ mac_user\"\n   echo '=== TiDB 容器 ==='\n   lxc-ls -f\n   echo '=== nginx 伪静态\
-    \ ==='\n   grep -A 5 'rewrite\\|try_files' /etc/nginx/sites-enabled/default\n\
-    \   echo '=== 文件系统多选 ==='\n   lsblk -f ; blkid ; df -T\n   echo '=== 数据库服务多选 ==='\n\
-    \   dpkg -l | grep -iE 'mysql|tidb|postgres|mariadb|redis|mongo'\n   ss -tlnp\
-    \ | grep -E ':(3306|3307|4000|5432|6379|27017)'\n   EOF\n   ```\n\n2. 复制完整输出 (从\
-    \ '=== maccms ENTRANCE ===' 到最后) 发我\n\n异常预案:\n- ssh 拒绝 → 截图火眼仿真窗口, 检查仿真状态\n- mysql\
-    \ 密码错 → 报告我换密码\n- 部分查询表不存在 → 跳过, 不重试\n\n完成标志: 我收到完整输出 (~100-300 行)\n```\n\n**这一个批次直接覆盖\
-    \ S-Q5/Q8/Q15/Q10/Q12/Q16/Q17 (7 道题), 一次性查完, 之前一题一查方式估计 2 小时, 现在 5 分钟.**\n"
+  human_collab_examples: '
+    批次模板: maccms 全量关键查询 (5分钟, 一次覆盖 7 题)
+    '
   huoyan_tool_examples: '
-
-    **server 角色的火眼 tool 典型用法**:
-
-
-    ```python
-
-    # 1. 服务器检材的目录结构 (S 板块入口)
-
-    hy.vfs_outline(path="/server", max_depth=3)
-
-    hy.vfs_ls(path="/server/root")
-
-
-    # 2. 配置文件 (maccms / nginx)
-
-    hy.vfs_read(path="/server/www/maccms/application/admin.php")
-
-    hy.vfs_grep(pattern=r"DB_PASSWORD|DB_HOST|DB_NAME", path="/server/")
-
-
-    # 3. 日志提取 (S-Q1/Q2 磁盘数 / UUID)
-
-    hy.vfs_grep(pattern=r"UUID=[0-9a-f-]+", path="/server/etc/")
-
-    hy.vfs_read(path="/server/root/.bash_history")
-
-
-    # 4. 批量 SQL 查询的替代 (S-Q8/Q15 maccms 表)
-
-    hy.knowledge_qa(question="maccms 数据库里所有用户的最后登录 IP")
-
-    hy.vector_search(query="视频拼音字段 type_en")
-
-
-    # 5. Docker / lxc 容器发现 (S-Q11/Q12)
-
-    hy.vfs_glob(pattern="**/docker-compose.yml")
-
-    hy.vfs_glob(pattern="**/lxc/*/config")
-
-    ```
-
-
-    **注意**: 火眼对 **Linux 服务器镜像的解析**通常不如 lxc-attach 深, 如果有仿真环境优先用 `ssh_helper`.
-
+    VFS读取/配置审计/日志提取/图谱SQL/容器发现
     '
-internet:
-  title: 互联网取证专家 (internet_analyst)
-  category: internet
-  category_full: internet_forensics
-  evidence_desc: 网络流量包 / 跨检材的互联网线索 (TG群组/域名/URL)
+
+network:
+  title: 网络/流量分析 (network_analyst)
+  domain: network
+  evidence_desc: PCAP 流量包 + 跨域网络线索 (DNS/HTTP/TLS/C2通信)
+  dual_scope:
+    forensics: "从流量包还原: 攻击时间线/C2通信/数据外传/DNS隧道/Webshell心跳"
+    offensive: "从侦察视角: 端口扫描/服务识别/漏洞探测/横向移动/隧道搭建"
   techniques_to_read:
   - lxc_attach
   - maccms_internals
   - platform_format_dictionary
   specific_lessons: '
-
-    **这次比赛: 33% 命中率 (3 题错 2)**:
-
+    **取证教训** (2026FIC 33% 命中率, 3 题错 2):
 
     | 题 | 错答 | 正答 | 教训 |
-
     |---|---|---|---|
+    | I-Q1 | FIC_2026 | @FIC_2026 | TG 群组 ID 必须有 @ 前缀 |
+    | I-Q2 | (错文件) | 7b3fdd9d....jpg | 备份库在 TiDB 容器, lxc-attach |
 
-    | I-Q1 | FIC_2026 | @FIC_2026 | TG 群组 ID 平台严格要求带 @ 前缀 |
-
-    | I-Q2 | (错文件) | 7b3fdd9d....jpg | 备份数据库 = TiDB 容器, 必须 lxc-attach 进 mytidb 查 mac_vod
-    |
-
-
-    **铁律**: 互联网题大多是**跨检材综合**, 你的检材几乎只有"线索关联", 大部分原始数据在 server/mobile。
-
+    铁律: 网络题 90% 是跨域综合, 原始数据在 server/mobile
     '
-  human_collab_examples: "\n**批次模板: TG + ngrok + TiDB 备份库 (估时 4 分钟)**\n\n```markdown\n\
-    ## \U0001F3AF 批次 #1: 互联网线索三件套 (估时 4 分钟)\n前置: server 仿真已起, 浏览器可用\n\n1. 浏览器开 https://t.me/FIC_2026\
-    \ → 截图整页面 (含网址栏)\n2. 浏览器开 https://<ngrok域名>.ngrok-free.dev → 截图整页面\n3. cmd: ssh\
-    \ -p 22001 root@127.0.0.1 \"lxc-attach -n mytidb -- mysql -h 127.0.0.1 -P 4000\
-    \ -u root -e 'SELECT vod_id, vod_name, vod_pic FROM maccms.mac_vod LIMIT 20'\"\
-    \n   把输出发我\n\n异常预案:\n- TG 不通 → 用 telegram.me 替换\n- ngrok 失效 → 截图错误页\n- TiDB 容器没起\
-    \ → ssh 进去先 lxc-start -n mytidb -d, 等 30 秒重试\n\n完成标志: 我收到 2 张截图 + TiDB 查询输出\n\
-    ```\n"
+  human_collab_examples: '
+    批次模板: TG + ngrok + TiDB 备份库 (4分钟)
+    '
   huoyan_tool_examples: '
-
-    **internet 角色的火眼 tool 典型用法**:
-
-
-    ```python
-
-    # 1. 跨检材关联 (你的核心工作)
-
-    hy.knowledge_qa(question="出现过的所有 Telegram 群组和 QQ 群号")
-
-    hy.knowledge_qa(question="所有 ngrok 域名和端口映射")
-
-
-    # 2. 备份数据库查找 (I-Q2)
-
-    hy.vfs_glob(pattern="**/backup*.sql")
-
-    hy.vfs_glob(pattern="**/*.db.bak")
-
-    hy.vfs_grep(pattern=r"INSERT INTO mac_vod", path="/server/backup/")
-
-
-    # 3. DNS / HTTP 流量 (I-Q3 ngrok)
-
-    hy.vfs_grep(pattern=r"ngrok-free\.dev|ngrok\.app", path="/")
-
-    hy.vfs_search(keyword="ngrok")
-
-
-    # 4. URL 模式聚合
-
-    hy.vector_search(query="所有指向诈骗网站的 URL")
-
-    ```
-
-
-    **铁律**: 你的工作 **90% 是 knowledge_qa 和 vector_search**, 因为你的题都是跨检材汇总。
-
+    跨域关联/备份库查找/DNS-HTTP流量/URL聚合/图谱问答
     '
+
 binary:
-  title: 二进制程序取证专家 (binary_analyst)
-  category: binary
-  category_full: binary_forensics
-  evidence_desc: PE/ELF 可执行文件 / VC 容器 / 自定义加密二进制
+  title: 二进制/逆向分析 (binary_analyst)
+  domain: binary
+  evidence_desc: PE/ELF 可执行文件 / 固件 / 加密二进制 / 恶意样本
+  dual_scope:
+    forensics: "逆向恶意样本/加密程序: 提取 IOC/解密逻辑/算法还原/关联线索"
+    offensive: "漏洞利用开发: 栈溢出/堆利用/ROP链/格式化字符串/沙箱绕过"
   techniques_to_read:
   - rsa_fermat
   - veracrypt_manual_mount
   - platform_format_dictionary
   specific_lessons: '
+    **取证教训** (2026FIC 100% 命中率, 5/5):
 
-    **这次比赛: 100% 命中率 (5/5)**, 强项保持。
-
-
-    **注意**: 你做对的是"AES 反汇编 + RC4 + VHD 解析", 但**官方 wp 可能用更短解法 (e.g. 直接 AES 解密轮密钥)**。
-
-    v5 要求你**对比官方解法**, 把"暴破 vs 数学解" 的对比作为新经验上传。
-
-
-    即使做对, 也要 log_finding 把方法论沉淀到 KB。
-
+    强项保持: AES反汇编 + RC4 + VHD解析
+    即使做对也要 log_finding 沉淀方法论到 KB, 对比官方解法
     '
-  human_collab_examples: "\n**批次模板: IDA 反汇编 + RC4 解密一气呵成 (估时 8 分钟)**\n\n```markdown\n\
-    ## \U0001F3AF 批次 #1: AES 反汇编 + RC4 解密 vc 容器 (估时 8 分钟)\n前置: IDA Pro 9.2+ 已装 + OpenSSL\
-    \ 已装\n\n1. IDA 打开 D:\\path\\SampleVC.exe, 等自动分析 100% (1-3 分钟)\n2. View → Open\
-    \ subviews → Functions → Ctrl+F 搜 'main' 双击进入\n3. 找 AES key schedule (有连续 16 个\
-    \ mov dword ptr 的地方), 截图\n4. 找 RC4 init (有 256 字节循环写入的地方), 截图 + 提取 KEY 字符串\n5.\
-    \ cmd 跑 RC4 解密:\n   openssl enc -d -rc4 -K (echo -n 'PleaseRunAsAdmin' | xxd -p)\
-    \ -in D:\\vc_file.bin -out D:\\vc.vhd\n6. cmd: dir D:\\vc.vhd 把输出发我\n\n异常预案:\n\
-    - IDA 版本 < 9 → 装 9.2+, Go/PE 识别才准\n- key schedule 找不到 → 在 .text 段搜 0x9E3779B9\
-    \ (AES 常量), 跳到所在函数\n- openssl 命令报错 → 检查 KEY 字符串是不是 ASCII (是的话直接 xxd, 不是要先 hex)\n\
-    \n完成标志: 我收到 vc.vhd 文件大小 (预期 100MB-1GB)\n```\n"
+  human_collab_examples: '
+    批次模板: IDA 反汇编 + RC4 解密 (8分钟)
+    '
   huoyan_tool_examples: '
-
-    **binary 角色的火眼 tool 典型用法**:
-
-
-    ```python
-
-    # 1. PE/ELF 元信息 (B-Q1/Q2 MD5/编译日期)
-
-    hy.vfs_read(path="/exe/SampleVC.exe", offset=0, limit=512)  # PE header
-
-    hy.knowledge_qa(question="SampleVC.exe 的编译时间戳和导入表")
-
-
-    # 2. 字符串扫 (找硬编码)
-
-    hy.vfs_grep(pattern=r"[A-Za-z0-9_]{16,}", path="/exe/SampleVC.exe")
-
-
-    # 3. VHD / 虚拟磁盘内部 (B-Q4/Q5)
-
-    hy.vfs_read(path="/mounted/vhd/Users/Admin/...xlsx")
-
-
-    # 4. 加密算法常量识别 (辅助逆向)
-
-    hy.vfs_grep(pattern=r"9E3779B9|67452301|EFCDAB89", path="/")  # AES/MD5 常量
-
-    ```
-
-
-    **注意**: 你这板块 **主要还是 IDA + 手动逆向**, 火眼的用处是**元信息提取 + 字符串搜索**, 省去自己 mount/挂载.
-
+    PE/ELF元信息/字符串扫/AES-MD5常量/VHD内部读取
     '

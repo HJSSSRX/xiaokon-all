@@ -9,59 +9,114 @@ from datetime import datetime
 
 SKILL_DOMAINS = {
     "computer": {
-        "name": "计算机取证",
+        "name": "计算机",
         "subcategories": [
             "windows_forensics", "linux_forensics", "macos_forensics",
             "memory_forensics", "disk_forensics", "registry_analysis",
             "filesystem_analysis", "process_analysis",
-        ]
+            "privilege_escalation", "persistence_mechanisms",
+        ],
+        "dual_perspective": {
+            "forensics": "从镜像反向还原攻击者行为 (what happened)",
+            "offensive": "从攻击者视角利用弱点获取权限 (how to break in)",
+        },
     },
     "mobile": {
-        "name": "移动取证",
+        "name": "移动端",
         "subcategories": [
             "android_forensics", "ios_forensics", "app_analysis",
             "chat_forensics", "location_forensics", "device_identification",
-        ]
+            "mobile_hooking", "app_reversing", "mobile_pentest",
+        ],
+        "dual_perspective": {
+            "forensics": "从手机镜像提取用户行为轨迹和关联证据",
+            "offensive": "逆向/注入移动应用，绕过检测机制",
+        },
     },
     "network": {
-        "name": "网络取证",
+        "name": "网络",
         "subcategories": [
             "traffic_analysis", "protocol_analysis", "intrusion_detection",
             "webshell_detection", "attack_tracing",
-        ]
+            "port_scanning", "service_exploitation", "pivoting",
+            "dns_tunneling", "c2_analysis",
+        ],
+        "dual_perspective": {
+            "forensics": "从流量包还原攻击路径和C2通信",
+            "offensive": "扫描/渗透/横向移动/隧道搭建",
+        },
     },
     "server": {
-        "name": "服务器取证",
+        "name": "服务端",
         "subcategories": [
             "log_analysis", "web_server_forensics", "database_forensics",
             "mail_server_forensics", "middleware_forensics",
-        ]
+            "web_application_security", "container_escape",
+        ],
+        "dual_perspective": {
+            "forensics": "从服务器镜像/日志追溯入侵点和数据泄露路径",
+            "offensive": "Web漏洞利用/数据库提权/容器逃逸",
+        },
     },
     "binary": {
-        "name": "二进制/恶意代码分析",
+        "name": "二进制",
         "subcategories": [
             "reverse_engineering", "malware_analysis",
             "exploit_development", "shellcode_analysis",
-        ]
+            "stack_overflow", "heap_exploitation", "format_string",
+            "rop_chaining", "use_after_free", "ret2libc",
+        ],
+        "dual_perspective": {
+            "forensics": "逆向恶意样本，提取 IOC 和加密逻辑",
+            "offensive": "漏洞挖掘/Exploit编写/绕过保护机制",
+        },
+    },
+    "web": {
+        "name": "Web",
+        "subcategories": [
+            "sql_injection", "xss", "csrf", "ssrf",
+            "file_upload", "command_injection", "file_inclusion",
+            "deserialization", "template_injection", "ssi_injection",
+            "authentication_bypass", "idor", "oauth_abuse",
+        ],
+        "dual_perspective": {
+            "forensics": "审计 Web 日志和源码还原攻击入口点",
+            "offensive": "渗透测试/漏洞利用/绕过WAF",
+        },
     },
     "crypto": {
-        "name": "密码学/隐写",
+        "name": "密码学",
         "subcategories": [
-            "cryptanalysis", "encryption_decryption",
-            "steganography", "digital_watermark",
-        ]
+            "classical_ciphers", "symmetric_crypto", "asymmetric_crypto",
+            "hash_collision", "side_channel", "prng_bias",
+            "cryptanalysis", "steganography", "digital_watermark",
+        ],
+        "dual_perspective": {
+            "forensics": "破解加密证据/恢复被加密的数据",
+            "offensive": "分析/利用密码实现缺陷",
+        },
     },
     "cloud": {
-        "name": "云/虚拟化取证",
+        "name": "云/虚拟化",
         "subcategories": [
             "cloud_forensics", "vm_forensics", "container_forensics",
-        ]
+            "cloud_pentest", "serverless_exploitation",
+        ],
+        "dual_perspective": {
+            "forensics": "从云环境/虚拟机/容器中恢复和关联证据",
+            "offensive": "云服务配置利用/容器逃逸",
+        },
     },
     "iot": {
-        "name": "物联网取证",
+        "name": "物联网/嵌入式",
         "subcategories": [
-            "smart_device_forensics", "embedded_forensics", "sensor_analysis",
-        ]
+            "firmware_extraction", "uart_jtag", "spi_flash",
+            "embedded_reversing", "radio_analysis",
+        ],
+        "dual_perspective": {
+            "forensics": "从IoT设备提取固件和传感器数据",
+            "offensive": "固件逆向/硬件调试接口利用",
+        },
     },
 }
 
