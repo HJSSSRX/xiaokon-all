@@ -1,5 +1,6 @@
 # Local Agent 配置 — 低算力 AI 接入
 # 两种模式: offline (纯本地/断网比赛) | remote (API 远程)
+# 5 种推理后端: openai | ollama | kobold | oobabooga | anthropic
 
 agent:
   mode: offline             # offline | remote
@@ -7,20 +8,57 @@ agent:
   hub_url: "http://127.0.0.1:8765"
   case_dir: "cases/current"
   kb_root: "knowledge"
-  max_rounds: 50            # 最大解题轮次, 防死循环
+  max_rounds: 50            # 最大解题轮次
   tool_timeout: 120         # 单个命令超时秒数
 
 # ─── 离线模式 (断网比赛, 纯本地) ───
+# backend 可选: openai | ollama | kobold | oobabooga
+# 留空则根据 endpoint 自动推断
 offline:
-  endpoint: "http://localhost:11434/v1"   # Ollama OpenAI-compatible endpoint
-  model: "qwen2.5:7b"                     # 推荐: qwen2.5:7b / deepseek-r1:8b / llama3.1:8b
-  api_key: "ollama"                       # Ollama 不需要真 key, 填占位符即可
+  backend: ollama                       # 显式指定后端类型
+  endpoint: "http://localhost:11434/v1"  # Ollama OpenAI-compatible endpoint
+  model: "qwen2.5:7b"                   # 推荐: qwen2.5:7b / deepseek-r1:8b / llama3.1:8b
+  api_key: "ollama"                     # Ollama 不需要真 key
+
+  # ── 其他后端示例 ──
+  #
+  # vLLM / llama.cpp server / LM Studio (走 openai 后端):
+  #   backend: openai
+  #   endpoint: "http://localhost:8000/v1"
+  #   model: "qwen2.5:7b"
+  #
+  # Ollama 原生 API (走 ollama 后端):
+  #   backend: ollama
+  #   endpoint: "http://localhost:11434"
+  #   model: "qwen2.5:7b"
+  #
+  # KoboldCPP (走 kobold 后端):
+  #   backend: kobold
+  #   endpoint: "http://localhost:5001"
+  #   model: "koboldcpp"
+  #
+  # text-generation-webui (走 oobabooga 后端):
+  #   backend: oobabooga
+  #   endpoint: "http://localhost:5000"
+  #   model: "default"
 
 # ─── 远程模式 (联网, API 调用) ───
 remote:
   provider: deepseek                      # deepseek | openai | anthropic | custom
   endpoint: "https://api.deepseek.com/v1"
   model: "deepseek-chat"
-  api_key_env: "DEEPSEEK_API_KEY"         # 从环境变量读取, 不写明文
+  api_key_env: "DEEPSEEK_API_KEY"         # 从环境变量读取 API key
   max_tokens: 4096
   temperature: 0.1
+  #
+  # Anthropic Claude 示例:
+  #   provider: anthropic
+  #   endpoint: "https://api.anthropic.com"
+  #   model: "claude-haiku-4-5"
+  #   api_key_env: "ANTHROPIC_API_KEY"
+  #
+  # OpenAI 示例:
+  #   provider: openai
+  #   endpoint: "https://api.openai.com/v1"
+  #   model: "gpt-4o-mini"
+  #   api_key_env: "OPENAI_API_KEY"

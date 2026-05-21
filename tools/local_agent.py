@@ -53,7 +53,7 @@ _ALLOWED_TOOLS = {
     # Windows 命令
     "dir", "type", "findstr", "icacls", "reg", "powershell",
     # 项目工具
-    "kb_search", "fic_kb_search",
+    "kb_search", "comp_search",
 }
 _DENIED_PATTERNS = [
     r"rm\s+(-rf?|--)", r"del\s+/[fsq]", r"format\s", r"mkfs",
@@ -77,11 +77,17 @@ def _load_agent_config(path=None):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# Model Backends
+# Model Backends — 支持 6 种推理后端
 # ═══════════════════════════════════════════════════════════════════
 
-class BaseBackend:
-    """OpenAI-compatible /v1/chat/completions 后端."""
+class OpenAIBackend:
+    """OpenAI-compatible /v1/chat/completions — 兼容绝大多数推理引擎.
+
+    支持的引擎: vLLM, llama.cpp (server), LM Studio, LocalAI, Ollama(v1),
+               text-generation-webui (OpenAI extension), DeepSeek, Groq, 等.
+    """
+    name = "openai"
+
     def __init__(self, endpoint, model, api_key="", max_tokens=2048, temperature=0.1):
         self.endpoint = endpoint.rstrip("/")
         self.model = model
@@ -89,8 +95,7 @@ class BaseBackend:
         self.max_tokens = max_tokens
         self.temperature = temperature
 
-    def chat(self, messages, tools=None):
-        url = f"{self.endpoint}/chat/completions"
+    def chat(self, messages):
         body = {
             "model": self.model,
             "messages": messages,
@@ -98,17 +103,151 @@ class BaseBackend:
             "temperature": self.temperature,
         }
         req = urllib.request.Request(
-            url,
+            f"{self.endpoint}/chat/completions",
             data=json.dumps(body).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"Bearer {self.api_key}"},
         )
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                return data["choices"][0]["message"]["content"]
+                return json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as e:
+            return f"[HTTP {e.code}] {e.read().decode('utf-8', errors='replace')[:500]}"
+        except Exception as e:
+            return f"[Error] {e}"
+
+
+class OllamaBackend:
+    """Ollama 原生 /api/chat — 无需 OpenAI 兼容层，直接调 Ollama 原生协议。
+
+    优势: 支持 Ollama 特有参数 (num_ctx, num_predict, keep_alive 等)
+    """
+    name = "ollama"
+
+    def __init__(self, endpoint, model, api_key="", max_tokens=2048, temperature=0.1):
+        self.endpoint = endpoint.rstrip("/")
+        self.model = model
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+
+    def chat(self, messages):
+        url = f"{self.endpoint}/api/chat"
+        body = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "options": {
+                "num_predict": self.max_tokens,
+                "temperature": self.temperature,
+            },
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                return json.loads(resp.read().decode("utf-8"))["message"]["content"]
+        except urllib.error.HTTPError as e:
+            return f"[HTTP {e.code}] {e.read().decode('utf-8', errors='replace')[:500]}"
+        except Exception as e:
+            return f"[Error] {e}"
+
+
+class KoboldBackend:
+    """KoboldCPP /api/v1/generate — 兼容 Kobold 系列推理引擎.
+
+    适用: KoboldCPP, KoboldAI United, text-generation-webui (Kobold mode)
+    """
+    name = "kobold"
+
+    def __init__(self, endpoint, model, api_key="", max_tokens=2048, temperature=0.1):
+        self.endpoint = endpoint.rstrip("/")
+        self.model = model
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+
+    def chat(self, messages):
+        # Kobold 用 prompt 字符串，将 messages 拼接
+        prompt_parts = []
+        for m in messages:
+            role = m["role"]
+            content = m["content"]
+            if role == "system":
+                prompt_parts.append(f"<|system|>\n{content}\n")
+            elif role == "user":
+                prompt_parts.append(f"<|user|>\n{content}\n")
+            elif role == "assistant":
+                prompt_parts.append(f"<|assistant|>\n{content}\n")
+        prompt = "".join(prompt_parts) + "<|assistant|>\n"
+
+        url = f"{self.endpoint}/api/v1/generate"
+        body = {
+            "prompt": prompt,
+            "max_length": self.max_tokens,
+            "temperature": self.temperature,
+            "max_context_length": 8192,
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                return json.loads(resp.read().decode("utf-8"))["results"][0]["text"]
+        except urllib.error.HTTPError as e:
+            return f"[HTTP {e.code}] {e.read().decode('utf-8', errors='replace')[:500]}"
+        except Exception as e:
+            return f"[Error] {e}"
+
+
+class OobaboogaBackend:
+    """text-generation-webui (oobabooga) /api/v1/chat — 原生 Chat API。
+
+    适用: oobabooga text-generation-webui (非 OpenAI 扩展模式)
+    """
+    name = "oobabooga"
+
+    def __init__(self, endpoint, model, api_key="", max_tokens=2048, temperature=0.1):
+        self.endpoint = endpoint.rstrip("/")
+        self.model = model
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+
+    def chat(self, messages):
+        # oobabooga /api/v1/chat 用 user_input / history 格式
+        history = []
+        user_input = ""
+        for m in messages:
+            if m["role"] == "system":
+                history.append(["<|system|>", m["content"]])
+            elif m["role"] == "user":
+                if history:
+                    history.append([user_input, ""])
+                user_input = m["content"]
+            elif m["role"] == "assistant":
+                if history:
+                    history[-1][1] = m["content"]
+
+        url = f"{self.endpoint}/api/v1/chat"
+        body = {
+            "user_input": user_input,
+            "history": {"internal": history, "visible": []},
+            "mode": "chat",
+            "max_new_tokens": self.max_tokens,
+            "temperature": self.temperature,
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+                return result["results"][0]["history"]["visible"][-1][1]
         except urllib.error.HTTPError as e:
             return f"[HTTP {e.code}] {e.read().decode('utf-8', errors='replace')[:500]}"
         except Exception as e:
@@ -116,15 +255,17 @@ class BaseBackend:
 
 
 class AnthropicBackend:
-    """Anthropic Messages API 后端."""
-    def __init__(self, endpoint, model, api_key="", max_tokens=2048, temperature=0.1):
+    """Anthropic Messages API — Claude 系列模型。"""
+    name = "anthropic"
+
+    def __init__(self, endpoint, model, api_key="", max_tokens=4096, temperature=0.1):
         self.endpoint = endpoint.rstrip("/")
         self.model = model
         self.api_key = api_key
         self.max_tokens = max_tokens
         self.temperature = temperature
 
-    def chat(self, messages, tools=None):
+    def chat(self, messages):
         url = f"{self.endpoint}/messages"
         system = ""
         user_msgs = []
@@ -144,46 +285,72 @@ class AnthropicBackend:
         if system:
             body["system"] = system
 
-        headers = {
-            "Content-Type": "application/json",
-            "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01",
-        }
         req = urllib.request.Request(
             url,
             data=json.dumps(body).encode("utf-8"),
-            headers=headers,
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01",
+            },
         )
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                return data["content"][0]["text"]
+                return json.loads(resp.read().decode("utf-8"))["content"][0]["text"]
         except urllib.error.HTTPError as e:
             return f"[HTTP {e.code}] {e.read().decode('utf-8', errors='replace')[:500]}"
         except Exception as e:
             return f"[Error] {e}"
 
 
+# ── 后端注册表 ────────────────────────────────────────────────────
+
+BACKENDS = {
+    "openai": OpenAIBackend,         # vLLM, llama.cpp, LM Studio, LocalAI, Groq
+    "ollama": OllamaBackend,         # Ollama 原生
+    "kobold": KoboldBackend,         # KoboldCPP
+    "oobabooga": OobaboogaBackend,   # text-generation-webui
+    "anthropic": AnthropicBackend,   # Claude API
+}
+
+
 def _create_backend(config):
+    """根据配置创建后端实例。
+
+    配置优先级: mode.{backend} 字段 → mode 推断 → 默认 openai
+    """
     mode = config["agent"]["mode"]
-    if mode == "offline":
-        c = config["offline"]
-        return BaseBackend(c["endpoint"], c["model"], c.get("api_key", "ollama"),
-                           max_tokens=2048, temperature=0.1)
-    elif mode == "remote":
-        c = config["remote"]
-        api_key = os.environ.get(c.get("api_key_env", ""), "")
-        provider = c.get("provider", "custom")
+    section = config.get(mode, {})
+    backend_name = section.get("backend", "")
+
+    api_key = os.environ.get(section.get("api_key_env", ""), section.get("api_key", ""))
+    endpoint = section.get("endpoint", "http://localhost:11434/v1")
+    model = section.get("model", "qwen2.5:7b")
+    max_tokens = section.get("max_tokens", 2048)
+    temperature = section.get("temperature", 0.1)
+
+    # 1) 显式指定 backend
+    if backend_name and backend_name in BACKENDS:
+        return BACKENDS[backend_name](endpoint, model, api_key, max_tokens, temperature)
+
+    # 2) remote 模式: 从 provider 字段推断
+    if mode == "remote":
+        provider = section.get("provider", "")
         if provider == "anthropic":
-            return AnthropicBackend(c["endpoint"], c["model"], api_key,
-                                    max_tokens=c.get("max_tokens", 4096),
-                                    temperature=c.get("temperature", 0.1))
-        else:
-            return BaseBackend(c["endpoint"], c["model"], api_key,
-                               max_tokens=c.get("max_tokens", 4096),
-                               temperature=c.get("temperature", 0.1))
-    else:
-        raise ValueError(f"Unknown mode: {mode}")
+            return AnthropicBackend(endpoint, model, api_key, max_tokens, temperature)
+        return OpenAIBackend(endpoint, model, api_key, max_tokens, temperature)
+
+    # 3) offline 模式: 从 endpoint 路径推断
+    ep = endpoint.lower()
+    if "/api/chat" in ep or ("ollama" in ep and "/v1" not in ep):
+        return OllamaBackend(endpoint, model, api_key, max_tokens, temperature)
+    if "kobold" in ep or "generate" in ep:
+        return KoboldBackend(endpoint, model, api_key, max_tokens, temperature)
+    if "oobabooga" in ep or "text-generation" in ep:
+        return OobaboogaBackend(endpoint, model, api_key, max_tokens, temperature)
+
+    # 默认: OpenAI-compatible（最通用）
+    return OpenAIBackend(endpoint, model, api_key, max_tokens, temperature)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -418,18 +585,19 @@ def _parse_response(text):
 
 class LocalAgent:
     def __init__(self, config_path=None, role_override=None, mode_override=None,
-                 model_override=None, endpoint_override=None):
+                 model_override=None, endpoint_override=None, backend_override=None):
         self.config = _load_agent_config(config_path)
         if mode_override:
             self.config["agent"]["mode"] = mode_override
         if role_override:
             self.config["agent"]["role"] = role_override
+        target = self.config["agent"]["mode"]
         if model_override:
-            target = self.config["agent"]["mode"]
             self.config[target]["model"] = model_override
         if endpoint_override:
-            target = self.config["agent"]["mode"]
             self.config[target]["endpoint"] = endpoint_override
+        if backend_override:
+            self.config[target]["backend"] = backend_override
 
         self.mode = self.config["agent"]["mode"]
         self.role = self.config["agent"]["role"]
@@ -451,12 +619,14 @@ class LocalAgent:
         )
 
     def run(self):
-        print(f"╔══════════════════════════════════════════╗")
-        print(f"║  AutoForensicAI Local Agent             ║")
-        print(f"║  Mode: {self.mode:<12}  Role: {self.role:<20} ║")
-        print(f"║  Model: {self.backend.model:<30} ║")
+        backend_name = getattr(self.backend, "name", "?")
+        print(f"╔══════════════════════════════════════════════╗")
+        print(f"║  AutoForensicAI Local Agent                 ║")
+        print(f"║  Mode: {self.mode:<10} Backend: {backend_name:<14} ║")
+        print(f"║  Role: {self.role:<28} ║")
+        print(f"║  Model: {self.backend.model:<28} ║")
         print(f"║  Hub: {self.hub_url:<30} ║")
-        print(f"╚══════════════════════════════════════════╝")
+        print(f"╚══════════════════════════════════════════════╝")
         print()
 
         questions = _hub_get_unsolved(self.hub_url, self.role)
@@ -564,14 +734,30 @@ def main():
     )
     parser.add_argument("--mode", choices=["offline", "remote"],
                         help="offline=纯本地 | remote=API远程 (默认用config)")
+    parser.add_argument("--backend", choices=list(BACKENDS),
+                        help=f"推理后端: {', '.join(BACKENDS)}")
     parser.add_argument("--role", default="computer_analyst",
                         help="角色 (default: computer_analyst)")
     parser.add_argument("--model", help="覆盖模型名")
     parser.add_argument("--endpoint", help="覆盖API endpoint")
     parser.add_argument("--config", help="配置文件路径 (default: config/agent.yaml)")
     parser.add_argument("--list-roles", action="store_true", help="列出所有可用角色")
+    parser.add_argument("--list-backends", action="store_true", help="列出所有支持的后端及兼容引擎")
 
     args = parser.parse_args()
+
+    if args.list_backends:
+        print("支持的后端:")
+        for name, cls in BACKENDS.items():
+            doc = cls.__doc__.strip().split("\n")[0] if cls.__doc__ else "(无描述)"
+            print(f"  {name:<12} — {doc}")
+        print(f"\n兼容的推理引擎:")
+        print(f"  openai    → vLLM, llama.cpp, LM Studio, LocalAI, DeepSeek, Groq, ...")
+        print(f"  ollama    → Ollama 原生 API")
+        print(f"  kobold    → KoboldCPP")
+        print(f"  oobabooga → text-generation-webui")
+        print(f"  anthropic → Claude (Anthropic API)")
+        return
 
     if args.list_roles:
         roles = _load_roles_config()
@@ -585,6 +771,7 @@ def main():
         mode_override=args.mode,
         model_override=args.model,
         endpoint_override=args.endpoint,
+        backend_override=args.backend,
     )
     agent.run()
 
