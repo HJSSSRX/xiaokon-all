@@ -2,6 +2,7 @@
 pyyaml>=6.0
 requests>=2.31.0
 beautifulsoup4>=4.12.0
+websocket-client>=1.6.0
 
 # Optional: Vector database
 faiss-cpu>=1.8.0

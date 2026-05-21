@@ -35,6 +35,8 @@ from .ai_tag_engine import (
     rebuild_cache,
     get_stats,
 )
+from .js_renderer import JsRenderer, launch_chrome_with_debug
+from .api_extractor import JsApiExtractor
 
 __all__ = [
     "WebPageParser",
@@ -47,6 +49,8 @@ __all__ = [
     "get_tag_statistics", "suggest_tags", "extract_tags", "TAG_CATEGORIES",
     "load_index", "quick_search", "get_context_for_practice",
     "get_context_for_learning", "suggest_next_action", "rebuild_cache", "get_stats",
+    "JsRenderer", "launch_chrome_with_debug",
+    "JsApiExtractor",
 ]
 
 __version__ = "2.2.0"

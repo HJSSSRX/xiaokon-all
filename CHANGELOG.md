@@ -6,6 +6,70 @@
 
 ---
 
+## v2.1.0 — 2026-05-21 (JS 渲染双方案)
+
+### 里程碑
+
+**Feeder 模块支持 JavaScript 渲染网站**, 新增两种互补方案读取 SPA / 动态页面。
+
+### 方案1: Chrome CDP 浏览器渲染 (`tools/feeder/js_renderer.py`)
+
+- 通过 Chrome DevTools Protocol 连接用户已有的 Google Chrome
+- 无需下载 Playwright 浏览器 (~400MB)，复用用户 Chrome 的 Cookie 和登录态
+- 支持 headless/headed 双模式
+- `launch_chrome_with_debug()` 辅助函数自动启动 Chrome
+- 自动等待 JS 渲染完成（networkidle / CSS 选择器 / 延时）
+- 可选注入 auto-scroll 触发懒加载
+- CDP 不可用时自动降级到 requests + BS4 静态解析
+
+**依赖**: `websocket-client>=1.6.0`
+
+### 方案2: API 端点提取器 (`tools/feeder/api_extractor.py`)
+
+- 分析网页引用的 JS 文件，正则匹配 API 端点模式
+- 8 种 JS API 调用模式检测（fetch/axios/XMLHttpRequest/baseURL/apiUrl 等）
+- 按关键词加权置信度排序
+- 自动探测找到的端点 + 54 个常见 API 模式
+- 纯 HTTP 请求，不需要浏览器，速度快
+- 返回结构化 JSON 数据，适合前后端分离架构
+
+### 集成改动
+
+- `parsers.py`: WebPageParser 新增 `parse_js_page()` 方法，自动尝试 CDP → API → 静态降级
+- `parsers.py`: 新增 `_parse_spa` handler 和 `_flatten_json_text` 工具方法
+- `__init__.py`: 导出 `JsRenderer`, `JsApiExtractor`, `launch_chrome_with_debug`
+- `feeder_crawl.py`: CLI 新增 `--render` (方案1) / `--api-extract` (方案2) 参数组
+- `feeder_crawl.py`: 新增 `cmd_fetch_js()` 函数，支持 `--launch-chrome` / `--headless` / `--wait-selector` / `--wait-ms` / `--fallback` / `--cdp-port`
+- `requirements.txt`: 新增 `websocket-client>=1.6.0`
+- `feeder_crawl.py`: 修复导入路径（`tools.feeder` 替代 `feeder`），解决 organizer 相对导入错误
+
+### 使用示例
+
+```bash
+# 方案1: Chrome CDP 渲染
+python tools/feeder_crawl.py fetch https://example.com/spa --render --launch-chrome
+
+# 方案1 + 等待特定元素
+python tools/feeder_crawl.py fetch https://example.com --render --wait-selector ".mindmap-node"
+
+# 方案2: API 端点提取
+python tools/feeder_crawl.py fetch https://example.com --api-extract
+
+# 方案2 + 失败降级
+python tools/feeder_crawl.py fetch https://example.com --api-extract --fallback
+```
+
+### 文件改动
+
+- `tools/feeder/js_renderer.py` — 新建（方案1）
+- `tools/feeder/api_extractor.py` — 新建（方案2）
+- `tools/feeder/__init__.py` — 导出新类
+- `tools/feeder/parsers.py` — 新增 parse_js_page / _parse_spa / _flatten_json_text
+- `tools/feeder_crawl.py` — CLI 参数 + cmd_fetch_js + 导入路径修复
+- `requirements.txt` — 新增 websocket-client
+
+---
+
 ## v2.0.1 — 2026-05-19 (系统架构优化补充)
 
 ### 里程碑
