@@ -49,6 +49,7 @@ def _print_usage():
     print("  executor status [opts]       Show execution progress")
     print("  executor next [opts]         Print context for next ready sub-goal")
     print("  executor boost [opts]        Weak model boost — 6-step amplification pipeline")
+    print("  executor allocate [opts]     Auto-allocate BOOST/FOCUSED mode per sub-goal")
     print("  import <yaml> [opts]        Import YAML to hub")
     print("  lint [opts]                 Answer format lint")
     print()

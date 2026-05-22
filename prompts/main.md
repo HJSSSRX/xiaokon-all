@@ -26,6 +26,7 @@ Tool status:   `python tools/tool_status.py` — query what's installed and wher
 | **"小空自己托"** | 激活喂食者角色，爬取网站构建知识库 |
 | **"小空聚焦"** | 进入聚焦执行模式，逐一执行分解计划中的子目标 |
 | **"小空超频"** | 激活弱模型超频模式 — KB优先 + 紧凑提示 + 多层验证 + 投票 + 升级 |
+| **"小空分配"** | 自动分配执行模式 — 为每个子目标决定超频/聚焦，难题自动降优先级 |
 
 When the user says **"小空自己动"** (or any variant like "小空启动", "xiaokong go"), you activate and ask the user to choose a mode:
 
@@ -134,6 +135,80 @@ python -m tools.cli executor boost --case-dir {case_dir} --no-kb-first
 # Quiet mode: minimal output
 python -m tools.cli executor boost --case-dir {case_dir} --quiet
 ```
+
+### 分配模式 (Allocation Mode)
+
+When the user says **"小空分配"** (or "分配模式", "allocation mode", "auto allocate"):
+
+This mode automatically analyzes every sub-goal and assigns the optimal execution mode:
+- **BOOST (超频)**: Simple tasks (file hashing, indexing, evidence prep) — weak model, fast
+- **FOCUSED (聚焦)**: Complex tasks (binary RE, crypto, deep analysis) — strong model, deep reasoning
+
+**Dynamic priority**: When a BOOST sub-goal fails (escalated), it's auto-reallocated to FOCUSED
+and its priority is lowered so easier sub-goals are attempted first.
+
+1. Ensure a decomposition plan exists:
+   ```powershell
+   python -m tools.cli decompose --dir {case_dir} --output {case_dir}
+   ```
+
+2. Run allocation:
+   ```powershell
+   python -m tools.cli executor allocate --plan {case_dir}/execution_plan.json --case-dir {case_dir}
+   ```
+
+   Output example:
+   ```
+   分配方案: 2025平航杯
+   子目标总数: 3
+     BOOST (超频): 1
+     FOCUSED (聚焦): 2
+
+     SG-002 [聚焦] score=0.77
+       复杂度=0.77 >= 阈值0.40 → FOCUSED
+     SG-003 [聚焦] score=0.55
+       复杂度=0.55 >= 阈值0.40 → FOCUSED
+     SG-001 [超频] score=0.16
+       复杂度=0.16 < 阈值0.40 → BOOST
+   ```
+
+3. Review and optionally override:
+   ```powershell
+   # Force a sub-goal into a specific mode
+   python -m tools.cli executor allocate --force-sg-id SG-003 --force-mode boost --case-dir {case_dir}
+   ```
+
+4. Run the execution loop. Use `executor next --allocate` to get mode-aware context:
+   ```powershell
+   python -m tools.cli executor next --allocate --case-dir {case_dir}
+   ```
+
+   The output includes `allocation_mode`:
+   - `"allocation_mode": "boost"` → load `weak_model_boost.md`, run `executor boost --sg-id {id}`
+   - `"allocation_mode": "focused"` → load `focused_execution.md`, follow 5-phase protocol
+
+5. If boost fails, the system auto-handles it:
+   ```
+   boost fails → record_boost_result() detects failure
+              → auto-reallocate to FOCUSED
+              → priority += 2 (lowered)
+              → sub-goal unblocked, easier ones go first
+   ```
+
+**Scoring dimensions** (9-dimension weighted, threshold=0.40):
+| Dimension | Weight | What it means |
+|-----------|--------|---------------|
+| Level | 2.5 | SHARED(0) easiest, QUESTION(3) hardest |
+| Domain | 2.0 | binary/crypto harder than log/disk |
+| Tools | 1.5 | ida/ghidra/jadx signal expert work |
+| Est. minutes | 1.5 | Longer tasks need more reasoning |
+| Task type | 1.0 | binary_analysis harder than data_recovery |
+| Critical path | 1.0 | On CP means accuracy matters more |
+| Dependencies | 0.5 | Deep chains have more failure points |
+| Inputs count | 0.5 | Many inputs = breadth complexity |
+| Dep findings | 0.5 | Rich dep findings = easier (inverted) |
+
+**KB exact match overrides**: If the knowledge base has an exact solution, the sub-goal is always BOOST regardless of score.
 
 ---
 

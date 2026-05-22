@@ -38,6 +38,8 @@ class ExecutionSession:
     blocked_reasons: Dict[str, str] = field(default_factory=dict)
     boost_mode: bool = False
     boost_results: Dict[str, dict] = field(default_factory=dict)
+    allocations: Dict[str, dict] = field(default_factory=dict)
+    allocation_overrides: Dict[str, str] = field(default_factory=dict)
 
     # ── Factory Methods ──────────────────────────────────────────
 
@@ -107,6 +109,8 @@ class ExecutionSession:
             blocked_reasons=data.get("blocked_reasons", {}),
             boost_mode=data.get("boost_mode", False),
             boost_results=data.get("boost_results", {}),
+            allocations=data.get("allocations", {}),
+            allocation_overrides=data.get("allocation_overrides", {}),
         )
 
         # Validate: warn if plan structure changed
@@ -295,7 +299,11 @@ class ExecutionSession:
         return context
 
     def record_boost_result(self, sg_id: str, result: dict) -> None:
-        """Store boost result and, if successful, complete the sub-goal."""
+        """Store boost result and, if successful, complete the sub-goal.
+
+        If boost FAILED: auto-reallocate to FOCUSED + lower priority
+        so easier sub-goals are attempted first (dynamic priority).
+        """
         self.boost_results[sg_id] = result
 
         if result.get("success"):
@@ -310,9 +318,142 @@ class ExecutionSession:
                 })
             self.complete(sg_id, findings)
         else:
+            # Dynamic priority: boost failed → reallocate to FOCUSED, lower priority
             self.block(sg_id, result.get("error", "Boost pipeline failed"))
+            self.reallocate(sg_id, "focused")
 
         self.save()
+
+    # ── Allocation Mode ────────────────────────────────────────────
+
+    def kb_root(self) -> str:
+        """Return resolved KB root path."""
+        return os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "knowledge"
+        )
+
+    def allocate_all(self, config=None) -> "AllocationPlan":
+        """Batch-allocate all sub-goals. Returns AllocationPlan with summary."""
+        from tools.decomposer.allocator import allocate_all, AllocationConfig
+
+        cfg = config or AllocationConfig()
+        plan = allocate_all(self.plan, self.findings, self.kb_root(), cfg)
+
+        # Apply manual overrides
+        for sg_id, forced_mode in self.allocation_overrides.items():
+            if sg_id in plan.allocations:
+                from tools.decomposer.allocator import AllocationMode
+                plan.allocations[sg_id].mode = AllocationMode(forced_mode)
+                plan.allocations[sg_id].overridden = True
+
+        self.allocations = {
+            sg_id: a.to_dict() for sg_id, a in plan.allocations.items()
+        }
+        self.save()
+        return plan
+
+    def next_ready_with_allocation(self) -> dict:
+        """Like next_ready() but merges allocation info into the context.
+
+        Allocates JIT if the sub-goal hasn't been allocated yet.
+        """
+        ready = self.next_ready()
+
+        if not ready:
+            if self.is_complete():
+                return {"status": "all_complete", "completed_at": self.completed_at}
+            if self.is_all_blocked():
+                return {
+                    "status": "all_blocked",
+                    "blocked": [
+                        {"sg_id": sid, "reason": self.blocked_reasons.get(sid, "")}
+                        for sid, s in self.state.items() if s == "blocked"
+                    ],
+                }
+            return {"status": "no_ready", "message": "No ready sub-goals but some pending"}
+
+        sg_id = ready[0]
+
+        # JIT allocate if not already done
+        if sg_id not in self.allocations:
+            from tools.decomposer.allocator import allocate_one
+            sg = self.plan.sub_goals.get(sg_id)
+            if sg:
+                dep_findings = {
+                    dep_id: self.findings.get(dep_id, [])
+                    for dep_id in sg.dependencies
+                }
+                result = allocate_one(sg, self.plan, dep_findings, self.kb_root())
+                self.allocations[sg_id] = result.to_dict()
+
+        allocation = self.allocations.get(sg_id, {})
+
+        try:
+            context = self.focus(sg_id)
+        except ValueError as e:
+            return {"status": "error", "message": str(e)}
+
+        context["allocation_mode"] = allocation.get("mode", "focused")
+        context["allocation_score"] = allocation.get("complexity_score", 0.0)
+        context["allocation_reason"] = allocation.get("reason", "")
+        context["allocation_kb_match"] = allocation.get("kb_match_found", False)
+        context["allocation_overridden"] = allocation.get("overridden", False)
+
+        self.save()
+        return context
+
+    def reallocate(self, sg_id: str, force_mode: Optional[str] = None) -> dict:
+        """Re-assign a sub-goal's mode. Auto-promotes failed boost to FOCUSED
+        and lowers priority so easier tasks go first.
+
+        Args:
+            sg_id: Sub-goal to reallocate.
+            force_mode: If given, forces this mode. If None, auto-scores.
+        """
+        from tools.decomposer.allocator import allocate_one, AllocationMode
+
+        sg = self.plan.sub_goals.get(sg_id)
+        if not sg:
+            raise ValueError(f"子目标不存在: {sg_id}")
+
+        prev = self.allocations.get(sg_id, {})
+
+        if force_mode:
+            self.allocation_overrides[sg_id] = force_mode
+        else:
+            # Auto-promote: if previously BOOST and now blocked, go FOCUSED
+            prev_mode = prev.get("mode", "")
+            if prev_mode == "boost" and self.state.get(sg_id) == "blocked":
+                force_mode = "focused"
+                self.allocation_overrides[sg_id] = "focused"
+
+        dep_findings = {
+            dep_id: self.findings.get(dep_id, [])
+            for dep_id in sg.dependencies
+        }
+        result = allocate_one(sg, self.plan, dep_findings, self.kb_root())
+
+        if force_mode:
+            result.mode = AllocationMode(force_mode)
+            result.overridden = True
+            result.reason = f"手动覆盖 → {force_mode}"
+
+        self.allocations[sg_id] = result.to_dict()
+
+        # Dynamic priority: if reallocating to FOCUSED due to boost failure,
+        # lower priority so easier sub-goals go first
+        if force_mode == "focused" and prev.get("mode") == "boost":
+            sg.priority += 2
+            result.reason += f" | priority={sg.priority}"
+
+        # Unblock if it was blocked
+        if self.state.get(sg_id) == "blocked":
+            self.state[sg_id] = "pending"
+            self.blocked_reasons.pop(sg_id, None)
+
+        self.save()
+        return result.to_dict()
 
     # ── Status ────────────────────────────────────────────────────
 
@@ -386,6 +527,8 @@ class ExecutionSession:
             "blocked_reasons": self.blocked_reasons,
             "boost_mode": self.boost_mode,
             "boost_results": self.boost_results,
+            "allocations": self.allocations,
+            "allocation_overrides": self.allocation_overrides,
         }
 
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)

@@ -1,11 +1,13 @@
 """CLI wrapper for ExecutionSession.
 
-Provides 5 subcommands for the focused execution loop:
+Provides subcommands for the focused execution loop:
   start    — Initialize a new execution session
   status   — Print human-readable progress
   next     — Print JSON context for next ready sub-goal (AI protocol)
   complete — Mark a sub-goal complete with findings
   block    — Mark a sub-goal as blocked with reason
+  boost    — Weak model boost — 6-step amplification pipeline
+  allocate — Auto-allocate BOOST/FOCUSED mode per sub-goal
 """
 
 import argparse
@@ -73,31 +75,37 @@ def cmd_next(args):
 
     This is the primary command used by the AI during Phase 1 of the
     focused_execution.md protocol. Output is JSON for machine consumption.
+
+    Now includes allocation_mode field so the AI knows whether to use
+    focused_execution.md or weak_model_boost.md.
     """
     session = _get_session(args)
 
-    ready = session.next_ready()
+    use_alloc = getattr(args, "allocate", False)
+    if use_alloc:
+        context = session.next_ready_with_allocation()
+    else:
+        ready = session.next_ready()
+        if not ready:
+            if session.is_complete():
+                print(json.dumps({"status": "all_complete", "completed_at": session.completed_at}, ensure_ascii=False))
+            elif session.is_all_blocked():
+                blocked_info = [
+                    {"sg_id": sid, "reason": session.blocked_reasons.get(sid, "")}
+                    for sid, s in session.state.items() if s == "blocked"
+                ]
+                print(json.dumps({"status": "all_blocked", "blocked": blocked_info}, ensure_ascii=False))
+            else:
+                print(json.dumps({"status": "no_ready", "message": "No ready sub-goals but some pending"}, ensure_ascii=False))
+            return
 
-    if not ready:
-        if session.is_complete():
-            print(json.dumps({"status": "all_complete", "completed_at": session.completed_at}, ensure_ascii=False))
-        elif session.is_all_blocked():
-            blocked_info = [
-                {"sg_id": sid, "reason": session.blocked_reasons.get(sid, "")}
-                for sid, s in session.state.items() if s == "blocked"
-            ]
-            print(json.dumps({"status": "all_blocked", "blocked": blocked_info}, ensure_ascii=False))
-        else:
-            print(json.dumps({"status": "no_ready", "message": "No ready sub-goals but some pending"}, ensure_ascii=False))
-        return
-
-    sg_id = ready[0]
-    try:
-        context = session.focus(sg_id)
-        session.save()
-    except ValueError as e:
-        print(json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False))
-        return
+        sg_id = ready[0]
+        try:
+            context = session.focus(sg_id)
+            session.save()
+        except ValueError as e:
+            print(json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False))
+            return
 
     print(json.dumps(context, indent=2, ensure_ascii=False))
 
@@ -243,6 +251,66 @@ def cmd_boost(args):
             print(f"\n下一个就绪: {', '.join(ready[:3])}")
 
 
+def cmd_allocate(args):
+    """Auto-allocate BOOST/FOCUSED mode for all sub-goals.
+
+    Scores each sub-goal across 9 dimensions, checks KB for exact matches,
+    and assigns the optimal execution mode. Supports manual override.
+    """
+    from tools.decomposer.session import ExecutionSession, _load_plan
+    from tools.decomposer.allocator import AllocationConfig
+
+    case_dir = getattr(args, "case_dir", ".")
+    plan_path = getattr(args, "plan", "")
+    state_path = os.path.join(case_dir, "session_state.json")
+
+    if os.path.exists(state_path):
+        session = ExecutionSession.load(state_path)
+    elif plan_path and os.path.exists(plan_path):
+        plan = _load_plan(plan_path)
+        session = ExecutionSession.start(plan, case_dir)
+    else:
+        print("ERROR: 需要 --plan 或已有的 session_state.json", file=sys.stderr)
+        sys.exit(1)
+
+    force_sg_id = getattr(args, "force_sg_id", "")
+    force_mode = getattr(args, "force_mode", "")
+
+    if force_sg_id and force_mode:
+        result = session.reallocate(force_sg_id, force_mode)
+        mode_label = "超频" if result["mode"] == "boost" else "聚焦"
+        print(f"已覆盖: {force_sg_id} -> {mode_label}")
+        print(f"  复杂度分数: {result['complexity_score']:.2f}")
+        print(f"  原因: {result['reason'][:100]}")
+        return
+
+    config = AllocationConfig(
+        boost_threshold=getattr(args, "boost_threshold", 0.40),
+    )
+    plan = session.allocate_all(config)
+
+    mode_labels = {"boost": "超频", "focused": "聚焦"}
+    print(f"分配方案: {plan.challenge_name}")
+    print(f"子目标总数: {len(plan.allocations)}")
+    print(f"  BOOST (超频): {plan.summary.get('boost', 0)}")
+    print(f"  FOCUSED (聚焦): {plan.summary.get('focused', 0)}")
+    print()
+
+    sorted_allocs = sorted(
+        plan.allocations.values(),
+        key=lambda a: a.complexity_score, reverse=True,
+    )
+    for a in sorted_allocs:
+        mode_label = mode_labels.get(a.mode.value, a.mode.value)
+        kb_flag = " [KB匹配]" if a.kb_match_found else ""
+        override_flag = " [手动]" if a.overridden else ""
+        print(f"  {a.sg_id} [{mode_label}] score={a.complexity_score:.2f}{kb_flag}{override_flag}")
+        print(f"    {a.reason[:100]}")
+
+    print()
+    print(f"会话已保存: {os.path.join(os.path.abspath(case_dir), 'session_state.json')}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="forensic executor",
@@ -259,6 +327,7 @@ def main():
 
     p_next = sub.add_parser("next", help="获取下一个就绪子目标的上下文 (JSON)")
     p_next.add_argument("--case-dir", default=".", help="案件目录")
+    p_next.add_argument("--allocate", action="store_true", help="包含自动分配模式信息")
 
     p_complete = sub.add_parser("complete", help="标记子目标完成")
     p_complete.add_argument("--sg-id", required=True, help="子目标ID")
@@ -278,6 +347,15 @@ def main():
     p_boost.add_argument("--voting-samples", type=int, default=3, help="投票采样数")
     p_boost.add_argument("--quiet", action="store_true", help="静默模式")
 
+    p_allocate = sub.add_parser("allocate", help="自动分配执行模式 (BOOST/FOCUSED)")
+    p_allocate.add_argument("--plan", default="", help="execution_plan.json 路径")
+    p_allocate.add_argument("--case-dir", default=".", help="案件目录")
+    p_allocate.add_argument("--force-sg-id", default="", help="强制覆盖指定子目标的模式")
+    p_allocate.add_argument("--force-mode", default="", choices=["boost", "focused"],
+                            help="强制模式")
+    p_allocate.add_argument("--boost-threshold", type=float, default=0.40,
+                            help="复杂度阈值 (低于此为BOOST)")
+
     args = parser.parse_args()
 
     if args.command == "start":
@@ -292,6 +370,8 @@ def main():
         cmd_block(args)
     elif args.command == "boost":
         cmd_boost(args)
+    elif args.command == "allocate":
+        cmd_allocate(args)
     else:
         parser.print_help()
 

@@ -14,6 +14,10 @@ Usage:
 from tools.decomposer.models import (
     DecompositionPlan, EvidenceInfo, SubGoal, SubGoalLevel,
 )
+from tools.decomposer.allocator import (
+    AllocationMode, AllocationResult, AllocationConfig, AllocationPlan,
+    allocate_one, allocate_all,
+)
 from tools.decomposer.decomposer_engine import decompose as _decompose_engine
 from tools.decomposer.evidence_classifier import classify_evidence, summarize_evidence
 from tools.decomposer.parser import parse_challenge
