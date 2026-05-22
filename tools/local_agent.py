@@ -360,8 +360,8 @@ def _create_backend(config):
 def _kb_search(query, kb_root):
     """用项目自带的 kb_search 搜索, 返回摘要字符串."""
     try:
-        from kb_search import consultant_search, extract_search_terms
-        from kb_search import search_by_tags, search_by_tools, search_by_text
+        from tools.kb.search import consultant_search, extract_search_terms
+        from tools.kb.search import search_by_tags, search_by_tools, search_by_text
 
         kb = Path(kb_root)
         if not kb.exists():

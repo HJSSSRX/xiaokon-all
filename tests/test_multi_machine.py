@@ -23,6 +23,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
 PASSED = 0
@@ -117,7 +118,7 @@ def test_build_kb_index_dry_run():
         kb = make_kb(tmp)
         # Run build_kb_index --dir <tmp> (it expects parent of knowledge/, OR knowledge/)
         r = subprocess.run(
-            [sys.executable, str(ROOT / "tools" / "build_kb_index.py"),
+            [sys.executable, str(ROOT / "tools" / "kb" / "build_index.py"),
              "--dir", str(tmp), "--dry-run"],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
@@ -133,7 +134,7 @@ def test_build_kb_index_actual():
         tmp = Path(td)
         kb = make_kb(tmp)
         r = subprocess.run(
-            [sys.executable, str(ROOT / "tools" / "build_kb_index.py"),
+            [sys.executable, str(ROOT / "tools" / "kb" / "build_index.py"),
              "--dir", str(tmp)],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
@@ -171,19 +172,19 @@ def test_build_kb_index_check_mode():
         kb = make_kb(tmp)
         # First time: stale (INDEX doesn't exist)
         r = subprocess.run(
-            [sys.executable, str(ROOT / "tools" / "build_kb_index.py"),
+            [sys.executable, str(ROOT / "tools" / "kb" / "build_index.py"),
              "--dir", str(tmp), "--check"],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         t("--check stale → exit 1", r.returncode == 1)
         # Build it
         subprocess.run(
-            [sys.executable, str(ROOT / "tools" / "build_kb_index.py"), "--dir", str(tmp)],
+            [sys.executable, str(ROOT / "tools" / "kb" / "build_index.py"), "--dir", str(tmp)],
             capture_output=True, check=True,
         )
         # Now check should pass
         r = subprocess.run(
-            [sys.executable, str(ROOT / "tools" / "build_kb_index.py"),
+            [sys.executable, str(ROOT / "tools" / "kb" / "build_index.py"),
              "--dir", str(tmp), "--check"],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
         )

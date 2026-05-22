@@ -22,9 +22,11 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT))
+sys.path.insert(0, str(_ROOT / "tools"))
 
-from huoyan_adapter import (  # noqa: E402
+from tools.integration.huoyan import (  # noqa: E402
     DEFAULT_PORT,
     HuoyanClient,
     HuoyanConfig,
@@ -394,7 +396,7 @@ def test_probe_ok(fake):
 
 def test_probe_not_ok():
     """probe 所有端口都不通 → ok=False + hint."""
-    import huoyan_adapter as ha
+    from tools.integration import huoyan as ha
     # 临时替换候选端口为纯空闲端口 (避开真实火眼 8477)
     original = ha.CANDIDATE_PORTS
     try:

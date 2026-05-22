@@ -77,3 +77,9 @@ htmlcov/
 # If A_main wants these, they'll be promoted (filename without machine suffix)
 tools/diag_*.ps1
 tools/launch_*.ps1
+
+# ─── nuclei runtime caches (large, not source) ───
+tools/bin/nuclei-templates/
+tools/bin/nuclei-config/
+tools/bin/nuclei-cache/
+tools/bin/nuclei.exe

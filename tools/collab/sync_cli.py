@@ -9,7 +9,7 @@ from pathlib import Path
 from ..core import now_str, load_yaml, load_yaml_str, save_yaml, shared_dir
 from .conflict import detect_duplicates, resolve_duplicate, compare_versions
 from .git_sync import cmd_git_init, cmd_git_push, cmd_git_pull
-from .hub_ids import next_finding_id
+from .hub_constants import next_finding_id
 from .lan_sync import cmd_lan_serve, cmd_lan_pull, cmd_lan_push
 from .progressive import progressive_sync
 

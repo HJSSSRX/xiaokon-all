@@ -24,6 +24,8 @@ Tool status:   `python tools/tool_status.py` — query what's installed and wher
 |------|------|
 | **"小空自己动"** | 激活主设计师，选择工作模式 |
 | **"小空自己托"** | 激活喂食者角色，爬取网站构建知识库 |
+| **"小空聚焦"** | 进入聚焦执行模式，逐一执行分解计划中的子目标 |
+| **"小空超频"** | 激活弱模型超频模式 — KB优先 + 紧凑提示 + 多层验证 + 投票 + 升级 |
 
 When the user says **"小空自己动"** (or any variant like "小空启动", "xiaokong go"), you activate and ask the user to choose a mode:
 
@@ -42,6 +44,96 @@ When the user says **"小空自己托"** (or any variant like "喂食者启动")
 3. Parse and organize extracted data into structured knowledge base entries
 4. Link related entries and create relationships
 5. Deliver organized knowledge to Xiaokong for efficient training
+
+### 聚焦执行模式
+
+When the user says **"小空聚焦"** (or "开始聚焦执行", "focused execution", "focus mode"):
+
+1. If no decomposition plan exists, first run decomposer:
+   ```powershell
+   python -m tools.cli decompose --dir {case_dir} --output {case_dir}
+   ```
+
+2. If no execution session exists, start one:
+   ```powershell
+   python -m tools.cli executor start --plan {case_dir}/execution_plan.json --case-dir {case_dir}
+   ```
+
+3. **Load `prompts/protocols/focused_execution.md`** — this is your complete cognitive protocol.
+
+4. Enter the 5-phase focused execution loop:
+   - Phase 1: `executor next` → get context for next ready sub-goal
+   - Phase 2: CORRELATE — KB search + cross-reference dependency findings + form hypothesis
+   - Phase 3: EXECUTE — run recommended tools one at a time
+   - Phase 4: RECORD — log findings via role_log, run `executor complete`
+   - Phase 5: TRANSITION — print status, get next ready, repeat
+
+**Core rule of focused mode**: You are doing ONE sub-goal at a time. Full attention.
+No multitasking. No jumping ahead. **关联性分析 (correlation analysis) must happen BEFORE any tool execution.**
+
+If the user interrupts for a question mid-focus, answer briefly but return to the current sub-goal.
+The session state is auto-saved after each phase — you can resume if interrupted.
+
+### 弱模型超频模式
+
+When the user says **"小空超频"** (or "超频模式", "boost mode", "weak model boost"):
+
+This mode is designed for weak AI models. It wraps each sub-goal in a 6-step amplification pipeline.
+**The AI is only expected to output 4 structured formats** — no free-form reasoning required.
+
+1. Ensure a decomposition plan exists:
+   ```powershell
+   python -m tools.cli decompose --dir {case_dir} --output {case_dir}
+   ```
+
+2. Start an execution session if none exists:
+   ```powershell
+   python -m tools.cli executor start --plan {case_dir}/execution_plan.json --case-dir {case_dir}
+   ```
+
+3. **Load `prompts/protocols/weak_model_boost.md`** — this is the weak model's protocol (NOT focused_execution.md).
+
+4. Run the boost pipeline for the next ready sub-goal:
+   ```powershell
+   python -m tools.cli executor boost --case-dir {case_dir}
+   ```
+
+   Or target a specific sub-goal:
+   ```powershell
+   python -m tools.cli executor boost --sg-id SG-003 --case-dir {case_dir}
+   ```
+
+**The boost pipeline handles automatically:**
+| Step | What happens |
+|------|-------------|
+| 1. KB搜索 | Search knowledge base for exact matches → skip model if found |
+| 2. 紧凑提示 | Build fill-in-the-blank prompt optimized for weak models |
+| 3. 模型推理 | Single inference with low temperature (0.3) |
+| 4. 多层验证 | Command sandbox + format lint + confidence floor |
+| 5. 重试+投票 | Retry with higher temp (0.7), then multi-sample voting (0.8) |
+| 6. 升级 | All fail → flag for stronger model or human intervention |
+
+**What the weak model outputs (only 4 formats):**
+- `TOOL: <tool> <args>` — execute a forensic tool
+- `KB_SEARCH: <terms>` — query the knowledge base
+- `ANSWER: <value>` — submit final answer with confidence
+- `LOG_NEED: <description>` — request escalation
+
+**Key difference from focused mode**: In boost mode, the AI does NOT do correlation analysis.
+The pipeline builds the compact prompt from session context automatically.
+The AI only fills in blanks and outputs structured commands.
+
+**Boost options:**
+```powershell
+# Aggressive: more retries, more voting samples
+python -m tools.cli executor boost --case-dir {case_dir} --max-retries 3 --voting-samples 5
+
+# KB-only: skip model entirely, only use KB exact matches
+python -m tools.cli executor boost --case-dir {case_dir} --no-kb-first
+
+# Quiet mode: minimal output
+python -m tools.cli executor boost --case-dir {case_dir} --quiet
+```
 
 ---
 
@@ -77,13 +169,30 @@ Then tell the user a 3-line situational report and ask whether to continue or st
 
 ### Phase 1: Analyze the Situation
 
-Based on the chosen mode:
+**Always run the decomposer first** (automated evidence scanning + sub-goal decomposition):
 
-**Competition**: Scan the evidence/challenge directory. Identify:
-- Evidence types (disk image, memory dump, pcap, mobile backup, etc.)
-- File sizes, formats, OS type
-- Number and nature of questions/challenges
+```powershell
+python -m tools.cli decompose --dir <case_dir> --output <case_dir>/decomposition/
+```
+
+This produces:
+- `decomposition_report.md` — Evidence inventory + Mermaid dependency graph + execution plan
+- `tasks.json` — Compatible with `python -m tools.cli schedule --case-dir <case_dir>`
+- `execution_plan.json` — Ordered parallel groups with role assignments
+
+Read `decomposition_report.md` to understand the full challenge structure INSTEAD of manually scanning evidence directories. The decomposer:
+1. Classifies all evidence files (extension + magic bytes)
+2. Detects which forensic domains are needed
+3. Creates a 4-level sub-goal hierarchy (shared context → prep → analysis → questions)
+4. Builds dependency DAG with topological sort into parallel groups
+5. Recommends tools per sub-goal (via Apriori KB mining)
+6. Assigns roles with workload balancing
+
+**After decomposition**, supplement with:
+
+**Competition**:
 - Available tools on this machine (check with `where` / `which`)
+- Time pressure assessment (critical path = estimated minimum completion time)
 
 **Training**: Check knowledge base gaps, select target challenges, plan training batch.
 
@@ -418,6 +527,113 @@ flag{pr0cess_1nj3ct10n_d3tect3d}
 - `tools` → searchable: `grep -rl "tools:.*vol3" knowledge/solved/`
 - `Solution Steps` with exact commands → weak model can copy-paste directly
 - `Key Takeaways` → reusable knowledge even for different challenges
+
+---
+
+## Pattern Mining Protocol (Apriori)
+
+You have a built-in **association rule mining** capability powered by the Apriori algorithm. It discovers hidden patterns in the knowledge base: which tools are always used together, which forensic domains overlap, which tags co-occur predictably.
+
+### When to Invoke
+
+| Trigger | What to Do | Goal |
+|---------|-------------|------|
+| **Phase 1 (Situation Analysis)** | `recommend --for "<tags>" --target tools` | Given evidence types, get ranked tool recommendations |
+| **Phase 1 (KB search planning)** | `recommend --for "<tools>" --target tags` | Reverse: given planned tools, find which KB domains to search |
+| **Mid-analysis** | `recommend --for "<found_so_far>" --target all` | Specialist found X — what should they reach for next? |
+| **Phase 0 (Resume)** | `mine --type all` | Understand what tooling patterns exist before assigning roles |
+| **After KB update** | `mine --type all` | Discover new patterns from freshly ingested knowledge |
+| **Post-competition** | `report` | Generate authoritative association_rules.md |
+| **Training mode** | `mine --type tags` | Find knowledge gaps — which tag combinations are underrepresented |
+| **Consultant mode** | `recommend --for "<question_tags>" --target tools` | When asked "what tools for X?", get evidence-based answer |
+
+### Commands
+
+```powershell
+# Quick mining: tool co-occurrence patterns
+python -m tools.cli analytics mine --type tools --min-support 0.15 --top 15
+
+# Tag association: which forensic domains overlap?
+python -m tools.cli analytics mine --type tags --min-support 0.1 --top 15
+
+# Full-spectrum: tags + tools + categories combined
+python -m tools.cli analytics mine --type all --min-support 0.1 --min-confidence 0.4
+
+# Generate comprehensive report to knowledge/_relations/association_rules.md
+python -m tools.cli analytics report
+```
+
+### Automated Tool Recommendation
+
+**This is the primary Phase 1 capability.** Given what you know about the evidence, the engine recommends which tools and knowledge domains are likely needed.
+
+```powershell
+# Recommend tools from evidence context
+python -m tools.cli analytics recommend --for "memory_forensics, windows" --target tools
+
+# Recommend knowledge domains to search (reverse: tools -> tags)
+python -m tools.cli analytics recommend --for "vol3, strings, sqlite3" --target tags
+
+# Full-spectrum recommendation
+python -m tools.cli analytics recommend --for "e01, windows, registry" --target all
+```
+
+**How it works:**
+1. Takes your context items (evidence types, tags, tools you already plan to use)
+2. Mines all association rules from the knowledge base
+3. Finds rules whose antecedent matches your context
+4. Scores recommendations by: `confidence * lift * match_ratio`
+5. Returns ranked list with rationale for each recommendation
+
+**Phase 1 workflow:**
+```
+1. Scan evidence directory, identify evidence types
+2. Run: python -m tools.cli analytics recommend --for "<evidence_types>" --target tools
+3. Use the top-5 recommended tools in the role prompt's "可用工具" section
+4. Run: python -m tools.cli analytics recommend --for "<evidence_types>" --target tags
+5. Use the recommended tags to search knowledge/solved/ for prior solutions
+```
+
+**Reverse recommendation (Phase 2+):** When a specialist reports using tool X and finding Y,
+run `recommend --for "X, Y" --target tools` to discover what other tools they should reach for next.
+
+### How to Interpret Results
+
+- **Lift > 2**: Strong positive correlation — these items genuinely predict each other. Actionable.
+- **Lift 1-2**: Moderate correlation — worth noting but not definitive.
+- **Lift < 1**: Negative correlation — these items tend to exclude each other.
+- **Confidence**: "When A appears, B appears X% of the time." High confidence + high lift = reliable rule.
+- **Support**: How many files exhibit this pattern. Low support may mean noise; check sample size.
+
+### Applying Discovered Rules
+
+**Automated recommendation (preferred)**: Use `analytics recommend` instead of manually reading rules:
+```powershell
+python -m tools.cli analytics recommend --for "e01, windows, registry" --target tools
+# Output: ranked tool list with scores and rationale
+```
+This is faster and more accurate than manual rule inspection — it cross-references all rules simultaneously and ranks by `confidence * lift * match_ratio`.
+
+**Manual rule inspection** (for deep dives):
+```
+Rule: {ewfmount} => {mount, losetup} (confidence=1.00, lift=10.3)
+→ If the evidence requires ewfmount, also prepare mount and losetup.
+```
+
+**KB search refinement**: When searching for prior solutions, expand the query:
+```
+Rule: {methodology} => {mobile} (confidence=0.92, lift=2.9)
+→ A search for "methodology" should also check mobile/ subdirectories.
+```
+
+**Anti-pattern detection**: If rules show {tag_A} rarely appears with expected {tag_B}:
+```
+→ The KB may be missing coverage for that combination — flag for training/ingestion.
+```
+
+**Rule persistence**: After running `python -m tools.cli analytics report`, the output is saved to
+`knowledge/_relations/association_rules.md`. This file is the authoritative record of discovered
+patterns and should be consulted during Phase 1 planning.
 
 ---
 

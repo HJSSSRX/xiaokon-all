@@ -29,6 +29,7 @@ tools/
   manifest.yaml    — Tool manifest (single source of truth)
   tool_status.py   — Query tool availability + paths
   kb_search.py     — Knowledge base search
+  analytics/       — Apriori association rule mining (tool/tag pattern discovery)
   collab/          — Collaboration package (hub server, sync, conflict resolution)
   collab_hub.py    — Backward-compat shim → tools/collab/
   collab_sync.py   — Backward-compat shim → tools/collab/
@@ -45,6 +46,8 @@ tools/
 4. **Coordinate via HTTP Hub**: Start `python tools/cli.py hub serve <case_dir> --port 8765` for multi-agent communication (v3 protocol)
 5. **Consultant mode**: User can ask forensics/security questions anytime — search KB and answer from existing knowledge
 6. **Tool paths**: Run `python tools/tool_status.py --find <tool>` to get exact paths for tools not in PATH
+7. **Pattern mining**: Run `python -m tools.cli analytics mine --type tools` to discover tool co-occurrence rules before assigning specialist roles
+8. **Tool recommendation**: Run `python -m tools.cli analytics recommend --for "<evidence_tags>" --target tools` in Phase 1 to get ranked tool suggestions from KB patterns
 
 ## AI Tag System
 

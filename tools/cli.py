@@ -16,13 +16,16 @@ Usage:
 import sys
 
 GROUPS = {
-    "hub": "tools.collab.hub_cli",
+    "hub": "tools.collab.hub_server",
     "sync": "tools.collab.sync_cli",
     "schedule": "tools.smart_scheduler",
     "generate-roles": "tools.generate_role_prompts_v5",
     "captain": "tools.captain",
     "kb": None,       # sub-routed below
-    "import": "tools.import_yaml_to_hub",
+    "analytics": None,  # sub-routed below
+    "decompose": None,  # sub-routed below
+    "executor": None,  # sub-routed below
+    "import": "tools.hub.import_yaml",
     "lint": "tools.answer_format_lint",
 }
 
@@ -38,6 +41,14 @@ def _print_usage():
     print("  captain [opts]              Captain console dashboard")
     print("  kb build [opts]             Build knowledge base index")
     print("  kb search <query> [opts]    Search knowledge base")
+    print("  analytics mine [opts]       Mine association rules from KB")
+    print("  analytics report [opts]     Generate association rule report")
+    print("  analytics recommend [opts]  Recommend tools/tags for evidence context")
+    print("  decompose --dir DIR [opts]  Decompose challenge into sub-goal DAG")
+    print("  executor start --plan <path> Start focused execution session")
+    print("  executor status [opts]       Show execution progress")
+    print("  executor next [opts]         Print context for next ready sub-goal")
+    print("  executor boost [opts]        Weak model boost — 6-step amplification pipeline")
     print("  import <yaml> [opts]        Import YAML to hub")
     print("  lint [opts]                 Answer format lint")
     print()
@@ -59,13 +70,38 @@ def main():
         kb_cmd = sys.argv[2]
         if kb_cmd == "build":
             sys.argv = ["kb_build"] + sys.argv[3:]
-            from tools.build_kb_index import main as m
+            from tools.kb.build_index import main as m
         elif kb_cmd == "search":
             sys.argv = ["kb_search"] + sys.argv[3:]
-            from tools.kb_search import main as m
+            from tools.kb.search import main as m
         else:
             print(f"Unknown kb command: {kb_cmd}")
             return
+        m()
+        return
+
+    # decompose has sub-groups
+    if group == "decompose":
+        sys.argv = ["decompose"] + sys.argv[2:]
+        from tools.decomposer.cli import main as m
+        m()
+        return
+
+    # executor has sub-groups
+    if group == "executor":
+        sys.argv = ["executor"] + sys.argv[2:]
+        from tools.decomposer.session_cli import main as m
+        m()
+        return
+
+    # analytics has sub-groups
+    if group == "analytics":
+        if len(sys.argv) < 3:
+            print("Usage: forensic analytics <mine|report> [opts]")
+            return
+        sub = sys.argv[2]
+        sys.argv = ["analytics"] + sys.argv[2:]
+        from tools.analytics.cli import main as m
         m()
         return
 

@@ -41,8 +41,9 @@ if sys.platform == "win32":
         pass
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "tools"))
-import detect_layout  # noqa: E402
+import tools.dev.detect_layout as detect_layout  # noqa: E402
 
 # Logical → git remote name mapping (default for layout A)
 REMOTE_MAP = {

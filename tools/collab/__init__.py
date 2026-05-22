@@ -12,17 +12,11 @@ from .hub_constants import (
     NEED_CONFIDENCE_LEGACY,
 )
 
-# Hub IDs
-from .hub_ids import next_finding_id, normalize_confidence
-
 # Hub handler
 from .hub_handler import Handler
 
-# Hub server
-from .hub_server import get_local_ips, init_shared_files, cmd_serve
-
-# Hub CLI
-from .hub_cli import main as hub_main
+# Hub server (includes CLI main)
+from .hub_server import get_local_ips, init_shared_files, cmd_serve, main as hub_main
 
 # Conflict resolution
 from .conflict import detect_duplicates, resolve_duplicate, compare_versions
