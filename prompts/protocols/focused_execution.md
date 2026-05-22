@@ -23,11 +23,17 @@ Only THEN do you execute tools.
 python -m tools.cli executor next --case-dir {case_dir}
 ```
 
-This outputs a JSON context dict. Parse it. Tell the user:
+This outputs a JSON context dict. Parse it.
+
+**Mode check** — the context now always includes `allocation_mode`:
+- If `allocation_mode == "boost"`: This sub-goal is simple. **Switch protocol** — load `prompts/protocols/weak_model_boost.md` and run `python -m tools.cli executor boost --sg-id {sg_id} --case-dir {case_dir}`. Skip Phases 2-5 below.
+- If `allocation_mode == "focused"`: Continue with Phases 2-5 below.
+
+Tell the user:
 
 ```
 当前聚焦: {sg_id} [{level_name}] {description}
-角色: {assigned_role} | 预估: {estimated_minutes}min | 依赖: {dependencies}
+模式: {allocation_mode} | 角色: {assigned_role} | 预估: {estimated_minutes}min | 依赖: {dependencies}
 ```
 
 **If status = "all_complete"**: Print "全部完成!" and exit focused mode.

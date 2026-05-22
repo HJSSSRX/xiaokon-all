@@ -74,6 +74,7 @@ class ExecutionSession:
             started_at=_now(),
             blocked_reasons=blocked_reasons,
         )
+        session.allocate_all()
         return session
 
     @classmethod

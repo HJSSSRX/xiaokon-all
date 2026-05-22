@@ -50,6 +50,13 @@ def cmd_start(args):
 
     print(f"会话已启动: {plan.challenge_name}")
     print(f"子目标总数: {len(plan.sub_goals)}")
+
+    # Show allocation summary
+    boost_n = sum(1 for a in session.allocations.values() if a.get("mode") == "boost")
+    focused_n = sum(1 for a in session.allocations.values() if a.get("mode") == "focused")
+    if boost_n + focused_n > 0:
+        print(f"分配: BOOST={boost_n}, FOCUSED={focused_n}")
+
     ready = session.next_ready()
     print(f"就绪: {len(ready)} 个")
 
@@ -76,37 +83,11 @@ def cmd_next(args):
     This is the primary command used by the AI during Phase 1 of the
     focused_execution.md protocol. Output is JSON for machine consumption.
 
-    Now includes allocation_mode field so the AI knows whether to use
-    focused_execution.md or weak_model_boost.md.
+    Allocation mode is automatically included — the AI reads allocation_mode
+    to decide whether to use focused_execution.md or weak_model_boost.md.
     """
     session = _get_session(args)
-
-    use_alloc = getattr(args, "allocate", False)
-    if use_alloc:
-        context = session.next_ready_with_allocation()
-    else:
-        ready = session.next_ready()
-        if not ready:
-            if session.is_complete():
-                print(json.dumps({"status": "all_complete", "completed_at": session.completed_at}, ensure_ascii=False))
-            elif session.is_all_blocked():
-                blocked_info = [
-                    {"sg_id": sid, "reason": session.blocked_reasons.get(sid, "")}
-                    for sid, s in session.state.items() if s == "blocked"
-                ]
-                print(json.dumps({"status": "all_blocked", "blocked": blocked_info}, ensure_ascii=False))
-            else:
-                print(json.dumps({"status": "no_ready", "message": "No ready sub-goals but some pending"}, ensure_ascii=False))
-            return
-
-        sg_id = ready[0]
-        try:
-            context = session.focus(sg_id)
-            session.save()
-        except ValueError as e:
-            print(json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False))
-            return
-
+    context = session.next_ready_with_allocation()
     print(json.dumps(context, indent=2, ensure_ascii=False))
 
 
@@ -325,9 +306,8 @@ def main():
     p_status = sub.add_parser("status", help="查看执行进度")
     p_status.add_argument("--case-dir", default=".", help="案件目录")
 
-    p_next = sub.add_parser("next", help="获取下一个就绪子目标的上下文 (JSON)")
+    p_next = sub.add_parser("next", help="获取下一个就绪子目标的上下文 (JSON, 自动含分配模式)")
     p_next.add_argument("--case-dir", default=".", help="案件目录")
-    p_next.add_argument("--allocate", action="store_true", help="包含自动分配模式信息")
 
     p_complete = sub.add_parser("complete", help="标记子目标完成")
     p_complete.add_argument("--sg-id", required=True, help="子目标ID")
