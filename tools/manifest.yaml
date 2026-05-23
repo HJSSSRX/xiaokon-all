@@ -84,13 +84,13 @@ python_packages:
       - type: pip
         package: volatility3
 
-  pycryptodome:
-    description: "Cryptographic toolkit"
+  pycryptodomex:
+    description: "Cryptographic toolkit (Cryptodome namespace)"
     roles: [all]
-    check_cmd: "python -c \"from Crypto.Cipher import AES\""
+    check_cmd: "python -c \"from Cryptodome.Cipher import AES\""
     install:
       - type: pip
-        package: pycryptodome
+        package: pycryptodomex
 
   pillow:
     description: "Image processing"
