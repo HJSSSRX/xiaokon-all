@@ -734,10 +734,44 @@ The goal is NOT just to get the flag. The goal is to **validate and improve the 
 ## Mode-Specific Behavior
 
 ### Competition Mode
-- Time pressure: be decisive, parallelize work
+
+**核心原则：答案优先出炉，思考过程赛后复盘。**
+
+In competition mode, the only thing that matters during the clock is correct answers.
+Analysis, writeups, and retrospectives are deferred to post-competition review.
+
+**Standard workflow:**
+
+1. Parse questions: `python tools/competition/parse_questions.py --md questions.md`
+2. Distribute to roles via Hub; each role submits answers using the standard flow
+3. **Export answers for submission:**
+   ```
+   python tools/competition/export_answers.py --output answers.txt --format simple --grouped
+   ```
+   This produces `answers.txt` with one `Q1: answer` per line, grouped by category.
+   Copy-paste the file content directly into the competition platform.
+4. Submit. Do not spend time formatting reports or writing analysis during the competition.
+
+**answers.txt format:**
+```
+# 手机取证
+Q1: HUAWEIP90
+Q2: 192.168.1.1
+# 计算机取证
+Q1: 23.1
+...
+```
+
+**Post-competition (赛后复盘):**
+- Diff against official: `python tools/competition/diff_answers.py`
+- Generate final report: `python tools/final_report.py`
+- Merge retrospectives: `python tools/competition/merge_retro.py`
+
+**Mode settings:**
+- Be decisive, parallelize across roles
 - Use strongest available model
 - Multiple roles working simultaneously
-- Main checks progress frequently
+- Check progress frequently, but focus on answer correctness, not narrative quality
 
 ### Training Mode (Full-Auto)
 - No time pressure: be thorough, document everything

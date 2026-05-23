@@ -26,6 +26,7 @@ GROUPS = {
     "decompose": None,  # sub-routed below
     "executor": None,  # sub-routed below
     "import": "tools.hub.import_yaml",
+    "export": None,   # sub-routed below
     "lint": "tools.answer_format_lint",
 }
 
@@ -51,6 +52,7 @@ def _print_usage():
     print("  executor boost [opts]        Weak model boost — 6-step amplification pipeline")
     print("  executor allocate [opts]     Auto-allocate BOOST/FOCUSED mode per sub-goal")
     print("  import <yaml> [opts]        Import YAML to hub")
+    print("  export answers [opts]        Export answers to competition .txt file")
     print("  lint [opts]                 Answer format lint")
     print()
     print("Run 'python -m tools.cli <group> --help' for details.")
@@ -93,6 +95,20 @@ def main():
         sys.argv = ["executor"] + sys.argv[2:]
         from tools.decomposer.session_cli import main as m
         m()
+        return
+
+    # export has sub-groups
+    if group == "export":
+        if len(sys.argv) < 3:
+            print("Usage: forensic export <answers> [opts]")
+            return
+        sub = sys.argv[2]
+        if sub == "answers":
+            sys.argv = ["export_answers"] + sys.argv[3:]
+            from tools.competition.export_answers import main as m
+            m()
+            return
+        print(f"Unknown export subcommand: {sub}")
         return
 
     # analytics has sub-groups
