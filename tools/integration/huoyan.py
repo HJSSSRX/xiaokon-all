@@ -69,8 +69,8 @@ from urllib import request as urlreq
 # ─── 常量 ─────────────────────────────────────────────
 
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8477                # goldeneyes.exe 主进程真实监听端口
-CANDIDATE_PORTS = [8477, 8478, 8001, 9112, 8002]  # 扫描兜底
+DEFAULT_PORT = 8862                # goldeneyes.exe 主进程真实监听端口
+CANDIDATE_PORTS = [8862, 8477, 8478, 8001, 9112, 8002]  # 扫描兜底
 MCP_PATH = "/mcp"
 PING_PATH = "/ping"
 DEFAULT_TIMEOUT = 30               # GES 向量/图谱查询可能慢

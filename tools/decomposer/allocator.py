@@ -7,6 +7,7 @@ adjustment when boost fails.
 import os
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -302,6 +303,37 @@ def allocate_one(
         reason = f"复杂度={raw_score:.2f} >= 阈值{cfg.boost_threshold} → FOCUSED"
         kb_found = False
         kb_file = ""
+
+    # ── Logit capture ──────────────────────────────────────────
+    try:
+        from tools.logits import get_capture
+        cap = get_capture()
+        if cap.enabled:
+            cap.record_alloc(
+                sg_id=sg.id,
+                timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                complexity_score=raw_score,
+                dimension_scores=dict(dims),
+                mode=mode.value,
+                reason=reason,
+                kb_match_found=kb_found,
+                kb_match_file=kb_file,
+                weights={
+                    "level": cfg.weight_level,
+                    "domain": cfg.weight_domain,
+                    "tools": cfg.weight_tools,
+                    "estimated_minutes": cfg.weight_estimated_minutes,
+                    "task_type": cfg.weight_task_type,
+                    "critical_path": cfg.weight_critical_path,
+                    "dependencies": cfg.weight_dependencies,
+                    "inputs": cfg.weight_inputs,
+                    "dep_findings": cfg.weight_dep_findings,
+                },
+                raw_weighted_sum=weighted,
+            )
+    except Exception:
+        pass
+    # ────────────────────────────────────────────────────────────
 
     return AllocationResult(
         sg_id=sg.id,

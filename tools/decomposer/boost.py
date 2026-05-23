@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
@@ -128,6 +129,8 @@ class BoostOrchestrator:
         sg_id = context.get("sg_id", "?")
         result = BoostResult(sg_id=sg_id, success=False, timestamp=_now())
 
+        self._current_sg_id = sg_id  # for model call logit capture
+
         # ── Step 1: KB-first search ─────────────────────────────
         if self.config.kb_first:
             kb_hits = self._kb_search(context)
@@ -141,6 +144,7 @@ class BoostOrchestrator:
                 result.confidence = "cross_source_high"
                 result.success = True
                 self._log(f"[{sg_id}] KB精确匹配! 跳过模型推理, 直接复制命令")
+                self._capture(result)
                 return result
 
         # ── Step 2: Compact prompt → model inference ────────────
@@ -163,6 +167,7 @@ class BoostOrchestrator:
             result.method = "model_inference"
             result.success = True
             self._log(f"[{sg_id}] 模型推理通过 (confidence={result.confidence})")
+            self._capture(result)
             return result
 
         self._log(f"[{sg_id}] 验证失败: {errors}")
@@ -187,6 +192,7 @@ class BoostOrchestrator:
                 result.method = "model_inference"
                 result.success = True
                 self._log(f"[{sg_id}] 重试{retry + 1}通过")
+                self._capture(result)
                 return result
 
         # ── Step 5: Multi-sample voting ─────────────────────────
@@ -201,6 +207,7 @@ class BoostOrchestrator:
                 result.success = True
                 result.attempts += self.config.voting_samples
                 result.raw_outputs.extend(vote_result.raw_outputs)
+                self._capture(result)
                 return result
 
         # ── Step 6: Escalate ────────────────────────────────────
@@ -209,6 +216,7 @@ class BoostOrchestrator:
             result.error = f"所有尝试失败 ({result.attempts}次推理 + 投票), 已标记为需升级"
             self._log(f"[{sg_id}] 升级: {result.error}")
 
+        self._capture(result)
         return result
 
     # ── Internal: KB Search ──────────────────────────────────────
@@ -383,6 +391,7 @@ class BoostOrchestrator:
 
     def _call_model(self, prompt: str, temperature: float = 0.3) -> Optional[str]:
         """Call the configured model backend. Tries local_agent backends."""
+        t0 = time.time()
         try:
             from tools.local_agent import _create_backend
 
@@ -395,6 +404,28 @@ class BoostOrchestrator:
 
             messages = [{"role": "user", "content": prompt}]
             output = backend.chat(messages, temperature=temperature, max_tokens=1024)
+            latency_ms = (time.time() - t0) * 1000
+
+            # ── Logit capture: model call ────────────────────────
+            try:
+                from tools.logits import get_capture
+                cap = get_capture()
+                if cap.enabled:
+                    cap.record_model_call(
+                        sg_id=getattr(self, "_current_sg_id", "?"),
+                        timestamp=_now(),
+                        model_backend=getattr(backend, "model_name", str(type(backend).__name__)),
+                        temperature=temperature,
+                        prompt_chars=len(prompt),
+                        output_chars=len(output or ""),
+                        latency_ms=latency_ms,
+                        tokens_est=len(prompt) // 3,  # rough estimate
+                        prompt_snippet=prompt[:120],
+                    )
+            except Exception:
+                pass
+            # ───────────────────────────────────────────────────────
+
             return output
         except Exception as e:
             self._log(f"模型调用失败: {e}")
@@ -542,6 +573,40 @@ class BoostOrchestrator:
     def _log(self, msg: str):
         if self.config.log_every_step:
             print(f"[boost] {msg}", file=sys.stderr)
+
+    def _capture(self, result: BoostResult) -> None:
+        """Record boost logit if capture is enabled."""
+        try:
+            from tools.logits import get_capture
+            cap = get_capture()
+            if cap.enabled:
+                voting_ratio = None
+                if result.method == "voting" and result.attempts >= self.config.voting_samples:
+                    from collections import Counter
+                    answers = []
+                    for raw in result.raw_outputs[-self.config.voting_samples:]:
+                        parsed = self._parse_response(raw)
+                        if parsed.get("answer"):
+                            answers.append(parsed["answer"])
+                    if answers:
+                        mc = Counter(answers).most_common(1)[0]
+                        voting_ratio = mc[1] / len(answers)
+                cap.record_boost(
+                    sg_id=result.sg_id,
+                    timestamp=_now(),
+                    success=result.success,
+                    method=result.method,
+                    confidence=result.confidence,
+                    attempts=result.attempts,
+                    temperature=self.config.temperature_high,
+                    validation_errors=list(result.validation_errors),
+                    answer=result.answer,
+                    kb_hit_count=len(result.kb_hits),
+                    voting_ratio=voting_ratio,
+                    raw_outputs_snippets=list(result.raw_outputs),
+                )
+        except Exception:
+            pass
 
 
 # ── Convenience Functions ─────────────────────────────────────────
