@@ -119,7 +119,9 @@ def cmd_complete(args):
         print(f"  解封了: {', '.join(unblocked)}")
 
     if session.is_complete():
-        print("\n全部完成!\a")
+        print("\n全部完成!")
+        import winsound
+        winsound.Beep(800, 300)
 
     ready = session.next_ready()
     if ready and not session.is_complete():
@@ -228,7 +230,9 @@ def cmd_boost(args):
 
     if result.success:
         if session.is_complete():
-            print("\n全部完成!\a")
+            print("\n全部完成!")
+            import winsound
+            winsound.Beep(800, 300)
         else:
             ready = session.next_ready()
             if ready:

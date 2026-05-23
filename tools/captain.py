@@ -244,7 +244,8 @@ def render_human(state):
             f"verified={verified}  disputed={disputed}"
         )
         if answered == total:
-            lines.append("\a")  # terminal bell — all answers submitted
+            import winsound
+            winsound.Beep(800, 300)
 
     # 未回复 inbox
     lines.append("")
