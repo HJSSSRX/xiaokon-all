@@ -118,7 +118,7 @@ class HuoyanConfig:
     # 案件 ID (当前打开的 case)  用户/AI 需要告知
     default_cid: int | None = None
     # 火眼安装根 (仅供指引文本用)
-    huoyan_root: str = r"D:\ffffffff\fireeyes"
+    huoyan_root: str = r"D:\fireeye\GoldenEyesV4"
     case_root: str = r"E:\fffff-TEMP"
 
     @property
@@ -305,7 +305,7 @@ class HuoyanClient:
         candidates = [self.cfg.port] + [p for p in CANDIDATE_PORTS if p != self.cfg.port]
         for port in candidates:
             if not self.is_port_open(self.cfg.host, port):
-                if verbose: print(f"  [×] {self.cfg.host}:{port} TCP 未监听")
+                if verbose: print(f"  [X] {self.cfg.host}:{port} TCP 未监听")
                 continue
 
             # 临时切到这个 port 做一次握手
@@ -314,12 +314,12 @@ class HuoyanClient:
             try:
                 pong = self.ping()
                 if pong and pong.get("message") == "pong":
-                    if verbose: print(f"  [✓] {self.cfg.host}:{port} /ping ok")
+                    if verbose: print(f"  [OK] {self.cfg.host}:{port} /ping ok")
                     info = self.connect()
                     tools = self.list_tools()
                     if verbose:
                         name = info["server_info"].get("name", "?")
-                        print(f"  [✓] {self.cfg.host}:{port} MCP ok: {name}, {len(tools)} tools")
+                        print(f"  [OK] {self.cfg.host}:{port} MCP ok: {name}, {len(tools)} tools")
                     return {
                         "ok": True,
                         "host": self.cfg.host,
@@ -329,9 +329,9 @@ class HuoyanClient:
                         "tools": tools,
                     }
                 else:
-                    if verbose: print(f"  [~] {self.cfg.host}:{port} 没回 pong, 不是火眼")
+                    if verbose: print(f"  [-] {self.cfg.host}:{port} 没回 pong, 不是火眼")
             except Exception as e:
-                if verbose: print(f"  [~] {self.cfg.host}:{port} 握手失败: {type(e).__name__}: {e}")
+                if verbose: print(f"  [-] {self.cfg.host}:{port} 握手失败: {type(e).__name__}: {e}")
             finally:
                 if not self._session_id:
                     self.cfg.port = saved  # 失败回滚
@@ -341,7 +341,7 @@ class HuoyanClient:
             "checked_ports": candidates,
             "hint": (
                 "火眼 MCP 未就绪. 检查:\n"
-                "  1. 启动 GoldenEyesV4.exe 并登录\n"
+                "  1. 启动 D:\\fireeye\\GoldenEyesV4\\GoldenEyesV4.exe 并登录\n"
                 "     账号: myirce123456@126.com, 密码: wuyi@2026\n"
                 "  2. 打开 (或创建) 一个案件 (位于 E:\\fffff-TEMP 下)\n"
                 "  3. 火眼主界面等案件解析完\n"
@@ -448,7 +448,7 @@ def cmd_probe(hy: HuoyanClient, args) -> int:
     print(f"候选端口: {[hy.cfg.port] + [p for p in CANDIDATE_PORTS if p != hy.cfg.port]}\n")
     r = hy.probe(verbose=True)
     if r["ok"]:
-        print(f"\n✓ 火眼 MCP 已就绪")
+        print(f"\n[OK] 火眼 MCP 已就绪")
         print(f"  服务器: {r['server_info'].get('name', '?')}")
         print(f"  端口:   {r['host']}:{r['port']}")
         print(f"  Session: {r['session_id']}")
@@ -457,7 +457,7 @@ def cmd_probe(hy: HuoyanClient, args) -> int:
             req = t.get("inputSchema", {}).get("required", [])
             print(f"    · {t['name']:<20s}  required={req}")
         return 0
-    print(f"\n✗ 火眼未就绪\n\n{r['hint']}")
+    print(f"\n[X] 火眼未就绪\n\n{r['hint']}")
     return 1
 
 
