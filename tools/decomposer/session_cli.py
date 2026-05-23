@@ -119,7 +119,7 @@ def cmd_complete(args):
         print(f"  解封了: {', '.join(unblocked)}")
 
     if session.is_complete():
-        print("\n全部完成!")
+        print("\n全部完成!\a")
 
     ready = session.next_ready()
     if ready and not session.is_complete():
@@ -227,9 +227,12 @@ def cmd_boost(args):
     print("=" * 50)
 
     if result.success:
-        ready = session.next_ready()
-        if ready and not session.is_complete():
-            print(f"\n下一个就绪: {', '.join(ready[:3])}")
+        if session.is_complete():
+            print("\n全部完成!\a")
+        else:
+            ready = session.next_ready()
+            if ready:
+                print(f"\n下一个就绪: {', '.join(ready[:3])}")
 
 
 def cmd_allocate(args):

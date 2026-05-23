@@ -243,6 +243,8 @@ def render_human(state):
             f"  {'合计':6s} {answered:2d}/{total:2d} ({answered*100//total:3d}%) "
             f"verified={verified}  disputed={disputed}"
         )
+        if answered == total:
+            lines.append("\a")  # terminal bell — all answers submitted
 
     # 未回复 inbox
     lines.append("")
