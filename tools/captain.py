@@ -245,7 +245,7 @@ def render_human(state):
         )
         if answered == total:
             import winsound
-            winsound.Beep(800, 300)
+            winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
 
     # 未回复 inbox
     lines.append("")

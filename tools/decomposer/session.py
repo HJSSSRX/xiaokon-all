@@ -482,7 +482,7 @@ class ExecutionSession:
         if self.completed_at:
             lines.append(f"完成: {self.completed_at}")
             import winsound
-            winsound.Beep(800, 300)
+            winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
 
         ready_ids = self.next_ready()
         if ready_ids and not self.current_sg_id:

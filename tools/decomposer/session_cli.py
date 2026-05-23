@@ -121,7 +121,7 @@ def cmd_complete(args):
     if session.is_complete():
         print("\n全部完成!")
         import winsound
-        winsound.Beep(800, 300)
+        winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
 
     ready = session.next_ready()
     if ready and not session.is_complete():
