@@ -1,9 +1,9 @@
 # 小空角色定义 — 按能力域组织，不按"取证 vs 攻防"分割
 # 每个角色覆盖一个能力域的双端: forensics(还原) + offensive(利用)
 #
-# 5 能力域:
-#   computer — 计算机/系统  |  mobile — 移动端  |  server — 服务端/Web
-#   network  — 网络/流量   |  binary  — 二进制
+# 8 角色 (5 取证 + 3 攻防):
+#   computer/mobile/server/network/binary — 取证核心 (dual_scope 覆盖攻防双端)
+#   web_pentester/stego_crypto/misc — 攻防专精 (web渗透/密码隐写/杂项)
 
 computer:
   title: 计算机/系统分析 (computer_analyst)
@@ -151,4 +151,75 @@ binary:
     '
   huoyan_tool_examples: '
     PE/ELF元信息/字符串扫/AES-MD5常量/VHD内部读取
+    '
+
+web:
+  title: Web安全分析 (web_pentester)
+  domain: web
+  evidence_desc: Web应用 (URL/源码/API端点/认证机制/SQLi/XSS/SSRF)
+  dual_scope:
+    forensics: "从Web日志和源码还原: 攻击入口/Webshell/数据泄露路径/后门"
+    offensive: "渗透测试视角: SQL注入/XSS/SSRF/文件上传/命令注入/反序列化/认证绕过"
+  techniques_to_read:
+  - sql_injection
+  - xss_payloads
+  - ssrf_bypass
+  - file_inclusion
+  - deserialization
+  specific_lessons: '
+    Web渗透标准流程: 侦察→目录爆破→参数fuzz→注入探测→利用→后渗透
+    铁律: 先用curl确定存活, 再用nuclei批量扫, 手工注入优先级高于自动化
+    跨域联动: 拿到Webshell后立即log_finding推给server_analyst做取证
+    '
+  human_collab_examples: '
+    批次模板: nmap全端口→ffuf目录→sqlmap注入点→手工Payload (8分钟一轮)
+    '
+  huoyan_tool_examples: '
+    URL/API端点提取/网站指纹识别/WAF检测/漏洞POC
+    '
+
+stego_crypto:
+  title: 隐写与密码分析 (stego_crypto_analyst)
+  domain: crypto
+  evidence_desc: 加密数据/隐写文件/编码文本/哈希值/多媒体藏数据
+  dual_scope:
+    forensics: "从加密/隐写数据还原: 解密/解码/提取隐藏信息/逆向加密算法"
+    offensive: "从对抗视角: 侧信道攻击/哈希碰撞/填充Oracle/长度扩展/弱密钥利用"
+  techniques_to_read:
+  - aes_modes
+  - rsa_fermat
+  - lsb_stego
+  - jpeg_stego
+  - classical_ciphers
+  specific_lessons: '
+    解密优先级: 已知key→已知算法→暴破→在线hash库→算法逆向
+    隐写检测: strings→exiftool→binwalk→zsteg→steghide→LSB分析
+    铁律: VC/加密容器密码优先搜mobile notes+binary反编译
+    '
+  human_collab_examples: '
+    批次模板: file识别→binwalk解包→hashcat暴破→openssl解密 (5分钟)
+    '
+  huoyan_tool_examples: '
+    文件元信息/隐藏数据检测/哈希识别/算法问答
+    '
+
+misc:
+  title: 杂项分析 (misc_analyst)
+  domain: stego_crypto
+  evidence_desc: 非标准格式/未知文件/流量残余/隐藏数据/协议异常/CTF杂项
+  dual_scope:
+    forensics: "从各种非标证据还原: 协议逆向/未知格式解析/隐写/编码嵌套/取证重建"
+    offensive: "从创造性视角: 协议注入/格式混淆/伪加密/文件结构利用/多工具链攻击"
+  techniques_to_read:
+  - file_magic_bytes
+  - multi_layer_encoding
+  - forensic_carving
+  - protocol_reverse
+  specific_lessons: '
+    Misc题铁律: file→strings→hexdump→binwalk→entropy→自定义脚本
+    多尝试不同解码顺序: base64→hex→zlib→rot13 等组合很常见
+    取证杂项: 优先搜已知magic bytes, 没有就靠entropy猜
+    '
+  human_collab_examples: '
+    批次模板: magic bytes检测→编码识别→嵌套解包 (3分钟快速triage)
     '

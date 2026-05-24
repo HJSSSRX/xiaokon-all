@@ -71,6 +71,21 @@ from tools.analytics.invariant import (
     format_knowledge_flow,
     format_stabilizer_analysis,
 )
+from tools.analytics.causality import (
+    build_causal_graph_from_rules,
+    build_causal_graph_from_transactions,
+    abductive_inference,
+    infer_problem_domain,
+    counterfactual_domain_change,
+    causal_discovery,
+    find_root_causes,
+    estimate_intervention_effect,
+    format_causal_graph_summary,
+    format_abductive_results,
+    format_counterfactual,
+    format_root_causes,
+    format_intervention_effect,
+)
 from tools.analytics.ncd import (
     ncd_matrix_from_features,
     ncd_matrix_from_files,
@@ -814,6 +829,248 @@ def cmd_invariant(args):
         print("Usage: python -m tools.cli analytics invariant <subcommand> [options]")
 
 
+def cmd_ncd(args):
+    """Dispatch NCD subcommands."""
+    kb_root = args.kb_root or _default_kb_root()
+
+    if args.ncd_command == "matrix":
+        # Load problems as feature strings
+        problems = _load_problem_signatures(kb_root)
+        if not problems:
+            print("No problems found.")
+            return
+
+        feat_dict = {
+            p.problem_id: sorted(p.features) for p in problems
+        }
+        matrix = ncd_matrix_from_features(
+            feat_dict, compressor=args.compressor
+        )
+        print(format_ncd_matrix_summary(matrix))
+
+        if args.show_neighbors:
+            for pid in list(feat_dict.keys())[:args.top]:
+                nn = matrix.nearest_neighbors(pid, k=5)
+                print(format_ncd_neighbors(pid, nn))
+                print("---")
+
+    elif args.ncd_command == "neighbors":
+        problems = _load_problem_signatures(kb_root)
+        if not args.problem_id:
+            print("--problem-id is required.")
+            return
+
+        feat_dict = {
+            p.problem_id: sorted(p.features) for p in problems
+        }
+        matrix = ncd_matrix_from_features(
+            feat_dict, compressor=args.compressor
+        )
+        nn = matrix.nearest_neighbors(args.problem_id, k=args.top)
+        print(format_ncd_neighbors(args.problem_id, nn))
+
+    elif args.ncd_command == "cluster":
+        problems = _load_problem_signatures(kb_root)
+        feat_dict = {
+            p.problem_id: sorted(p.features) for p in problems
+        }
+        matrix = ncd_matrix_from_features(
+            feat_dict, compressor=args.compressor
+        )
+        dendrogram = ncd_hierarchical_clustering(matrix)
+        print(format_ncd_clusters(dendrogram, threshold=args.threshold))
+
+    elif args.ncd_command == "anomalies":
+        problems = _load_problem_signatures(kb_root)
+        feat_dict = {
+            p.problem_id: sorted(p.features) for p in problems
+        }
+        matrix = ncd_matrix_from_features(
+            feat_dict, compressor=args.compressor
+        )
+        anomalies = detect_ncd_anomalies(matrix, z_threshold=args.z_threshold)
+        print(format_ncd_anomalies(anomalies))
+
+        # Cross-validate with invariants
+        if args.cross_validate:
+            rules = build_domain_transformation_rules()
+            extractor = InvariantExtractor(problems, rules=rules)
+            try:
+                report = extractor.extract_essence(min_support=0.2)
+                comparison = compare_ncd_with_invariants(matrix, report.profiles)
+                print(format_ncd_invariant_comparison(comparison))
+            except Exception as e:
+                print(f"NCD vs invariant cross-validation failed: {e}")
+
+    else:
+        print("Unknown NCD subcommand.")
+        print("Available: matrix, neighbors, cluster, anomalies")
+
+
+def cmd_causal(args):
+    """Dispatch causal inference subcommands."""
+    kb_root = args.kb_root or _default_kb_root()
+
+    if args.causal_command == "infer":
+        # Reverse inference: given tools, infer domain/problem type
+        observed = set(o.strip() for o in args.observed.split(",") if o.strip())
+        if not observed:
+            print("ERROR: --observed 参数不能为空。示例: --observed 'volatility, memory_forensics'")
+            return
+
+        # Build causal graph from transactions
+        problems = _load_problem_signatures(kb_root)
+        if not problems:
+            print("No problems found.")
+            return
+
+        # Build transactions with domain labels
+        from tools.analytics.transactions import extract_transactions
+        txns, _ = extract_transactions(kb_root, item_types=("tags", "tools", "categories"))
+
+        # Map domain labels per transaction
+        domain_map = {
+            "crypto": "crypto", "stego_crypto": "crypto",
+            "computer_forensics": "computer", "c_computer": "computer",
+            "memory_forensics": "memory", "mobile_forensics": "mobile",
+            "m_phone": "mobile", "network_forensics": "network",
+            "n_network": "network", "binary_analysis": "binary",
+            "web": "web", "server_forensics": "server",
+            "cloud": "cloud", "iot": "iot",
+        }
+        domain_per_txn = {}
+        for i, txn in enumerate(txns):
+            for item in txn:
+                if item in domain_map:
+                    domain_per_txn[i] = domain_map[item]
+                    break
+
+        graph = build_causal_graph_from_transactions(
+            txns, domain_per_txn, min_confidence=args.min_confidence
+        )
+
+        # Run abductive inference
+        results = infer_problem_domain(observed, graph)
+        print(format_abductive_results(results, observed))
+
+    elif args.causal_command == "counterfactual":
+        # "What if this problem were in domain X instead of Y?"
+        problems = _load_problem_signatures(kb_root)
+        if not problems:
+            print("No problems found.")
+            return
+
+        # Find problem matching the ID
+        matching = [p for p in problems if args.problem_id in p.problem_id]
+        if not matching:
+            print(f"No problem matching '{args.problem_id}' found.")
+            print(f"Available: {', '.join(p.problem_id for p in problems[:10])}...")
+            return
+        problem = matching[0]
+
+        rules = build_domain_transformation_rules()
+        extractor = InvariantExtractor(problems, rules=rules)
+        report = extractor.extract_essence(min_support=0.2)
+
+        isomorphisms = detect_isomorphisms(
+            report.profiles, min_score=0.3, cross_domain_only=True
+        )
+
+        cf = counterfactual_domain_change(
+            problem.problem_id,
+            problem.features,
+            problem.domain or args.source_domain,
+            args.target_domain,
+            isomorphisms,
+            report.profiles,
+        )
+        print(format_counterfactual(cf))
+
+    elif args.causal_command == "roots":
+        # Trace an observed tool/feature back to root causes
+        problems = _load_problem_signatures(kb_root)
+        from tools.analytics.transactions import extract_transactions
+        txns, _ = extract_transactions(kb_root, item_types=("tags", "tools", "categories"))
+
+        domain_map = {
+            "crypto": "crypto", "stego_crypto": "crypto",
+            "computer_forensics": "computer", "c_computer": "computer",
+            "memory_forensics": "memory", "mobile_forensics": "mobile",
+            "m_phone": "mobile", "network_forensics": "network",
+            "n_network": "network", "binary_analysis": "binary",
+            "web": "web", "server_forensics": "server",
+            "cloud": "cloud", "iot": "iot",
+        }
+        domain_per_txn = {}
+        for i, txn in enumerate(txns):
+            for item in txn:
+                if item in domain_map:
+                    domain_per_txn[i] = domain_map[item]
+                    break
+
+        graph = build_causal_graph_from_transactions(
+            txns, domain_per_txn, min_confidence=args.min_confidence
+        )
+
+        root_causes = find_root_causes(args.feature, graph, max_depth=args.max_depth)
+        print(format_root_causes(root_causes, args.feature))
+
+        # Also show causal graph summary
+        if args.verbose:
+            print("\n" + format_causal_graph_summary(graph))
+
+    elif args.causal_command == "discover":
+        # Run causal discovery from transaction data
+        from tools.analytics.transactions import extract_transactions
+        txns, _ = extract_transactions(kb_root, item_types=("tags", "tools"))
+
+        graph = causal_discovery(txns, min_dependency=args.min_dependency)
+        print(format_causal_graph_summary(graph))
+
+        if args.show_graph:
+            print("\n## 因果关系列表")
+            print(f"\n| 原因 | 结果 | 强度 | 支持度 |")
+            print("|------|------|------|--------|")
+            for edge in sorted(graph.edges, key=lambda e: -e.strength)[:30]:
+                print(f"| `{edge.cause}` | `{edge.effect}` | {edge.strength:.3f} | {edge.support:.3f} |")
+
+    elif args.causal_command == "intervention":
+        # Estimate intervention effect
+        problems = _load_problem_signatures(kb_root)
+        from tools.analytics.transactions import extract_transactions
+        txns, _ = extract_transactions(kb_root, item_types=("tags", "tools", "categories"))
+
+        domain_map = {
+            "crypto": "crypto", "stego_crypto": "crypto",
+            "computer_forensics": "computer", "c_computer": "computer",
+            "memory_forensics": "memory", "mobile_forensics": "mobile",
+            "m_phone": "mobile", "network_forensics": "network",
+            "n_network": "network", "binary_analysis": "binary",
+            "web": "web", "server_forensics": "server",
+            "cloud": "cloud", "iot": "iot",
+        }
+        domain_per_txn = {}
+        for i, txn in enumerate(txns):
+            for item in txn:
+                if item in domain_map:
+                    domain_per_txn[i] = domain_map[item]
+                    break
+
+        graph = build_causal_graph_from_transactions(
+            txns, domain_per_txn, min_confidence=args.min_confidence
+        )
+
+        result = estimate_intervention_effect(
+            args.intervention, args.target, graph
+        )
+        print(format_intervention_effect(result))
+
+    else:
+        print("Unknown causal subcommand.")
+        print("Available: infer, counterfactual, roots, discover, intervention")
+        print("Usage: python -m tools.cli analytics causal <subcommand> [options]")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="forensic analytics",
@@ -980,6 +1237,92 @@ def main():
     p_network.add_argument("--show-flow", action="store_true",
                            help="Also show inter-domain knowledge flow analysis")
 
+    # NCD subcommands
+    p_ncd = sub.add_parser("ncd", help="Normalized Compression Distance analysis")
+    ncd_sub = p_ncd.add_subparsers(dest="ncd_command")
+
+    p_ncd_matrix = ncd_sub.add_parser("matrix", help="Compute NCD distance matrix")
+    p_ncd_matrix.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_ncd_matrix.add_argument("--compressor", default="zlib",
+                              choices=["zlib", "bz2", "lzma"],
+                              help="Compressor to use (default: zlib)")
+    p_ncd_matrix.add_argument("--show-neighbors", action="store_true",
+                              help="Also show nearest neighbors for each object")
+    p_ncd_matrix.add_argument("--top", type=int, default=10,
+                              help="Number of top objects (default: 10)")
+
+    p_ncd_nn = ncd_sub.add_parser("neighbors", help="Find nearest neighbors by NCD")
+    p_ncd_nn.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_ncd_nn.add_argument("--problem-id", required=True,
+                          help="Problem ID to find neighbors for")
+    p_ncd_nn.add_argument("--compressor", default="zlib",
+                          choices=["zlib", "bz2", "lzma"])
+    p_ncd_nn.add_argument("--top", type=int, default=10,
+                          help="Number of neighbors (default: 10)")
+
+    p_ncd_cluster = ncd_sub.add_parser("cluster", help="Hierarchical clustering from NCD matrix")
+    p_ncd_cluster.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_ncd_cluster.add_argument("--compressor", default="zlib",
+                               choices=["zlib", "bz2", "lzma"])
+    p_ncd_cluster.add_argument("--threshold", type=float, default=0.5,
+                               help="Distance threshold to cut dendrogram (default: 0.5)")
+
+    p_ncd_anom = ncd_sub.add_parser("anomalies", help="Detect NCD anomalies")
+    p_ncd_anom.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_ncd_anom.add_argument("--compressor", default="zlib",
+                            choices=["zlib", "bz2", "lzma"])
+    p_ncd_anom.add_argument("--z-threshold", type=float, default=2.0,
+                            help="Z-score threshold (default: 2.0)")
+    p_ncd_anom.add_argument("--cross-validate", action="store_true",
+                            help="Cross-validate with invariant analysis")
+
+    # Causal inference subcommands
+    p_causal = sub.add_parser("causal", help="Causal inference & abductive reasoning (逆向推理)")
+    causal_sub = p_causal.add_subparsers(dest="causal_command")
+
+    p_c_infer = causal_sub.add_parser("infer", help="Abductive inference: infer domain from observed tools")
+    p_c_infer.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_c_infer.add_argument("--observed", required=True,
+                           help="Comma-separated observed features (e.g. 'volatility, memory_forensics')")
+    p_c_infer.add_argument("--min-confidence", type=float, default=0.3,
+                          help="Min confidence for causal edges (default: 0.3)")
+
+    p_c_counter = causal_sub.add_parser("counterfactual", help="Counterfactual 'what-if' domain change")
+    p_c_counter.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_c_counter.add_argument("--problem-id", required=True,
+                            help="Problem ID to analyze")
+    p_c_counter.add_argument("--source-domain", default="",
+                            help="Source domain (auto-detected if omitted)")
+    p_c_counter.add_argument("--target-domain", required=True,
+                            help="Target counterfactual domain")
+
+    p_c_roots = causal_sub.add_parser("roots", help="Root cause tracing via causal graph")
+    p_c_roots.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_c_roots.add_argument("--feature", required=True,
+                          help="Feature to trace back to root causes")
+    p_c_roots.add_argument("--min-confidence", type=float, default=0.3,
+                          help="Min confidence for causal edges (default: 0.3)")
+    p_c_roots.add_argument("--max-depth", type=int, default=5,
+                          help="Max causal chain depth (default: 5)")
+    p_c_roots.add_argument("--verbose", action="store_true",
+                          help="Also show full causal graph summary")
+
+    p_c_discover = causal_sub.add_parser("discover", help="Causal discovery from transaction data (PC-like)")
+    p_c_discover.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_c_discover.add_argument("--min-dependency", type=float, default=0.1,
+                             help="Min dependency threshold (default: 0.1)")
+    p_c_discover.add_argument("--show-graph", action="store_true",
+                             help="Also list all causal edges")
+
+    p_c_interv = causal_sub.add_parser("intervention", help="Estimate intervention effect (do-calculus)")
+    p_c_interv.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_c_interv.add_argument("--intervention", required=True,
+                           help="Feature to intervene on (do(X=1))")
+    p_c_interv.add_argument("--target", required=True,
+                           help="Target feature to measure effect on")
+    p_c_interv.add_argument("--min-confidence", type=float, default=0.3,
+                          help="Min confidence for causal edges (default: 0.3)")
+
     args = parser.parse_args()
 
     if args.command == "mine":
@@ -994,6 +1337,10 @@ def main():
         cmd_lattice(args)
     elif args.command == "invariant":
         cmd_invariant(args)
+    elif args.command == "ncd":
+        cmd_ncd(args)
+    elif args.command == "causal":
+        cmd_causal(args)
     else:
         parser.print_help()
 

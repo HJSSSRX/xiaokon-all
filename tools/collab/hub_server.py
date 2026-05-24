@@ -1,11 +1,13 @@
 """Hub server bootstrap: IP discovery, shared file init, serve loop."""
 
 import http.server
+import secrets
 import socket
 import sys
 from pathlib import Path
 
 from ..core import now_str, save_yaml
+from ..core.http_base import set_api_key, set_cors_origin
 from .hub_constants import _HUB_STARTED_AT  # noqa: F401 - re-exported for mutation
 from .hub_handler import Handler
 
@@ -54,12 +56,23 @@ def cmd_serve(args):
     from . import hub_constants
     case_dir = Path(args.case_dir).resolve()
     if not case_dir.exists():
-        print(f"[!] Case directory not found: {case_dir}")
-        sys.exit(1)
+        print(f"[!] Case directory not found, creating: {case_dir}")
+        case_dir.mkdir(parents=True, exist_ok=True)
 
     init_shared_files(case_dir)
     Handler.case_dir = case_dir
     hub_constants._HUB_STARTED_AT = now_str()
+
+    # Auth setup
+    api_key = args.api_key or None
+    if api_key:
+        set_api_key(api_key)
+    elif not args.no_auth_warning:
+        print("[!] WARNING: No --api-key set — Hub is open to anyone on the LAN.")
+        print("    Set --api-key <secret> or HUB_API_KEY env var to require authentication.")
+
+    if args.cors_origin:
+        set_cors_origin(args.cors_origin)
 
     port = args.port
     max_tries = 10
@@ -81,11 +94,16 @@ def cmd_serve(args):
     print("=" * 60)
     print(f"  Case dir:  {case_dir}")
     print(f"  Bind:      {args.bind}:{port}")
+    if api_key:
+        print(f"  Auth:      enabled (API key set)")
+    else:
+        print(f"  Auth:      DISABLED — anyone on LAN can read/write")
     print()
     print("  Remote machines connect via:")
     for ip in get_local_ips():
         if not ip.startswith("127."):
-            print(f"    curl http://{ip}:{port}/ping")
+            auth_flag = f" -H 'X-API-Key: {api_key}'" if api_key else ""
+            print(f"    curl{auth_flag} http://{ip}:{port}/ping")
     print()
     print("  Press Ctrl+C to stop.")
     print()
@@ -98,6 +116,7 @@ def cmd_serve(args):
 
 def main():
     import argparse
+    import os
     parser = argparse.ArgumentParser(description="AutoForensicAI Collaboration Hub v3")
     sub = parser.add_subparsers(dest="command")
 
@@ -105,6 +124,12 @@ def main():
     p.add_argument("case_dir", help="Path to case directory")
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--bind", default="0.0.0.0")
+    p.add_argument("--api-key", default=os.environ.get("HUB_API_KEY", ""),
+                   help="Shared secret for hub access. Also via HUB_API_KEY env var.")
+    p.add_argument("--cors-origin", default="",
+                   help="Restrict CORS to a specific origin (default: unrestricted).")
+    p.add_argument("--no-auth-warning", action="store_true",
+                   help="Suppress the no-auth warning in dev mode.")
 
     args = parser.parse_args()
     if not args.command:

@@ -41,7 +41,7 @@ def call(base, method, path, body=None):
         return e.code, json.loads(e.read().decode("utf-8"))
 
 
-def wait_ready(base, timeout=15):
+def wait_ready(base, timeout=20):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:

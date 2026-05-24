@@ -59,10 +59,14 @@ class Handler(BaseHandler):
         if path == "/ping":
             return self._send(200, {
                 "status": "ok",
-                "version": "v3.1",
+                "version": "v3.2",
                 "time": now_str(),
                 "started_at": _HUB_STARTED_AT,
+                "auth_required": self._check_auth() is False,
             })
+
+        if not self._check_auth_or_fail():
+            return
 
         if path in ("/", "/dashboard"):
             dash_path = Path(__file__).resolve().parent.parent / "dashboard.html"
@@ -230,6 +234,8 @@ class Handler(BaseHandler):
         return self._err(404, f"No route for GET {path}")
 
     def do_POST(self):
+        if not self._check_auth_or_fail():
+            return
         path, _ = self._split_path()
         body = self._read_json()
         if body is None:

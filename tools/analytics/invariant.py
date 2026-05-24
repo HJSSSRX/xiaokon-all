@@ -1254,6 +1254,175 @@ def generate_transfer_recipe(
     return recipe
 
 
+# ─── Category Theory Integration ───────────────────────────────────────────────
+# The hardcoded _CROSS_DOMAIN_TOOL_MAP and _CROSS_DOMAIN_TECHNIQUE_MAP are
+# REPLACED by functor-based derivation. The maps below are kept as the
+# initial registration data for DomainFunctor; new domain pairs are derived
+# via functor composition rather than manual table extension.
+
+_DEFAULT_FUNCTOR: "Optional[DomainFunctor]" = None
+
+
+def get_default_domain_functor() -> "DomainFunctor":
+    """Get or lazily build the default DomainFunctor with registered mappings."""
+    global _DEFAULT_FUNCTOR
+    if _DEFAULT_FUNCTOR is None:
+        from tools.analytics.category import build_default_domain_functor
+        _DEFAULT_FUNCTOR = build_default_domain_functor()
+    return _DEFAULT_FUNCTOR
+
+
+def build_transfer_natural_transformation(
+    isomorphism: IsomorphismMapping,
+    source_profile: Optional[InvariantProfile] = None,
+    target_profile: Optional[InvariantProfile] = None,
+) -> "TransferTransformation":
+    """Build a NaturalTransformation η: F_src ⇒ F_tgt from an IsomorphismMapping.
+
+    This formalizes cross-domain knowledge transfer as a natural
+    transformation between domain functors. Each component η_D is a
+    feature-space morphism encoding tool/technique translations.
+
+    Args:
+        isomorphism: Detected isomorphism between two domain problems.
+        source_profile: Optional source invariant profile.
+        target_profile: Optional target invariant profile.
+
+    Returns:
+        TransferTransformation with verified naturality conditions.
+    """
+    from tools.analytics.category import (
+        TransferTransformation, build_default_domain_functor,
+    )
+    F = build_default_domain_functor()
+    nt = TransferTransformation(
+        source_functor=F,
+        target_functor=F,
+        source_domain=isomorphism.source_domain,
+        target_domain=isomorphism.target_domain,
+    )
+    nt.build_from_isomorphism(isomorphism, source_profile, target_profile)
+    return nt
+
+
+def derive_tool_mapping_functorial(
+    src_domain: str, tgt_domain: str
+) -> Dict[str, str]:
+    """Derive tool mapping via functor composition (replaces _get_tool_mapping).
+
+    Uses DomainFunctor.derive_cross_domain_tools() which composes functor
+    images along DomainCategory morphisms. Falls back to direct lookup
+    (the registered maps) if no composition path is found.
+    """
+    F = get_default_domain_functor()
+    result = F.derive_cross_domain_tools(src_domain, tgt_domain)
+    if result:
+        return result
+    # Fallback: direct registered map
+    return _get_tool_mapping(src_domain, tgt_domain)
+
+
+def derive_technique_mapping_functorial(
+    src_domain: str, tgt_domain: str
+) -> Dict[str, str]:
+    """Derive technique mapping via functor composition."""
+    F = get_default_domain_functor()
+    result = F.derive_cross_domain_techniques(src_domain, tgt_domain)
+    if result:
+        return result
+    return _get_technique_mapping(src_domain, tgt_domain)
+
+
+def generate_transfer_recipe_functorial(
+    isomorphism: IsomorphismMapping,
+    source_profile: Optional[InvariantProfile] = None,
+    target_profile: Optional[InvariantProfile] = None,
+    source_features: Optional[Set[str]] = None,
+) -> TransferRecipe:
+    """Generate transfer recipe using functorial (category-theoretic) approach.
+
+    Unlike generate_transfer_recipe which uses hardcoded maps, this version
+    builds a TransferTransformation (natural transformation between domain
+    functors) and derives tool/technique mappings from the naturality condition.
+
+    Args:
+        isomorphism: The detected isomorphism mapping.
+        source_profile: Optional source invariant profile.
+        target_profile: Optional target invariant profile.
+        source_features: Optional specific features to focus on.
+
+    Returns:
+        TransferRecipe with functor-derived mappings.
+    """
+    nt = build_transfer_natural_transformation(
+        isomorphism, source_profile, target_profile,
+    )
+    naturality_ok, naturality_violations = nt.verify_naturality()
+
+    recipe = TransferRecipe(isomorphism=isomorphism)
+
+    # Derive tool and technique mappings from the natural transformation
+    tool_map = nt.get_tool_mapping()
+    tech_map = nt.get_technique_mapping()
+
+    # If natural transformation didn't yield mapped features directly,
+    # derive from the functor
+    if not tool_map:
+        tool_map = derive_tool_mapping_functorial(
+            isomorphism.source_domain, isomorphism.target_domain,
+        )
+    if not tech_map:
+        tech_map = derive_technique_mapping_functorial(
+            isomorphism.source_domain, isomorphism.target_domain,
+        )
+
+    # Feature mapping from the isomorphism
+    for src_feat, tgt_feat in isomorphism.feature_mapping.items():
+        recipe.mapped_features.append((src_feat, tgt_feat))
+
+    # Tool transfers from functorial derivation
+    for src_tool, tgt_tool in tool_map.items():
+        recipe.tool_transfers.append({
+            "source_tool": src_tool,
+            "target_tool": tgt_tool,
+            "source": "functorial_derivation",
+        })
+
+    # Technique transfers
+    for src_tech, tgt_tech in tech_map.items():
+        recipe.technique_transfers.append({
+            "source_technique": src_tech,
+            "target_technique": tgt_tech,
+            "source": "functorial_derivation",
+        })
+
+    # Confidence from isomorphism type and naturality
+    if isomorphism.isomorphism_type == "exact" and naturality_ok:
+        recipe.confidence = "high"
+    elif isomorphism.isomorphism_type in ("exact", "strong"):
+        recipe.confidence = "high" if naturality_ok else "medium"
+    elif isomorphism.isomorphism_type == "partial":
+        recipe.confidence = "medium" if naturality_ok else "low"
+    else:
+        recipe.confidence = "low"
+
+    if isomorphism.structural_differences:
+        for diff in isomorphism.structural_differences:
+            recipe.caveats.append(f"结构差异: {diff}")
+
+    if not naturality_ok:
+        recipe.caveats.append(
+            f"自然性条件不满足 ({len(naturality_violations)} 项违规)，"
+            f"跨域映射可能不可靠。"
+        )
+
+    if len(recipe.mapped_features) < 3:
+        recipe.caveats.append("可映射特征较少，跨域迁移粒度粗。")
+
+    recipe.transfer_steps = _generate_transfer_steps(isomorphism, recipe)
+    return recipe
+
+
 def _get_tool_mapping(src_domain: str, tgt_domain: str) -> Dict[str, str]:
     """Get tool mapping for a domain pair (symmetric lookup)."""
     key = (src_domain, tgt_domain)

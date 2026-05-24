@@ -1,11 +1,11 @@
 """Analytics module — association rule mining, group-theoretic analysis,
-and problem invariant extraction.
+problem invariant extraction, and category-theoretic knowledge transfer.
 
 Provides Apriori association rules, Formal Concept Analysis (FCA), Galois
 connections, equivalence classes, implication bases, lattice analysis,
 problem essence recognition via Apriori + group theory fusion, cross-domain
-isomorphism detection, knowledge transfer, and group action propagation
-networks.
+isomorphism detection, knowledge transfer, group action propagation
+networks, and category theory functors for principled cross-domain mapping.
 
 Apriori answers "what items frequently co-occur?"
 Group theory (FCA) answers "what items are NECESSARILY co-present?"
@@ -13,6 +13,8 @@ Invariant extraction answers "what is the ESSENCE of this problem type?"
 Isomorphism detection answers "which problems are STRUCTURALLY EQUIVALENT?"
 Group action propagation answers "how does knowledge PROPAGATE across domains?"
 NCD (compression distance) answers "which problems are UNIVERSALLY similar?"
+Category theory answers "what FUNCTORIAL mappings connect knowledge domains?"
+Causality answers "what CAUSED these observations?" (abductive/reverse inference)
 """
 
 from tools.analytics.apriori import (
@@ -97,6 +99,12 @@ from tools.analytics.invariant import (
     find_all_reachable,
     trace_knowledge_flow,
     compute_propagation_stabilizer,
+    # Category theory integration
+    get_default_domain_functor,
+    build_transfer_natural_transformation,
+    derive_tool_mapping_functorial,
+    derive_technique_mapping_functorial,
+    generate_transfer_recipe_functorial,
     format_essence_report,
     format_invariant_profile,
     format_essence_comparison,
@@ -128,4 +136,51 @@ from tools.analytics.ncd import (
     format_ncd_clusters,
     format_ncd_invariant_comparison,
     format_ncd_anomalies,
+)
+
+# Causal inference & abductive reasoning module
+from tools.analytics.causality import (
+    CausalEdge,
+    CausalGraph,
+    AbductiveResult,
+    Counterfactual,
+    RootCause,
+    build_causal_graph_from_rules,
+    build_causal_graph_from_transactions,
+    abductive_inference,
+    infer_problem_domain,
+    counterfactual_domain_change,
+    causal_discovery,
+    find_root_causes,
+    estimate_intervention_effect,
+    format_causal_graph_summary,
+    format_abductive_results,
+    format_counterfactual,
+    format_root_causes,
+    format_intervention_effect,
+)
+
+# Category theory module
+from tools.analytics.category import (
+    Object,
+    Morphism,
+    Category,
+    Functor,
+    NaturalTransformation,
+    TransferTransformation,
+    Adjunction,
+    DomainCategory,
+    FeatureCategory,
+    DomainFunctor,
+    ProblemCategory,
+    DecomposerFunctor,
+    ComposerFunctor,
+    build_domain_category,
+    build_default_domain_functor,
+    build_decomposer_adjunction,
+    verify_decomposition_adjunction,
+    verify_decomposition_completeness,
+    format_functor_summary,
+    format_natural_transformation_summary,
+    format_adjunction_summary,
 )

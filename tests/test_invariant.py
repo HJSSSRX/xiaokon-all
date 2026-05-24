@@ -1482,3 +1482,338 @@ class TestGroupActionEdgeCases:
         assert len(network.atoms) > 0
         # Should still work without isomorphisms
         assert isinstance(network.transitions, dict)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NCD (Normalized Compression Distance) tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestNCDBasic:
+    """Tests for basic NCD computation."""
+
+    def test_ncd_identical(self):
+        from tools.analytics.ncd import compute_ncd
+        x = b"hello world this is a test string"
+        ncd = compute_ncd(x, x)
+        assert ncd < 0.1, f"Identical strings should have NCD ~ 0, got {ncd}"
+
+    def test_ncd_similar(self):
+        from tools.analytics.ncd import compute_ncd
+        x = b"the quick brown fox jumps over the lazy dog"
+        y = b"the quick brown fox jumps over the lazy cat"
+        ncd = compute_ncd(x, y)
+        assert ncd < 0.5, f"Similar strings should have low NCD, got {ncd}"
+
+    def test_ncd_dissimilar(self):
+        from tools.analytics.ncd import compute_ncd
+        x = b"AAAA BBBB CCCC DDDD EEEE FFFF GGGG"
+        y = b"ZZZZ YYYY XXXX WWWW VVVV UUUU TTTT"
+        ncd = compute_ncd(x, y)
+        assert ncd > 0.3, f"Dissimilar strings should have higher NCD, got {ncd}"
+
+    def test_ncd_range(self):
+        from tools.analytics.ncd import compute_ncd
+        import random
+        for _ in range(20):
+            a = bytes(random.randint(0, 255) for _ in range(random.randint(10, 200)))
+            b = bytes(random.randint(0, 255) for _ in range(random.randint(10, 200)))
+            ncd = compute_ncd(a, b, compressor="zlib")
+            assert 0.0 <= ncd <= 1.0, f"NCD out of range: {ncd}"
+
+    def test_ncd_text(self):
+        from tools.analytics.ncd import compute_ncd_text
+        ta = "rsa factorization sage python crypto"
+        tb = "rsa factorization sage python crypto xor aes"
+        ncd = compute_ncd_text(ta, tb)
+        assert 0.0 <= ncd <= 1.0
+        # These share most of their features, so NCD should be low
+        assert ncd < 0.5, f"Expected low NCD for similar text, got {ncd}"
+
+    def test_ncd_empty(self):
+        from tools.analytics.ncd import compute_ncd
+        ncd = compute_ncd(b"", b"")
+        assert ncd == 0.0
+
+    def test_ncd_one_empty(self):
+        from tools.analytics.ncd import compute_ncd
+        ncd = compute_ncd(b"hello world", b"")
+        # zlib compresses empty string with header overhead, so NCD won't be 1.0
+        # but it should be > 0 since the two are different
+        assert ncd > 0.0
+
+    def test_ncd_compressors(self):
+        from tools.analytics.ncd import compute_ncd, COMPRESSORS
+        x = b"rsa factorization sage python crypto" * 5
+        y = b"reverse decompilation ida binary elf" * 5
+        for comp_name in COMPRESSORS:
+            ncd = compute_ncd(x, y, compressor=comp_name)
+            assert 0.0 <= ncd <= 1.0, f"{comp_name} NCD out of range: {ncd}"
+
+
+class TestNCDMatrix:
+    """Tests for NCD matrix construction and queries."""
+
+    def test_matrix_from_features(self):
+        from tools.analytics.ncd import ncd_matrix_from_features
+        features = {
+            "p1": ["rsa", "factorization", "sage", "python"],
+            "p2": ["rsa", "factorization", "sage", "python", "aes"],
+            "p3": ["reverse", "decompilation", "ida", "binary", "elf"],
+            "p4": ["reverse", "decompilation", "ida", "ghidra", "pe"],
+        }
+        matrix = ncd_matrix_from_features(features)
+        assert matrix.n_objects == 4
+        assert matrix.compressor == "zlib"
+        # p1 and p2 should be closer than p1 and p3
+        d12 = matrix.get("p1", "p2")
+        d13 = matrix.get("p1", "p3")
+        assert d12 is not None and d13 is not None
+        assert d12 < d13, f"p1-p2 ({d12:.3f}) should be closer than p1-p3 ({d13:.3f})"
+
+    def test_matrix_symmetric(self):
+        from tools.analytics.ncd import ncd_matrix_from_features
+        features = {
+            "a": ["x", "y", "z"],
+            "b": ["x", "y", "w"],
+            "c": ["p", "q", "r"],
+        }
+        matrix = ncd_matrix_from_features(features)
+        for i in range(3):
+            for j in range(3):
+                assert abs(matrix.get_by_idx(i, j) - matrix.get_by_idx(j, i)) < 1e-10
+
+    def test_matrix_self_distance_zero(self):
+        from tools.analytics.ncd import ncd_matrix_from_features
+        features = {"a": ["x", "y"], "b": ["z"]}
+        matrix = ncd_matrix_from_features(features)
+        assert matrix.get("a", "a") == 0.0
+        assert matrix.get_by_idx(1, 1) == 0.0
+
+    def test_nearest_neighbors(self):
+        from tools.analytics.ncd import ncd_matrix_from_features
+        features = {
+            "target": ["rsa", "factorization", "sage"],
+            "close1": ["rsa", "factorization", "sage", "python"],
+            "close2": ["rsa", "factorization", "openssl"],
+            "far1": ["reverse", "decompilation", "ida"],
+            "far2": ["network", "pcap", "wireshark"],
+        }
+        matrix = ncd_matrix_from_features(features)
+        nn = matrix.nearest_neighbors("target", k=3)
+        assert len(nn) == 3
+        # close1 and close2 should be the first two
+        assert nn[0][0] in ("close1", "close2")
+        assert nn[1][0] in ("close1", "close2")
+
+    def test_to_similarity(self):
+        from tools.analytics.ncd import ncd_matrix_from_features
+        features = {"a": ["x", "y"], "b": ["x", "z"]}
+        matrix = ncd_matrix_from_features(features)
+        sims = matrix.to_similarity("a")
+        assert "b" in sims
+        assert 0.0 <= sims["b"] <= 1.0
+
+    def test_matrix_stats(self):
+        from tools.analytics.ncd import ncd_matrix_from_features
+        features = {
+            f"p{i}": [f"f{j}" for j in range(i % 5 + 1)]
+            for i in range(10)
+        }
+        matrix = ncd_matrix_from_features(features)
+        assert 0.0 <= matrix.avg_distance() <= 1.0
+        assert matrix.min_distance() <= matrix.max_distance()
+
+
+class TestNCDClustering:
+    """Tests for NCD-based hierarchical clustering."""
+
+    def test_hierarchical_clustering(self):
+        from tools.analytics.ncd import ncd_matrix_from_features, ncd_hierarchical_clustering
+        features = {
+            "c1_a": ["rsa", "factorization", "sage"],
+            "c1_b": ["rsa", "factorization", "sage", "aes"],
+            "c2_a": ["reverse", "decompilation", "ida"],
+            "c2_b": ["reverse", "decompilation", "ida", "ghidra"],
+        }
+        matrix = ncd_matrix_from_features(features)
+        dendro = ncd_hierarchical_clustering(matrix)
+        assert dendro is not None
+        assert dendro.size == 4
+
+    def test_flatten_clusters(self):
+        from tools.analytics.ncd import (
+            ncd_matrix_from_features, ncd_hierarchical_clustering,
+            flatten_clusters, get_cluster_leaves,
+        )
+        features = {
+            "a1": ["x", "y"], "a2": ["x", "y", "z"],
+            "b1": ["p", "q"], "b2": ["p", "q", "r"],
+        }
+        matrix = ncd_matrix_from_features(features)
+        dendro = ncd_hierarchical_clustering(matrix)
+        # Low threshold = many small clusters
+        fine = flatten_clusters(dendro, threshold=0.1)
+        assert len(fine) >= 3
+        # High threshold = fewer large clusters
+        coarse = flatten_clusters(dendro, threshold=0.9)
+        assert len(coarse) <= len(fine)
+
+    def test_get_cluster_leaves(self):
+        from tools.analytics.ncd import (
+            ncd_matrix_from_features, ncd_hierarchical_clustering,
+            flatten_clusters, get_cluster_leaves,
+        )
+        features = {"a": ["x"], "b": ["x"], "c": ["y"]}
+        matrix = ncd_matrix_from_features(features)
+        dendro = ncd_hierarchical_clustering(matrix)
+        clusters = flatten_clusters(dendro, threshold=0.5)
+        all_leaves = []
+        for c in clusters:
+            all_leaves.extend(get_cluster_leaves(c))
+        assert set(all_leaves) == {"a", "b", "c"}
+
+
+class TestNCDAnomalies:
+    """Tests for NCD anomaly detection."""
+
+    def test_detect_anomalies(self):
+        from tools.analytics.ncd import ncd_matrix_from_features, detect_ncd_anomalies
+        # Create a dataset with one outlier
+        features = {}
+        for i in range(10):
+            features[f"normal_{i}"] = ["rsa", "factorization", "sage", "python"]
+        features["outlier"] = ["bluetooth", "ble", "hci", "btsnoop", "hid"]
+        matrix = ncd_matrix_from_features(features)
+        anomalies = detect_ncd_anomalies(matrix, z_threshold=1.5)
+        assert len(anomalies) >= 1
+        assert anomalies[0]["object_id"] == "outlier"
+
+    def test_no_anomalies_when_uniform(self):
+        from tools.analytics.ncd import ncd_matrix_from_features, detect_ncd_anomalies
+        features = {}
+        for i in range(8):
+            features[f"p{i}"] = ["x", "y", "z"]
+        matrix = ncd_matrix_from_features(features)
+        anomalies = detect_ncd_anomalies(matrix, z_threshold=2.0)
+        assert len(anomalies) == 0
+
+    def test_too_few_objects(self):
+        from tools.analytics.ncd import ncd_matrix_from_features, detect_ncd_anomalies
+        features = {"a": ["x"], "b": ["y"]}
+        matrix = ncd_matrix_from_features(features)
+        anomalies = detect_ncd_anomalies(matrix)
+        assert anomalies == []
+
+
+class TestNCDCrossValidation:
+    """Tests for NCD vs invariant cross-validation."""
+
+    def test_compare_with_invariants(self):
+        from tools.analytics.ncd import ncd_matrix_from_features, compare_ncd_with_invariants
+        from tools.analytics.invariant import InvariantProfile
+
+        features = {
+            "p1": ["rsa", "factorization", "sage", "math"],
+            "p2": ["rsa", "factorization", "sage", "aes"],
+            "p3": ["reverse", "decompilation", "ida", "binary"],
+            "p4": ["reverse", "decompilation", "ghidra", "pe"],
+        }
+        matrix = ncd_matrix_from_features(features)
+        profiles = [
+            InvariantProfile(
+                problem_id="p1", problem_type="crypto",
+                core_invariants=[("rsa", "factorization"), ("math", "sage")],
+            ),
+            InvariantProfile(
+                problem_id="p2", problem_type="crypto",
+                core_invariants=[("rsa", "factorization"), ("sage", "aes")],
+            ),
+            InvariantProfile(
+                problem_id="p3", problem_type="binary_analysis",
+                core_invariants=[("reverse", "decompilation"), ("ida", "binary")],
+            ),
+            InvariantProfile(
+                problem_id="p4", problem_type="binary_analysis",
+                core_invariants=[("reverse", "decompilation"), ("ghidra", "pe")],
+            ),
+        ]
+        result = compare_ncd_with_invariants(matrix, profiles)
+        assert "n_compared" in result
+        assert result["n_compared"] > 0
+        assert "pearson_correlation" in result
+        assert "disagreements" in result
+
+    def test_compare_with_few_objects(self):
+        from tools.analytics.ncd import ncd_matrix_from_features, compare_ncd_with_invariants
+        from tools.analytics.invariant import InvariantProfile
+        features = {"a": ["x"], "b": ["y"]}
+        matrix = ncd_matrix_from_features(features)
+        profiles = [
+            InvariantProfile(problem_id="a", problem_type="test"),
+            InvariantProfile(problem_id="b", problem_type="test"),
+        ]
+        result = compare_ncd_with_invariants(matrix, profiles)
+        assert "error" in result
+
+
+class TestNCDFormatters:
+    """Tests for NCD formatters."""
+
+    def test_format_matrix_summary(self):
+        from tools.analytics.ncd import ncd_matrix_from_features, format_ncd_matrix_summary
+        features = {"a": ["x", "y"], "b": ["x", "z"], "c": ["p"]}
+        matrix = ncd_matrix_from_features(features)
+        output = format_ncd_matrix_summary(matrix)
+        assert "NCD" in output
+        assert "zlib" in output
+
+    def test_format_neighbors(self):
+        from tools.analytics.ncd import format_ncd_neighbors
+        neighbors = [("b", 0.1), ("c", 0.5), ("d", 0.9)]
+        output = format_ncd_neighbors("a", neighbors)
+        assert "a" in output
+        assert "0.1000" in output
+
+    def test_format_clusters(self):
+        from tools.analytics.ncd import (
+            ncd_matrix_from_features, ncd_hierarchical_clustering,
+            format_ncd_clusters,
+        )
+        features = {"a": ["x"], "b": ["x"], "c": ["y"]}
+        matrix = ncd_matrix_from_features(features)
+        dendro = ncd_hierarchical_clustering(matrix)
+        output = format_ncd_clusters(dendro, threshold=0.5)
+        assert "NCD" in output
+        assert "簇" in output or "cluster" in output.lower()
+
+    def test_format_anomalies(self):
+        from tools.analytics.ncd import format_ncd_anomalies
+        anomalies = [
+            {"object_id": "outlier1", "mean_ncd": 0.95,
+             "global_mean": 0.5, "z_score": 4.5},
+        ]
+        output = format_ncd_anomalies(anomalies)
+        assert "outlier1" in output
+        assert "4.5" in output
+
+    def test_format_anomalies_empty(self):
+        from tools.analytics.ncd import format_ncd_anomalies
+        output = format_ncd_anomalies([])
+        assert "未检测到" in output
+
+    def test_format_invariant_comparison(self):
+        from tools.analytics.ncd import format_ncd_invariant_comparison
+        comparison = {
+            "n_compared": 6, "pearson_correlation": 0.85,
+            "avg_ncd_similarity": 0.5, "avg_invariant_similarity": 0.4,
+            "disagreements": [
+                {"a": "p1", "b": "p3", "ncd_similarity": 0.8,
+                 "invariant_similarity": 0.1,
+                 "interpretation": "NCD发现隐藏相似性"},
+            ],
+            "interpretation": "高度正相关",
+        }
+        output = format_ncd_invariant_comparison(comparison)
+        assert "0.85" in output
+        assert "p1" in output
