@@ -243,35 +243,42 @@ class SchreierSimsResult:
 
     Usage:
       result = schreier_sims(group, n_points=len(feature_space))
-      result.order         # |G| — total number of group elements
+      result.group_order    # |G| — total number of group elements
       result.member(g)     # is permutation g in the group?
       result.base          # base points
     """
     base: List[int] = field(default_factory=list)
     strong_generators: List[List[Permutation]] = field(default_factory=list)
     group_order: int = 1
+    _orbits: List[Set[int]] = field(default_factory=list)
+    _transversals: List[Dict[int, Permutation]] = field(default_factory=list)
 
     def member(self, g: Permutation) -> bool:
-        """Test membership: is permutation g in the group?
+        """Test membership via sift procedure using Schreier transversals.
 
-        Uses the sift procedure: for each base point βᵢ, apply g to βᵢ and
-        traverse the Schreier tree to see if the result is in the orbit.
+        For each base point βᵢ with transversal u_δ mapping βᵢ → δ:
+          While g_cur(βᵢ) ≠ βᵢ:
+            1. Compute δ = g_cur(βᵢ)
+            2. If δ not in orbit, g ∉ G
+            3. Replace g_cur ← g_cur ∘ u_δ^{-1}
+        After all levels, g must be identity.
         """
+        g_cur = Permutation(dict(g.mapping))
         for i, beta in enumerate(self.base):
-            beta_img = g.apply_to_idx(beta)
-            if beta_img == beta:
-                continue
-            # Try to find a generator that maps beta → beta_img
-            found = False
-            for s in self.strong_generators[i]:
-                if s.apply_to_idx(beta) == beta_img:
-                    g = g.compose(s.inverse())
-                    found = True
+            if i >= len(self._transversals):
+                break
+            trans = self._transversals[i]
+            for _ in range(50):  # max sift iterations at this level
+                delta = g_cur.apply_to_idx(beta)
+                if delta == beta:
                     break
-            if not found:
-                return False
-        # After sifting through all levels, g should be identity
-        return len(g.mapping) == 0
+                if delta not in trans:
+                    return False
+                u_delta = trans[delta]
+                g_cur = g_cur.compose(u_delta.inverse())
+            else:
+                return False  # exceeded max iterations
+        return len(g_cur.mapping) == 0
 
     def summary(self) -> str:
         lines = [
@@ -310,7 +317,9 @@ def schreier_sims(group: PermutationGroup, n_points: int) -> SchreierSimsResult:
 
     base: List[int] = []
     strong: List[List[Permutation]] = []
-    orders: List[int] = []  # orbit size at each level for order computation
+    orders: List[int] = []
+    orbits: List[Set[int]] = []
+    transversals: List[Dict[int, Permutation]] = []
 
     # S[0] = generators of G (stabilizer of nothing)
     S = [Permutation(dict(g.mapping)) for g in generators]
@@ -338,26 +347,32 @@ def schreier_sims(group: PermutationGroup, n_points: int) -> SchreierSimsResult:
                     queue.append(y)
 
         orders.append(len(orbit_set))
+        orbits.append(orbit_set)
 
         # Build transversal u_δ: u_δ(β) = δ for each δ in orbit
-        # u_δ = g_{i_k} ∘ ... ∘ g_{i_1} where the path from β to δ in tree
+        # path: β=delta_0 → delta_1 → ... → delta_k=δ
+        # where delta_{j+1} = g_{i_j}(delta_j)
+        # So u_δ = g_{i_{k-1}} ∘ ... ∘ g_{i_0}  (apply g_{i_0} first)
         transversal: Dict[int, Permutation] = {}
         for delta in orbit:
             if delta == beta:
                 transversal[delta] = Permutation({})
             else:
-                # Walk up tree: beta → ... → parent → delta
+                # Walk up: collect generators from delta back to beta
                 path_gens: List[Permutation] = []
                 cur = delta
                 while cur != beta:
                     parent, gen_idx = tree[cur]
                     path_gens.append(S[gen_idx])
                     cur = parent
-                # Compose: apply generator for last step first, etc.
+                # path_gens = [g_{k-1}, ..., g_0] (last step first)
+                # Build u = g_{k-1} ∘ ... ∘ g_0
                 u = Permutation({})
                 for g in reversed(path_gens):
-                    u = u.compose(g)
+                    u = g.compose(u)
                 transversal[delta] = u
+
+        transversals.append(dict(transversal))
 
         # Schreier's lemma: generators for Stab_G(β)
         # For each δ ∈ orbit, g ∈ S: h = u_{g(δ)}^{−1} ∘ g ∘ u_δ fixes β
@@ -405,7 +420,10 @@ def schreier_sims(group: PermutationGroup, n_points: int) -> SchreierSimsResult:
     if len(orders) < len(base):
         order *= 1  # trivial stabilizer at deeper levels
 
-    return SchreierSimsResult(base=base, strong_generators=strong, group_order=order)
+    return SchreierSimsResult(
+        base=base, strong_generators=strong, group_order=order,
+        _orbits=orbits, _transversals=transversals,
+    )
 
 
 def _reduce_generators(gens: List[Permutation]) -> List[Permutation]:

@@ -1430,13 +1430,30 @@ def spectral_decompose(adj_matrix: List[List[float]]) -> SpectralResult:
     # Count edges
     n_edges = int(sum(degrees) / 2.0)
 
-    # Compute eigenvalues via power iteration + deflation
-    eigenvalues = _compute_eigenvalues(L, k=min(n, 6))
+    # For Laplacian, we need SMALLEST eigenvalues. Use shift-invert:
+    # Find eigenvalues of (d_max*I - L), then convert back.
+    d_max = max(degrees) if degrees else 1.0
+    # B = d_max*I - L has eigenvalues {d_max - λ_i(L)}
+    B = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                B[i][j] = d_max - L[i][j]
+            else:
+                B[i][j] = -L[i][j]
 
-    # Fiedler vector: eigenvector corresponding to λ₁
+    # Find largest eigenvalues of B (= smallest of L)
+    mu_eigenvalues = _compute_eigenvalues(B, k=min(n, 6))
+
+    # Convert: λ_i(L) = d_max - μ_i(B) sorted ascending
+    eigenvalues = sorted([d_max - mu for mu in mu_eigenvalues])
+
+    # Fiedler vector from B's 2nd-largest eigenvalue (= L's 2nd-smallest)
     fiedler = []
-    if len(eigenvalues) > 1:
-        fiedler = _compute_eigenvector(L, eigenvalues[1])
+    if len(mu_eigenvalues) > 1:
+        # 2nd largest eigenvalue of B
+        mu_sorted = sorted(mu_eigenvalues, reverse=True)
+        fiedler = _compute_eigenvector(B, mu_sorted[1])
 
     spectral_gap = eigenvalues[1] if len(eigenvalues) > 1 else 0.0
 

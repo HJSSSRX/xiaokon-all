@@ -19,9 +19,11 @@ import sys
 from pathlib import Path
 
 # 添加项目根目录到路径，确保 tools 包可被导入
-_project_root = str(Path(__file__).parent.parent)
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
+_project_root = str(Path(__file__).parent.parent.parent)  # D:/ai
+_tools_root = str(Path(__file__).parent.parent)          # D:/ai/tools
+for p in (_project_root, _tools_root):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 # 依赖检查
 def check_dependencies():
@@ -191,6 +193,47 @@ def cmd_mindmap(args):
     print(f"[FEEDER] 完成！")
 
 
+def cmd_ocr(args):
+    """OCR识别图片文字"""
+    from tools.vision.ocr import image_to_text
+    result = image_to_text(args.image, lang=args.lang)
+    if result.error:
+        print(f"[OCR] 错误: {result.error}")
+        sys.exit(1)
+
+    print(f"[OCR] 置信度: {result.confidence}%")
+    print(f"[OCR] 语言: {result.language}")
+    print(f"[OCR] 文本块: {len(result.blocks)}")
+    print(f"\n{result.text}")
+
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as f:
+            f.write(result.text)
+        print(f"[OCR] 保存到: {args.output}")
+
+
+def cmd_ocr_mindmap(args):
+    """OCR识别思维导图图片并导入知识库"""
+    from tools.vision.mindmap_parser import parse_mindmap_image, mindmap_to_kb, mindmap_tree_to_json
+
+    print(f"[OCR-MINDMAP] 正在解析思维导图: {args.image}")
+    tree = parse_mindmap_image(args.image, lang=args.lang)
+
+    if tree.text.startswith("[OCR_ERROR"):
+        print(f"[OCR-MINDMAP] 错误: {tree.text}")
+        sys.exit(1)
+
+    if args.json:
+        print(mindmap_tree_to_json(tree))
+
+    if args.kb_dir:
+        print(f"[OCR-MINDMAP] 正在导入知识库: {args.kb_dir}")
+        mindmap_to_kb(tree, args.kb_dir)
+        print(f"[OCR-MINDMAP] 知识库导入完成")
+
+    print(f"[OCR-MINDMAP] 完成！")
+
+
 def main():
     parser = argparse.ArgumentParser(description="喂食者 - 知识爬取工具")
     parser.add_argument("--storage", help="自定义存储目录")
@@ -229,6 +272,18 @@ def main():
     p_mindmap.add_argument("--kb-dir", help="知识库目录（自动整理）")
     p_mindmap.add_argument("--sample", action="store_true", help="使用示例数据（非交互式）")
 
+    # OCR 命令组
+    p_ocr = subparsers.add_parser("ocr", help="OCR — 识别图片中的文字")
+    p_ocr.add_argument("image", help="图片文件路径")
+    p_ocr.add_argument("--lang", default="chi_sim+eng", help="语言 (默认 chi_sim+eng)")
+    p_ocr.add_argument("--output", help="输出文本文件路径")
+
+    p_ocr_mindmap = subparsers.add_parser("ocr-mindmap", help="OCR — 识别思维导图图片并导入知识库")
+    p_ocr_mindmap.add_argument("image", help="思维导图图片路径")
+    p_ocr_mindmap.add_argument("--lang", default="chi_sim+eng", help="语言 (默认 chi_sim+eng)")
+    p_ocr_mindmap.add_argument("--kb-dir", help="知识库目录（自动整理）")
+    p_ocr_mindmap.add_argument("--json", action="store_true", help="输出解析后的JSON树")
+
     args = parser.parse_args()
 
     if args.storage:
@@ -238,6 +293,10 @@ def main():
         cmd_fetch(args)
     elif args.cmd == "mindmap":
         cmd_mindmap(args)
+    elif args.cmd == "ocr":
+        cmd_ocr(args)
+    elif args.cmd == "ocr-mindmap":
+        cmd_ocr_mindmap(args)
     else:
         parser.print_help()
 
