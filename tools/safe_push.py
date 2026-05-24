@@ -77,6 +77,7 @@ def run(cmd: list[str], check: bool = True, capture: bool = False, **kw) -> subp
     if isinstance(cmd[0], Path):
         cmd[0] = str(cmd[0])
     print(f"  $ {' '.join(cmd)}")
+    kw.setdefault("timeout", 300)
     return subprocess.run(cmd, check=check, capture_output=capture, text=True, cwd=str(REPO_ROOT), **kw)
 
 

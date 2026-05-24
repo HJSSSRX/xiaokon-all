@@ -71,13 +71,15 @@ def load_yaml(path: Union[str, Path], default: Any = None) -> Any:
 def save_yaml(path: Union[str, Path], data: Any, **kwargs) -> None:
     """
     安全保存YAML文件
-    
+
     Args:
         path: 文件路径
         data: 要保存的数据
         kwargs: 传递给yaml.dump的额外参数
     """
     path = Path(path)
+    if not validate_path(path):
+        raise ValueError(f"路径不安全 (包含 .. 遍历): {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
 
     default_kwargs = {
@@ -120,12 +122,18 @@ def load_json(path: Union[str, Path], default: Any = None) -> Any:
 
 
 def save_json(path: Union[str, Path], data: Any, indent: int = 2) -> None:
-    """安全保存JSON文件"""
+    """安全保存JSON文件（原子写入 + 路径验证）"""
     path = Path(path)
+    if not validate_path(path):
+        raise ValueError(f"路径不安全 (包含 .. 遍历): {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(path, "w", encoding="utf-8") as f:
+
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=indent)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(str(tmp_path), str(path))
 
 
 # ─── Hash Utilities ───
@@ -212,21 +220,23 @@ def next_seq_id(items: List[Dict], prefix: str, key: str = "id") -> str:
 def validate_path(path: Union[str, Path], whitelist_pattern: Optional[str] = None) -> bool:
     """
     验证路径安全性，防止路径遍历攻击
-    
+
     Args:
         path: 要验证的路径
         whitelist_pattern: 可选的白名单正则表达式
-    
+
     Returns:
         是否安全
     """
-    path = Path(path).resolve()
-    
+    path_str = str(path)
+    # Check for path traversal in the raw string before resolve
+    if ".." in path_str:
+        return False
+
     if whitelist_pattern:
-        return bool(re.match(whitelist_pattern, str(path)))
-    
-    # 基础安全检查：不允许 .. 
-    return ".." not in str(path)
+        return bool(re.match(whitelist_pattern, str(Path(path).resolve())))
+
+    return True
 
 
 # ─── Logging ───

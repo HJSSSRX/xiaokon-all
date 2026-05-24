@@ -1,10 +1,11 @@
 """Smoke test for tools.core.logits — standalone, no KB dependency."""
 import sys
-sys.path.insert(0, 'D:/ai')
+import os
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(TEST_DIR))
 
 from tools.logits import get_capture
 import json
-import os
 
 cap = get_capture()
 cap.enable()
@@ -12,13 +13,13 @@ cap.enable()
 # ── Record alloc x2 ──────────────────────────────
 cap.record_alloc(
     sg_id='SG-001', timestamp='2026-05-23 16:00:00.000',
-    complexity_score=0.42, mode='boost', reason='复杂度<阈值',
+    complexity_score=0.42, mode='boost', reason='complexity < threshold',
     dimension_scores={'level': 0.6, 'domain': 0.5, 'tools': 0.3},
     weights={'level': 2.5, 'domain': 2.0, 'tools': 1.5},
     raw_weighted_sum=3.1)
 cap.record_alloc(
     sg_id='SG-002', timestamp='2026-05-23 16:00:01.000',
-    complexity_score=0.78, mode='focused', reason='复杂度>=阈值',
+    complexity_score=0.78, mode='focused', reason='complexity >= threshold',
     dimension_scores={'level': 0.9, 'domain': 0.7, 'tools': 0.8},
     weights={'level': 2.5, 'domain': 2.0, 'tools': 1.5},
     raw_weighted_sum=6.2)
@@ -49,26 +50,29 @@ print(f'[OK] summary: alloc={s["total_allocations"]} boost={s["total_boosts"]} c
 print(f'     rate={s["boost_success_rate"]} modes={s["modes"]} methods={s["methods"]}')
 
 # ── JSON ─────────────────────────────────────────
-os.makedirs('D:/ai/tests', exist_ok=True)
-cap.write_json('D:/ai/tests/logits_smoke_test.json')
-with open('D:/ai/tests/logits_smoke_test.json', encoding='utf-8') as f:
+os.makedirs(TEST_DIR, exist_ok=True)
+json_path = os.path.join(TEST_DIR, 'logits_smoke_test.json')
+cap.write_json(json_path)
+with open(json_path, encoding='utf-8') as f:
     data = json.load(f)
 assert len(data['allocations']) == 2
 assert len(data['boosts']) == 2
 assert len(data['model_calls']) == 1
 assert data['meta']['summary']['total_allocations'] == 2
-print(f'[OK] JSON: {os.path.getsize("D:/ai/tests/logits_smoke_test.json")} bytes')
+print(f'[OK] JSON: {os.path.getsize(json_path)} bytes')
 
 # ── JSONL ────────────────────────────────────────
-cap.write_jsonl('D:/ai/tests/logits_smoke.jsonl')
-with open('D:/ai/tests/logits_smoke.jsonl', encoding='utf-8') as f:
+jsonl_path = os.path.join(TEST_DIR, 'logits_smoke.jsonl')
+cap.write_jsonl(jsonl_path)
+with open(jsonl_path, encoding='utf-8') as f:
     lines = f.readlines()
 assert len(lines) == 5, f"expected 5 lines, got {len(lines)}"
 print(f'[OK] JSONL: {len(lines)} lines')
 
 # ── Compact TSV ──────────────────────────────────
-cap.write_compact_scores('D:/ai/tests/logits_smoke_scores.tsv')
-with open('D:/ai/tests/logits_smoke_scores.tsv', encoding='utf-8') as f:
+tsv_path = os.path.join(TEST_DIR, 'logits_smoke_scores.tsv')
+cap.write_compact_scores(tsv_path)
+with open(tsv_path, encoding='utf-8') as f:
     tsv = f.read()
 assert 'SG-001' in tsv and 'SG-002' in tsv
 print(f'[OK] TSV: {len(tsv.splitlines())} lines')

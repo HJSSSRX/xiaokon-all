@@ -308,8 +308,10 @@ def _detect_domains(
         if any(kw in description.lower() for kw in keywords):
             domains.add(domain)
 
-    # Priority order: memory, disk, network (most common domains first)
-    priority = ["memory", "disk", "network", "mobile", "binary", "log", "stego", "crypto"]
+    # Priority order: forensic domains first, then attack-specialized, then misc
+    priority = ["memory", "disk", "network", "mobile", "binary", "log",
+                "web", "stego", "crypto", "database", "container", "registry",
+                "pcap", "traffic", "malware", "encoding", "misc"]
     ordered = [d for d in priority if d in domains]
     for d in domains:
         if d not in ordered:
@@ -320,13 +322,22 @@ def _detect_domains(
 
 _DOMAIN_KEYWORDS = {
     "memory": ["memory", "内存", "进程", "volatility", "vol3", "malfind", "pslist"],
-    "disk": ["disk", "磁盘", "硬盘", "e01", "vmdk", "vhd", "filesystem", "文件系统", "ntfs", "fat", "ext4"],
-    "network": ["pcap", "网络", "流量", "wireshark", "tshark", "http", "dns", "tcp", "udp"],
-    "mobile": ["mobile", "手机", "apk", "ipa", "android", "ios", "备份", "adb"],
-    "binary": ["binary", "逆向", "reverse", "二进制", "elf", "pe", "ida", "ghidra", "malware"],
-    "stego": ["stego", "隐写", "lsb", "binwalk", "水印", "watermark"],
-    "crypto": ["crypto", "密码", "加密", "解密", "rsa", "aes", "哈希", "hash", "md5"],
+    "disk": ["disk", "磁盘", "硬盘", "e01", "vmdk", "vhd", "filesystem", "文件系统", "ntfs", "fat", "ext4", "apfs"],
+    "network": ["pcap", "网络", "流量", "wireshark", "tshark", "http", "dns", "tcp", "udp", "tls", "ssl"],
+    "mobile": ["mobile", "手机", "apk", "ipa", "android", "ios", "备份", "adb", "sqlcipher", "jadx"],
+    "binary": ["binary", "逆向", "reverse", "二进制", "elf", "pe", "ida", "ghidra", "malware", "radare2", "objdump"],
+    "stego": ["stego", "隐写", "lsb", "binwalk", "水印", "watermark", "steghide", "zsteg", "stegsolve"],
+    "crypto": ["crypto", "密码", "加密", "解密", "rsa", "aes", "哈希", "hash", "md5", "sha256", "openssl", "hashcat"],
     "log": ["log", "日志", "event", "evtx", "syslog", "audit", "登录"],
+    "web": ["web", "sqli", "xss", "ssrf", "csrf", "注入", "webshell", "文件上传", "命令注入", "反序列化", "文件包含", "sqlmap", "nuclei", "burp"],
+    "database": ["database", "数据库", "mysql", "sqlite", "postgres", "mongodb", ".db", "sqlcipher"],
+    "registry": ["registry", "注册表", "ntuser", "sam", "system hive"],
+    "pcap": ["pcap", "pcapng", "cap", "抓包", "数据包", "ngrep"],
+    "traffic": ["traffic", "c2", "beacon", "dns tunnel", "socks", "proxy", "代理", "反弹shell"],
+    "malware": ["malware", "木马", "病毒", "ransomware", "勒索", "rootkit", "后门", "trojan"],
+    "container": ["container", "docker", "lxc", "k8s", "kubernetes", "容器", "逃逸"],
+    "encoding": ["encoding", "编码", "base64", "rot13", "hex", "urlencode", "xor", "解码"],
+    "misc": ["misc", "杂项", "未知", "unknown", "forensic", "triage", "carving", "file_carve"],
 }
 
 

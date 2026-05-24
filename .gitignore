@@ -22,6 +22,11 @@ shared/*.yaml
 tests/test_challenge/evidence.png
 tests/test_challenge/output/
 
+# Generated test artifacts
+tests/logits_smoke_test.json
+tests/logits_smoke.jsonl
+tests/logits_smoke_scores.tsv
+
 # Temp
 *.tmp
 *.bak

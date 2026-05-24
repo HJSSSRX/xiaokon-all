@@ -11,14 +11,18 @@ Usage:
 import subprocess
 import sys
 from datetime import datetime
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _run(cmd, cwd=None):
     return subprocess.run(cmd, capture_output=True, text=True,
-                          cwd=cwd or "D:/ai", timeout=30)
+                          cwd=cwd or str(_REPO_ROOT), timeout=30)
 
 
-def auto_savepoint(repo="D:/ai", dry_run=False):
+def auto_savepoint(repo=None, dry_run=False):
+    repo = repo or str(_REPO_ROOT)
     dt = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     # Working directory

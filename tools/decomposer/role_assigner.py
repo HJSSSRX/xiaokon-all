@@ -10,24 +10,38 @@ from typing import Dict, List
 from tools.decomposer.models import SubGoal
 
 # Mirrored from smart_scheduler.py for zero-dependency operation
-# Updated with all 5 current roles from config/roles.yaml
+# Aligned with config/roles.yaml (8 roles: 5 forensic + 3 attack-specialized)
 ROLE_CAPABILITIES: Dict[str, List[str]] = {
     "computer_analyst": [
         "memory_analysis", "disk_analysis", "log_analysis", "data_recovery",
-        "stego_analysis", "crypto_analysis",
+        "stego_analysis", "crypto_analysis", "registry_analysis",
     ],
     "mobile_analyst": [
-        "mobile_analysis",
+        "mobile_analysis", "app_analysis", "chat_forensics",
     ],
     "server_analyst": [
-        "disk_analysis", "network_analysis", "log_analysis", "web_pentest",
-        "data_recovery",
+        "disk_analysis", "network_analysis", "log_analysis",
+        "data_recovery", "database_forensics", "container_forensics",
     ],
     "network_analyst": [
-        "network_analysis", "log_analysis", "web_pentest",
+        "network_analysis", "log_analysis", "traffic_analysis",
+        "protocol_analysis", "pcap_analysis",
     ],
     "binary_analyst": [
         "binary_analysis", "crypto_analysis", "memory_analysis",
+        "malware_analysis", "reverse_engineering",
+    ],
+    "web_pentester": [
+        "web_pentest", "web_attack", "sql_injection", "xss", "ssrf",
+        "file_upload", "command_injection", "auth_bypass",
+    ],
+    "stego_crypto_analyst": [
+        "stego_analysis", "crypto_analysis", "encoding_analysis",
+        "hash_cracking", "file_carving",
+    ],
+    "misc_analyst": [
+        "file_carving", "unknown_analysis", "protocol_reverse",
+        "multi_layer_decode", "forensic_triage",
     ],
 }
 
@@ -107,12 +121,28 @@ def get_role_for_domain(domain: str) -> str:
     domain_role_map = {
         "memory": "computer_analyst",
         "disk": "computer_analyst",
+        "registry": "computer_analyst",
         "network": "network_analyst",
+        "pcap": "network_analyst",
+        "traffic": "network_analyst",
         "mobile": "mobile_analyst",
+        "android": "mobile_analyst",
+        "ios": "mobile_analyst",
         "binary": "binary_analyst",
-        "stego": "computer_analyst",
-        "crypto": "binary_analyst",
+        "malware": "binary_analyst",
+        "reverse": "binary_analyst",
+        "stego": "stego_crypto_analyst",
+        "crypto": "stego_crypto_analyst",
+        "hash": "stego_crypto_analyst",
+        "encoding": "stego_crypto_analyst",
         "log": "server_analyst",
-        "web": "server_analyst",
+        "database": "server_analyst",
+        "container": "server_analyst",
+        "web": "web_pentester",
+        "sqli": "web_pentester",
+        "xss": "web_pentester",
+        "ssrf": "web_pentester",
+        "misc": "misc_analyst",
+        "unknown": "misc_analyst",
     }
     return domain_role_map.get(domain, "computer_analyst")

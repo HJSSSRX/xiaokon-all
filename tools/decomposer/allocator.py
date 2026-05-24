@@ -112,19 +112,24 @@ def _score_level(level: int) -> float:
 
 
 def _score_domain(domain: str) -> float:
+    """Score domain specialization level. Higher = more specialized / harder to automate."""
     scores = {
         "log": 0.10, "log_analysis": 0.10,
         "disk": 0.20, "disk_analysis": 0.20, "data_recovery": 0.20,
         "": 0.30, "general": 0.30,
+        "registry": 0.30, "pcap": 0.30,
         "network": 0.40, "network_analysis": 0.40, "network_forensics": 0.40,
+        "traffic": 0.40, "database": 0.40,
         "memory": 0.50, "memory_analysis": 0.50, "memory_forensics": 0.50,
-        "web": 0.50, "web_pentest": 0.50,
+        "web": 0.50, "web_pentest": 0.50, "sqli": 0.50, "xss": 0.50,
         "computer": 0.50, "computer_forensics": 0.50,
+        "container": 0.60, "encoding": 0.60,
         "mobile": 0.70, "mobile_forensics": 0.70,
         "stego": 0.70, "stego_analysis": 0.70,
+        "malware": 0.80, "cloud": 0.80, "iot": 0.80,
         "binary": 0.90, "binary_analysis": 0.90, "reverse_engineering": 0.90,
         "crypto": 0.90, "crypto_analysis": 0.90,
-        "cloud": 0.80, "iot": 0.80,
+        "misc": 0.30, "unknown": 0.30,
     }
     return scores.get(domain.lower(), 0.30)
 

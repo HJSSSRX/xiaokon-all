@@ -1817,3 +1817,517 @@ class TestNCDFormatters:
         output = format_ncd_invariant_comparison(comparison)
         assert "0.85" in output
         assert "p1" in output
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# Causality & Abductive Reasoning Tests
+# ═══════════════════════════════════════════════════════════════════════════════════
+
+
+class TestCausalGraph:
+    """Tests for CausalGraph construction and traversal."""
+
+    def test_empty_graph(self):
+        from tools.analytics.causality import CausalGraph
+        g = CausalGraph()
+        assert g.n_nodes() == 0
+        assert g.n_edges() == 0
+        assert g.parents("x") == []
+        assert g.children("x") == []
+
+    def test_add_edge(self):
+        from tools.analytics.causality import CausalGraph, CausalEdge
+        g = CausalGraph()
+        e = CausalEdge(cause="domain", effect="tool", strength=0.8,
+                       support=0.3, edge_type="domain_knowledge")
+        g.add_edge(e)
+        assert g.n_nodes() == 2
+        assert g.n_edges() == 1
+        assert "domain" in g.nodes
+        assert "tool" in g.nodes
+
+    def test_parents_and_children(self):
+        from tools.analytics.causality import CausalGraph, CausalEdge
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        g.add_edge(CausalEdge(cause="crypto", effect="rsa", strength=0.7, support=0.2))
+        g.add_edge(CausalEdge(cause="sage", effect="factorization", strength=0.6, support=0.1))
+        assert set(g.children("crypto")) == {"sage", "rsa"}
+        assert g.parents("sage") == ["crypto"]
+        assert g.parents("factorization") == ["sage"]
+        assert g.children("factorization") == []
+
+    def test_ancestors(self):
+        from tools.analytics.causality import CausalGraph, CausalEdge
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="a", effect="b", strength=0.9, support=0.1))
+        g.add_edge(CausalEdge(cause="b", effect="c", strength=0.8, support=0.1))
+        g.add_edge(CausalEdge(cause="c", effect="d", strength=0.7, support=0.1))
+        ancestors = g.ancestors("d")
+        assert "a" in ancestors
+        assert "b" in ancestors
+        assert "c" in ancestors
+        assert "d" not in ancestors
+
+    def test_descendants(self):
+        from tools.analytics.causality import CausalGraph, CausalEdge
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="a", effect="b", strength=0.9, support=0.1))
+        g.add_edge(CausalEdge(cause="b", effect="c", strength=0.8, support=0.1))
+        g.add_edge(CausalEdge(cause="a", effect="d", strength=0.6, support=0.1))
+        descendants = g.descendants("a")
+        assert "b" in descendants
+        assert "c" in descendants
+        assert "d" in descendants
+        assert "a" not in descendants
+
+    def test_node_types(self):
+        from tools.analytics.causality import CausalGraph, CausalEdge
+        g = CausalGraph()
+        g.node_types["crypto"] = "domain"
+        g.node_types["sage"] = "feature"
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.8, support=0.3))
+        assert g.node_types.get("crypto") == "domain"
+        assert g.node_types.get("sage") == "feature"
+
+    def test_root_and_leaf_detection(self):
+        from tools.analytics.causality import CausalGraph, CausalEdge
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="root", effect="mid", strength=0.8, support=0.1))
+        g.add_edge(CausalEdge(cause="mid", effect="leaf", strength=0.7, support=0.1))
+        roots = [n for n in g.nodes if not g.parents(n)]
+        leaves = [n for n in g.nodes if not g.children(n)]
+        assert roots == ["root"]
+        assert leaves == ["leaf"]
+
+
+class TestCausalGraphBuilders:
+    """Tests for building causal graphs from rules and transactions."""
+
+    def test_build_from_rules(self):
+        from tools.analytics.causality import build_causal_graph_from_rules
+        from collections import namedtuple
+        Rule = namedtuple("Rule", ["antecedent", "consequent", "confidence", "support"])
+        rules = [
+            Rule(("crypto",), ("sage",), 0.9, 0.3),
+            Rule(("crypto",), ("rsa",), 0.7, 0.2),
+            Rule(("binary_analysis",), ("ida",), 0.8, 0.25),
+        ]
+        graph = build_causal_graph_from_rules(rules)
+        assert graph.n_nodes() >= 4
+        assert graph.n_edges() == 3
+
+    def test_build_from_rules_with_domain_labels(self):
+        from tools.analytics.causality import build_causal_graph_from_rules
+        from collections import namedtuple
+        Rule = namedtuple("Rule", ["antecedent", "consequent", "confidence", "support"])
+        rules = [
+            Rule(("crypto",), ("sage",), 0.9, 0.3),
+        ]
+        domain_labels = {"crypto": "domain"}
+        graph = build_causal_graph_from_rules(rules, domain_labels=domain_labels)
+        assert graph.n_edges() >= 1
+        # Edge from domain node should be domain_knowledge type
+        assert any(e.edge_type == "domain_knowledge" for e in graph.edges)
+
+    def test_build_from_rules_empty(self):
+        from tools.analytics.causality import build_causal_graph_from_rules
+        graph = build_causal_graph_from_rules([])
+        assert graph.n_nodes() == 0
+        assert graph.n_edges() == 0
+
+    def test_build_from_transactions(self):
+        from tools.analytics.causality import build_causal_graph_from_transactions
+        txns = [
+            {"sage", "rsa", "factorization"},
+            {"sage", "rsa", "aes"},
+            {"sage", "factorization"},
+            {"ida", "ghidra", "reverse"},
+            {"ida", "reverse", "pe"},
+        ]
+        domain_per_txn = {0: "crypto", 1: "crypto", 2: "crypto",
+                          3: "binary", 4: "binary"}
+        graph = build_causal_graph_from_transactions(
+            txns, domain_per_txn, min_confidence=0.3
+        )
+        assert "crypto" in graph.nodes
+        assert "binary" in graph.nodes
+        assert graph.n_edges() > 0
+
+    def test_build_from_transactions_empty(self):
+        from tools.analytics.causality import build_causal_graph_from_transactions
+        graph = build_causal_graph_from_transactions([], {})
+        assert graph.n_nodes() == 0
+
+
+class TestAbductiveInference:
+    """Tests for abductive (reverse) inference."""
+
+    def test_infer_domain_from_tools(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, abductive_inference,
+        )
+        g = CausalGraph()
+        g.node_types["crypto"] = "domain"
+        g.node_types["binary"] = "domain"
+        g.node_types["sage"] = "feature"
+        g.node_types["ida"] = "feature"
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        g.add_edge(CausalEdge(cause="binary", effect="ida", strength=0.8, support=0.2))
+
+        results = abductive_inference({"sage"}, g, candidate_causes=["crypto", "binary"])
+        assert len(results) >= 1
+        # crypto should rank higher for sage
+        assert results[0].cause == "crypto"
+
+    def test_infer_with_multiple_effects(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, abductive_inference,
+        )
+        g = CausalGraph()
+        g.node_types["crypto"] = "domain"
+        g.node_types["memory"] = "domain"
+        g.node_types["sage"] = "feature"
+        g.node_types["volatility"] = "feature"
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        g.add_edge(CausalEdge(cause="memory", effect="volatility", strength=0.85, support=0.25))
+
+        results = abductive_inference(
+            {"sage", "volatility"}, g,
+            candidate_causes=["crypto", "memory"],
+        )
+        # Both effects explained by different domains
+        assert len(results) == 2
+
+    def test_empty_observed_effects(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, abductive_inference,
+        )
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        results = abductive_inference(set(), g)
+        assert results == []
+
+    def test_no_candidate_causes(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, abductive_inference,
+        )
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="a", effect="b", strength=0.9, support=0.3))
+        # No domain nodes and effects don't match
+        results = abductive_inference({"unknown_effect"}, g)
+        assert results == []
+
+    def test_indirect_causal_path(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, abductive_inference,
+        )
+        g = CausalGraph()
+        g.node_types["crypto"] = "domain"
+        g.node_types["sage"] = "feature"
+        g.node_types["factorization"] = "feature"
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        g.add_edge(CausalEdge(cause="sage", effect="factorization", strength=0.7, support=0.2))
+
+        results = abductive_inference(
+            {"factorization"}, g, candidate_causes=["crypto", "sage"],
+        )
+        assert len(results) > 0
+
+    def test_infer_problem_domain(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, infer_problem_domain,
+        )
+        g = CausalGraph()
+        g.node_types["crypto"] = "domain"
+        g.node_types["binary"] = "domain"
+        g.node_types["sage"] = "feature"
+        g.node_types["ida"] = "feature"
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        g.add_edge(CausalEdge(cause="binary", effect="ida", strength=0.8, support=0.2))
+
+        results = infer_problem_domain({"sage", "rsa"}, g)
+        assert len(results) > 0
+        assert results[0].cause_type == "domain"
+
+    def test_posterior_normalization(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, abductive_inference,
+        )
+        g = CausalGraph()
+        g.node_types["crypto"] = "domain"
+        g.node_types["binary"] = "domain"
+        g.node_types["sage"] = "feature"
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        g.add_edge(CausalEdge(cause="binary", effect="sage", strength=0.1, support=0.01))
+
+        results = abductive_inference({"sage"}, g, candidate_causes=["crypto", "binary"])
+        total = sum(r.posterior for r in results)
+        # Should be approximately 1.0
+        assert abs(total - 1.0) < 0.01
+
+
+class TestCounterfactualReasoning:
+    """Tests for counterfactual reasoning across domains."""
+
+    def test_counterfactual_domain_change(self):
+        from tools.analytics.causality import counterfactual_domain_change
+        from tools.analytics.invariant import IsomorphismMapping
+
+        isos = [
+            IsomorphismMapping(
+                source_id="p1", target_id="p2",
+                source_domain="crypto", target_domain="binary",
+                isomorphism_type="strong", score=0.75,
+                signature_similarity=0.8, graph_overlap_ratio=0.7,
+                shared_core_count=2,
+                feature_mapping={"sage": "ida", "rsa": "reverse"},
+            ),
+        ]
+        profiles = []
+
+        cf = counterfactual_domain_change(
+            "test_problem",
+            {"sage", "rsa", "python", "math"},
+            "crypto", "binary",
+            isos, profiles,
+        )
+        assert cf.problem_id == "test_problem"
+        assert cf.original_domain == "crypto"
+        assert cf.counterfactual_domain == "binary"
+        assert ("sage", "ida") in cf.changed_features or any(
+            c[0] == "sage" for c in cf.changed_features
+        )
+        assert "python" in cf.preserved_features
+        assert cf.confidence > 0
+
+    def test_counterfactual_no_isomorphism(self):
+        from tools.analytics.causality import counterfactual_domain_change
+
+        cf = counterfactual_domain_change(
+            "test", {"a", "b"}, "crypto", "web", [], [],
+        )
+        assert len(cf.changed_features) == 0
+        assert cf.confidence == 0.0
+
+
+class TestCausalDiscovery:
+    """Tests for simplified PC algorithm causal discovery."""
+
+    def test_discover_from_transactions(self):
+        from tools.analytics.causality import causal_discovery
+        txns = [
+            {"crypto", "sage", "rsa"},
+            {"crypto", "sage", "factorization"},
+            {"crypto", "rsa", "aes"},
+            {"binary", "ida", "reverse"},
+            {"binary", "ida", "pe"},
+            {"binary", "ghidra", "reverse"},
+        ]
+        graph = causal_discovery(txns, min_dependency=0.1)
+        assert graph.n_nodes() > 0
+        assert graph.n_edges() > 0
+        # crypto should co-occur strongly with sage
+        assert "crypto" in graph.nodes or any(
+            "crypto" in {e.cause, e.effect} for e in graph.edges
+        )
+
+    def test_discover_empty(self):
+        from tools.analytics.causality import causal_discovery
+        graph = causal_discovery([], min_dependency=0.1)
+        assert graph.n_nodes() == 0
+
+
+class TestRootCauseTracing:
+    """Tests for root cause tracing through causal graphs."""
+
+    def test_find_root_causes(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, find_root_causes,
+        )
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        g.add_edge(CausalEdge(cause="sage", effect="factorization", strength=0.7, support=0.2))
+        g.add_edge(CausalEdge(cause="math", effect="factorization", strength=0.5, support=0.15))
+
+        roots = find_root_causes("factorization", g)
+        assert len(roots) >= 1
+        # crypto or math should be root causes
+        root_features = {r.feature for r in roots}
+        assert "crypto" in root_features or "math" in root_features
+
+    def test_find_root_causes_max_depth(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, find_root_causes,
+        )
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="a", effect="b", strength=0.9, support=0.1))
+        g.add_edge(CausalEdge(cause="b", effect="c", strength=0.9, support=0.1))
+        g.add_edge(CausalEdge(cause="c", effect="d", strength=0.9, support=0.1))
+        g.add_edge(CausalEdge(cause="d", effect="e", strength=0.9, support=0.1))
+
+        # With max_depth=1, should only trace up one level
+        roots = find_root_causes("e", g, max_depth=1)
+        # At depth 1, can only reach d, which has a parent, so no root found
+        assert len(roots) == 0
+
+    def test_leaf_node_is_root(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, find_root_causes,
+        )
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="root", effect="leaf", strength=0.8, support=0.2))
+
+        roots = find_root_causes("root", g)
+        # root has no parents, so it itself is the root
+        assert len(roots) == 1
+        assert roots[0].feature == "root"
+
+
+class TestInterventionEffect:
+    """Tests for intervention effect estimation."""
+
+    def test_direct_effect(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, estimate_intervention_effect,
+        )
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+
+        result = estimate_intervention_effect("crypto", "sage", g)
+        assert result["direct_effect"] == 0.9
+        assert result["total_effect"] > 0
+        assert result["intervention"] == "crypto"
+
+    def test_indirect_effect(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, estimate_intervention_effect,
+        )
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        g.add_edge(CausalEdge(cause="sage", effect="factorization", strength=0.7, support=0.2))
+
+        result = estimate_intervention_effect("crypto", "factorization", g)
+        assert result["direct_effect"] == 0.0
+        assert len(result["indirect_effects"]) >= 1
+        assert result["indirect_effects"][0]["mediator"] == "sage"
+
+    def test_no_effect(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, estimate_intervention_effect,
+        )
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9, support=0.3))
+        g.add_edge(CausalEdge(cause="binary", effect="ida", strength=0.8, support=0.2))
+
+        result = estimate_intervention_effect("crypto", "ida", g)
+        assert result["direct_effect"] == 0.0
+        assert result["indirect_effects"] == []
+
+
+class TestCausalityFormatters:
+    """Tests for causality formatters."""
+
+    def test_format_causal_graph_summary(self):
+        from tools.analytics.causality import (
+            CausalGraph, CausalEdge, format_causal_graph_summary,
+        )
+        g = CausalGraph()
+        g.add_edge(CausalEdge(cause="crypto", effect="sage", strength=0.9,
+                              support=0.3, edge_type="domain_knowledge",
+                              rationale="P(sage | crypto) = 0.900"))
+        output = format_causal_graph_summary(g)
+        assert "crypto" in output
+        assert "sage" in output
+        assert "节点" in output or "node" in output.lower()
+
+    def test_format_abductive_results(self):
+        from tools.analytics.causality import (
+            AbductiveResult, format_abductive_results,
+        )
+        results = [
+            AbductiveResult(
+                cause="crypto", cause_type="domain",
+                posterior=0.85, prior=0.4, likelihood=0.002,
+                explanation="crypto 能解释 1/1 个观察效应 — 高度可能",
+                supporting_rules=[
+                    {"cause": "crypto", "effect": "sage",
+                     "strength": 0.9, "rationale": "P(sage|crypto)=0.9"},
+                ],
+            ),
+        ]
+        output = format_abductive_results(results, {"sage"})
+        assert "crypto" in output
+        assert "0.85" in output
+        assert "sage" in output
+
+    def test_format_abductive_results_empty(self):
+        from tools.analytics.causality import format_abductive_results
+        output = format_abductive_results([], {"sage"})
+        assert "未找到" in output
+
+    def test_format_counterfactual(self):
+        from tools.analytics.causality import Counterfactual, format_counterfactual
+        cf = Counterfactual(
+            problem_id="test_problem",
+            original_domain="crypto",
+            counterfactual_domain="binary",
+            preserved_features=["python", "math"],
+            changed_features=[("sage", "ida"), ("rsa", "reverse")],
+            confidence=0.75,
+            interpretation="若在 binary 域, 2 个特征将变换",
+        )
+        output = format_counterfactual(cf)
+        assert "test_problem" in output
+        assert "crypto" in output
+        assert "binary" in output
+        assert "python" in output
+        assert "sage" in output
+        assert "ida" in output
+
+    def test_format_root_causes(self):
+        from tools.analytics.causality import RootCause, format_root_causes
+        roots = [
+            RootCause(
+                feature="crypto", depth=2,
+                causal_chain=["factorization", "sage", "crypto"],
+                strength=0.63,
+            ),
+        ]
+        output = format_root_causes(roots, "factorization")
+        assert "crypto" in output
+        assert "factorization" in output
+        assert "sage" in output
+
+    def test_format_root_causes_empty(self):
+        from tools.analytics.causality import format_root_causes
+        output = format_root_causes([], "unknown")
+        assert "未找到根因" in output
+
+    def test_format_intervention_effect(self):
+        from tools.analytics.causality import format_intervention_effect
+        result = {
+            "intervention": "crypto", "target": "sage",
+            "direct_effect": 0.9, "total_effect": 0.9,
+            "indirect_effects": [],
+            "interpretation": "干预 crypto 对 sage 有显著因果效应",
+        }
+        output = format_intervention_effect(result)
+        assert "crypto" in output
+        assert "sage" in output
+        assert "0.9" in output
+
+    def test_format_intervention_with_indirect(self):
+        from tools.analytics.causality import format_intervention_effect
+        result = {
+            "intervention": "crypto", "target": "factorization",
+            "direct_effect": 0.0, "total_effect": 0.63,
+            "indirect_effects": [
+                {"mediator": "sage", "strength": 0.63,
+                 "chain": "crypto → sage → factorization"},
+            ],
+            "interpretation": "干预 crypto 对 factorization 有显著因果效应",
+        }
+        output = format_intervention_effect(result)
+        assert "sage" in output
+        assert "间接路径" in output

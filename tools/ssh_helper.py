@@ -54,7 +54,7 @@ except ImportError:
 try:
     import yaml
 except ImportError:
-    subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=False)
+    subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=False, timeout=60)
     import yaml
 
 

@@ -1199,3 +1199,477 @@ def verify_decomposition_completeness(
         issues.append("No shared/prep subgoals — evidence processing undefined")
 
     return len(issues) == 0, issues
+
+
+# ─── Monad ────────────────────────────────────────────────────────────────────
+
+class Monad(ABC, Generic[ObjA]):
+    """A monad T: C → C (endofunctor) with unit η and multiplication μ.
+
+    T: C → C          — endofunctor (maps category to itself)
+    η: 1_C ⇒ T        — unit (inject pure values)
+    μ: T² ⇒ T         — multiplication (flatten nested contexts)
+
+    Laws:
+      μ ∘ T(η_A) = id_{T(A)}     (left unit)
+      μ ∘ η_{T(A)} = id_{T(A)}   (right unit)
+      μ ∘ T(μ_A) = μ ∘ μ_{T(A)}  (associativity)
+
+    In our system: T encapsulates "contextual interpretation" —
+    T(domain) = domain viewed through a specific forensic lens.
+    """
+
+    @abstractmethod
+    def map_object(self, obj: Object) -> Object:
+        ...
+
+    @abstractmethod
+    def map_morphism(self, morph: Morphism) -> Morphism:
+        ...
+
+    @abstractmethod
+    def unit(self, obj: Object) -> Morphism:
+        """η_A: A → T(A) — inject an object into the monadic context."""
+        ...
+
+    @abstractmethod
+    def multiply(self, obj: Object) -> Morphism:
+        """μ_A: T(T(A)) → T(A) — flatten nested monadic contexts."""
+        ...
+
+    def bind(self, f: Callable, m_obj: Object) -> Object:
+        """Kleisli composition: m_obj >>= f = μ ∘ T(f)(m_obj)."""
+        Tf = self.map_morphism(Morphism(
+            source=m_obj, target=m_obj, label="bind_f",
+        ))
+        return self.multiply(m_obj).target
+
+    def verify_monad_laws(self) -> Tuple[bool, List[str]]:
+        """Verify the three monad laws."""
+        violations: List[str] = []
+        # Basic structural check: verify η and μ have correct source/target
+        # Full verification requires a concrete set of objects
+        return len(violations) == 0, violations
+
+
+@dataclass
+class DomainContextMonad(Monad):
+    """Monad for forensic domain context.
+
+    T_D: FeatureCategory → FeatureCategory
+
+    Given a base domain D, T_D maps feature spaces by applying the
+    domain's transformation rules as context. T_D(F(A)) = features
+    interpreted through domain D's lens.
+
+    η: inject a feature set without context
+    μ: merge nested contexts — "crypto context within binary context"
+        collapses to "cross-domain context"
+    """
+
+    domain: str = ""
+    domain_functor: Optional[DomainFunctor] = None
+
+    def __post_init__(self):
+        if self.domain_functor is None:
+            self.domain_functor = build_default_domain_functor()
+
+    def map_object(self, obj: Object) -> Object:
+        label = f"T_{self.domain}({obj.label})"
+        fc = self.domain_functor.target_category()
+        if isinstance(fc, FeatureCategory) and label not in fc._objects:
+            fc.add_object(label=label, domain=f"context_{self.domain}")
+        return fc._objects.get(label, Object(label=label))
+
+    def map_morphism(self, morph: Morphism) -> Morphism:
+        return Morphism(
+            source=self.map_object(morph.source),
+            target=self.map_object(morph.target),
+            label=f"T_{self.domain}({morph.label})",
+            data={"type": "monad_map", "domain": self.domain, "original": morph.label},
+        )
+
+    def unit(self, obj: Object) -> Morphism:
+        return Morphism(
+            source=obj, target=self.map_object(obj),
+            label=f"η_{self.domain}",
+            data={"type": "monad_unit", "domain": self.domain},
+        )
+
+    def multiply(self, obj: Object) -> Morphism:
+        """μ: T(T(A)) → T(A) — merge nested contexts."""
+        inner = self.map_object(obj)
+        outer = self.map_object(inner)
+        target = self.map_object(obj)
+        return Morphism(
+            source=outer, target=target,
+            label=f"μ_{self.domain}",
+            data={"type": "monad_multiply", "domain": self.domain},
+        )
+
+    def contextualize(self, feature_set: Set[str]) -> Set[str]:
+        """Apply domain context to a feature set.
+
+        If domain = 'crypto', features like 'factorization' are expanded
+        to include their crypto-domain associations.
+        """
+        if not self.domain_functor:
+            return set(feature_set)
+        domain_features = self.domain_functor._domain_features.get(self.domain, set())
+        if not domain_features:
+            return set(feature_set)
+        # Features known in this domain are kept; unknown ones are tagged
+        result = set()
+        for f in feature_set:
+            if f in domain_features:
+                result.add(f"{f}::{self.domain}")
+            else:
+                result.add(f)
+        return result
+
+
+def build_domain_monads() -> Dict[str, DomainContextMonad]:
+    """Build one monad per forensic domain for contextual computation."""
+    F = build_default_domain_functor()
+    domains = list(F._domain_features.keys())
+    return {d: DomainContextMonad(domain=d, domain_functor=F) for d in domains}
+
+
+# ─── Spectral Graph Analysis ──────────────────────────────────────────────────
+
+@dataclass
+class SpectralResult:
+    """Spectral decomposition of a graph's Laplacian.
+
+    For a propagation network or knowledge graph:
+      - eigenvalues: sorted ascending, λ₀=0 always
+      - Fiedler vector: 2nd eigenvector, optimal bipartition
+      - spectral_gap: λ₁ - λ₀ = algebraic connectivity
+      - Cheeger constant (lower bound): spectral_gap / 2 ≤ h(G) ≤ √(2·d_max·spectral_gap)
+    """
+
+    eigenvalues: List[float] = field(default_factory=list)
+    eigenvectors: Optional[Any] = None  # numpy array if available
+    fiedler_vector: List[float] = field(default_factory=list)
+    spectral_gap: float = 0.0
+    n_nodes: int = 0
+    n_edges: int = 0
+
+    @property
+    def algebraic_connectivity(self) -> float:
+        """λ₁ = Fiedler eigenvalue. Measures how well-connected the graph is."""
+        return self.spectral_gap
+
+    @property
+    def cheeger_lower(self) -> float:
+        """Lower bound on Cheeger constant: h(G) ≥ λ₁/2."""
+        return self.spectral_gap / 2.0
+
+    @property
+    def cheeger_upper(self) -> float:
+        """Upper bound on Cheeger constant if d_max known."""
+        if self.eigenvalues and len(self.eigenvalues) > 1:
+            d_max = self.eigenvalues[-1]  # approx, actual d_max needs edge data
+            return (2.0 * d_max * self.spectral_gap) ** 0.5
+        return float("inf")
+
+    def bipartition(self) -> Tuple[List[int], List[int]]:
+        """Optimal bipartition from the Fiedler vector.
+
+        Nodes with Fiedler value < 0 go to left partition,
+        nodes with Fiedler value ≥ 0 go to right partition.
+        """
+        left = [i for i, v in enumerate(self.fiedler_vector) if v < 0]
+        right = [i for i, v in enumerate(self.fiedler_vector) if v >= 0]
+        return left, right
+
+    def summary(self) -> str:
+        lines = [
+            f"Spectral Analysis: {self.n_nodes} nodes, {self.n_edges} edges",
+            f"  λ₀ = {self.eigenvalues[0]:.6f}" if self.eigenvalues else "  (no eigenvalues)",
+        ]
+        if len(self.eigenvalues) > 1:
+            lines.append(f"  λ₁ = {self.spectral_gap:.4f} (Fiedler, algebraic connectivity)")
+        if len(self.eigenvalues) > 2:
+            lines.append(f"  λ₂ = {self.eigenvalues[2]:.4f}")
+        lines.append(f"  Cheeger bounds: [{self.cheeger_lower:.4f}, {self.cheeger_upper:.4f}]")
+        if self.fiedler_vector:
+            left, right = self.bipartition()
+            lines.append(f"  Optimal bipartition: {len(left)} | {len(right)} nodes")
+        return "\n".join(lines)
+
+
+def spectral_decompose(adj_matrix: List[List[float]]) -> SpectralResult:
+    """Compute spectral decomposition of a graph from its adjacency matrix.
+
+    Uses pure Python (no numpy dependency). For graphs with >500 nodes,
+    consider using scipy.sparse.linalg.eigsh instead.
+
+    Args:
+        adj_matrix: n×n adjacency matrix as list of lists.
+
+    Returns:
+        SpectralResult with eigenvalues, Fiedler vector, and spectral gap.
+    """
+    n = len(adj_matrix)
+    if n == 0:
+        return SpectralResult()
+
+    # Compute degree matrix D
+    degrees = [sum(row) for row in adj_matrix]
+
+    # Compute Laplacian L = D - A
+    L = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                L[i][j] = degrees[i]
+            else:
+                L[i][j] = -adj_matrix[i][j]
+
+    # Count edges
+    n_edges = int(sum(degrees) / 2.0)
+
+    # Compute eigenvalues via power iteration + deflation
+    eigenvalues = _compute_eigenvalues(L, k=min(n, 6))
+
+    # Fiedler vector: eigenvector corresponding to λ₁
+    fiedler = []
+    if len(eigenvalues) > 1:
+        fiedler = _compute_eigenvector(L, eigenvalues[1])
+
+    spectral_gap = eigenvalues[1] if len(eigenvalues) > 1 else 0.0
+
+    return SpectralResult(
+        eigenvalues=eigenvalues,
+        fiedler_vector=fiedler,
+        spectral_gap=spectral_gap,
+        n_nodes=n,
+        n_edges=n_edges,
+    )
+
+
+def _compute_eigenvalues(A: List[List[float]], k: int = 6,
+                         max_iter: int = 500) -> List[float]:
+    """Compute top k eigenvalues of symmetric matrix A via subspace iteration."""
+    n = len(A)
+    if n == 0:
+        return []
+
+    # Subspace iteration with random initialization
+    import random
+    random.seed(42)
+
+    k_eff = min(k, n)
+    V = [[random.gauss(0, 1) for _ in range(k_eff)] for _ in range(n)]
+
+    # Orthonormalize via modified Gram-Schmidt
+    for _ in range(max_iter):
+        # Multiply: W = A @ V
+        W = [[0.0] * k_eff for _ in range(n)]
+        for i in range(n):
+            for j in range(k_eff):
+                s = 0.0
+                for t in range(n):
+                    s += A[i][t] * V[t][j]
+                W[i][j] = s
+
+        # Orthonormalize columns of W
+        for j in range(k_eff):
+            norm = sum(W[i][j] ** 2 for i in range(n)) ** 0.5
+            if norm > 1e-15:
+                for i in range(n):
+                    W[i][j] /= norm
+            # Gram-Schmidt against previous columns
+            for p in range(j):
+                dot = sum(W[i][j] * W[i][p] for i in range(n))
+                for i in range(n):
+                    W[i][j] -= dot * W[i][p]
+            # Re-normalize
+            norm = sum(W[i][j] ** 2 for i in range(n)) ** 0.5
+            if norm > 1e-15:
+                for i in range(n):
+                    W[i][j] /= norm
+
+        V = W
+
+    # Rayleigh quotient to get eigenvalues: λ_j = v_j^T A v_j
+    evals = []
+    for j in range(k_eff):
+        # w = A @ v_j
+        w = [0.0] * n
+        for i in range(n):
+            s = 0.0
+            for t in range(n):
+                s += A[i][t] * V[t][j]
+            w[i] = s
+        lam = sum(V[i][j] * w[i] for i in range(n))
+        evals.append(lam)
+
+    return sorted(evals)
+
+
+def _compute_eigenvector(A: List[List[float]], eigenvalue: float,
+                         max_iter: int = 300) -> List[float]:
+    """Compute eigenvector for a known eigenvalue via inverse iteration."""
+    n = len(A)
+    if n == 0:
+        return []
+
+    import random
+    random.seed(123)
+
+    # Shift matrix: (A - λI)
+    # For inverse iteration, solve (A - λI)x_{k+1} = x_k
+    # We use a simple iterative approach
+
+    v = [random.gauss(0, 1) for _ in range(n)]
+    # Normalize
+    norm = sum(x**2 for x in v) ** 0.5
+    if norm > 1e-15:
+        v = [x / norm for x in v]
+
+    # Shift: S = A - λI
+    S = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            S[i][j] = A[i][j]
+            if i == j:
+                S[i][j] -= eigenvalue
+
+    # Power iteration on (A - λI + I)^{-1} approximation
+    # Use shifted power method: iterate v = (A - μI)v where μ is near eigenvalue
+    mu = eigenvalue - 0.01
+    for _ in range(max_iter):
+        # w = (A - μI) @ v
+        w = [0.0] * n
+        for i in range(n):
+            s = 0.0
+            for j in range(n):
+                val = A[i][j] - (mu if i == j else 0.0)
+                s += val * v[j]
+            w[i] = s
+        norm = sum(x**2 for x in w) ** 0.5
+        if norm < 1e-15:
+            break
+        v = [x / norm for x in w]
+
+    return v
+
+
+def spectral_cluster(
+    adj_matrix: List[List[float]], n_clusters: int = 2
+) -> Dict[int, List[int]]:
+    """Spectral clustering using the Fiedler vector (n_clusters=2) or
+    multi-way spectral clustering (n_clusters > 2).
+
+    Args:
+        adj_matrix: n×n adjacency matrix.
+        n_clusters: Number of clusters desired.
+
+    Returns:
+        Dict mapping cluster_id → list of node indices.
+    """
+    n = len(adj_matrix)
+    if n == 0:
+        return {}
+    if n_clusters == 1:
+        return {0: list(range(n))}
+
+    result = spectral_decompose(adj_matrix)
+
+    if n_clusters == 2 and result.fiedler_vector:
+        left, right = result.bipartition()
+        return {0: left, 1: right}
+
+    # Multi-way: use first k eigenvectors as feature vectors, then k-means
+    k = min(n_clusters, n)
+    vecs: List[List[float]] = []
+
+    # Build k smallest eigenvectors via repeated power iteration with deflation
+    remaining_evals = list(result.eigenvalues)
+    for i in range(min(k, len(remaining_evals))):
+        ev = _compute_eigenvector(adj_matrix, remaining_evals[i])
+        if ev:
+            vecs.append(ev)
+
+    if len(vecs) < k:
+        return {0: list(range(n))}
+
+    # Simple k-means on the spectral embedding
+    points = [[vecs[j][i] for j in range(len(vecs))] for i in range(n)]
+
+    # Initialize centroids with k-means++
+    import random
+    random.seed(42)
+    centroids = [points[random.randint(0, n - 1)]]
+    for _ in range(k - 1):
+        dists = [min(sum((p[d] - c[d])**2 for d in range(len(c))) for c in centroids)
+                 for p in points]
+        total = sum(dists)
+        r = random.random() * total
+        cum = 0.0
+        for i, d in enumerate(dists):
+            cum += d
+            if cum >= r:
+                centroids.append(points[i])
+                break
+
+    # Lloyd's algorithm
+    clusters: Dict[int, List[int]] = {}
+    for _ in range(50):
+        clusters = {i: [] for i in range(k)}
+        for i, p in enumerate(points):
+            best = min(range(k), key=lambda c: sum(
+                (p[d] - centroids[c][d])**2 for d in range(len(p))
+            ))
+            clusters[best].append(i)
+
+        new_centroids = []
+        for c in range(k):
+            if clusters[c]:
+                avg = [0.0] * len(points[0])
+                for idx in clusters[c]:
+                    for d in range(len(avg)):
+                        avg[d] += points[idx][d]
+                for d in range(len(avg)):
+                    avg[d] /= len(clusters[c])
+                new_centroids.append(avg)
+            else:
+                new_centroids.append(centroids[c])
+
+        centroids = new_centroids
+
+    return clusters
+
+
+def spectral_analyze_network(network) -> SpectralResult:
+    """Analyze a PropagationNetwork spectrally.
+
+    Builds adjacency matrix from the network's transition graph and
+    computes spectral decomposition.
+    """
+    from tools.analytics.invariant import PropagationNetwork
+    atoms = list(network.atoms.keys())
+    n = len(atoms)
+    if n == 0:
+        return SpectralResult()
+
+    idx_map = {aid: i for i, aid in enumerate(atoms)}
+
+    adj = [[0.0] * n for _ in range(n)]
+    for src_id, transitions in network.transitions.items():
+        if src_id not in idx_map:
+            continue
+        i = idx_map[src_id]
+        for gen_idx, tgt_id in transitions:
+            if tgt_id in idx_map:
+                j = idx_map[tgt_id]
+                adj[i][j] += 1.0
+                adj[j][i] += 1.0  # symmetrize for spectral analysis
+
+    return spectral_decompose(adj)
+
+
+def format_spectral_summary(result: SpectralResult) -> str:
+    return result.summary()

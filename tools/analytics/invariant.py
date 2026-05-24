@@ -229,6 +229,426 @@ class PermutationGroup:
         return len(self.generators)
 
 
+# ─── Schreier-Sims Algorithm ──────────────────────────────────────────────────
+
+@dataclass
+class SchreierSimsResult:
+    """Output of Schreier-Sims: base B and strong generating set S.
+
+    B = [β₁, ..., βₖ]: a base — pointwise stabilizer chain descends to {id}
+    S = [S₁, ..., Sₖ]: strong generators — Sᵢ generates G⁽ⁱ⁾ = stabilizer of
+        {β₁, ..., βᵢ₋₁} restricted to the stabilizer of βᵢ
+
+    Complexity: O(n²|S| + n|S|²) for n points and |S| strong generators.
+
+    Usage:
+      result = schreier_sims(group, n_points=len(feature_space))
+      result.order         # |G| — total number of group elements
+      result.member(g)     # is permutation g in the group?
+      result.base          # base points
+    """
+    base: List[int] = field(default_factory=list)
+    strong_generators: List[List[Permutation]] = field(default_factory=list)
+    group_order: int = 1
+
+    def member(self, g: Permutation) -> bool:
+        """Test membership: is permutation g in the group?
+
+        Uses the sift procedure: for each base point βᵢ, apply g to βᵢ and
+        traverse the Schreier tree to see if the result is in the orbit.
+        """
+        for i, beta in enumerate(self.base):
+            beta_img = g.apply_to_idx(beta)
+            if beta_img == beta:
+                continue
+            # Try to find a generator that maps beta → beta_img
+            found = False
+            for s in self.strong_generators[i]:
+                if s.apply_to_idx(beta) == beta_img:
+                    g = g.compose(s.inverse())
+                    found = True
+                    break
+            if not found:
+                return False
+        # After sifting through all levels, g should be identity
+        return len(g.mapping) == 0
+
+    def summary(self) -> str:
+        lines = [
+            f"Schreier-Sims Result:",
+            f"  Base: {self.base}",
+            f"  |G| = {self.group_order:,}",
+        ]
+        for i, sg in enumerate(self.strong_generators):
+            lines.append(f"  S{i} = {len(sg)} generators (stabilizer of {self.base[:i]})")
+        return "\n".join(lines)
+
+
+def schreier_sims(group: PermutationGroup, n_points: int) -> SchreierSimsResult:
+    """Compute base and strong generating set for a permutation group.
+
+    Deterministic Schreier-Sims variant using Schreier's lemma.
+
+    Algorithm:
+      1. Choose β = next unused point as new base point.
+      2. Compute orbit Δ of β under current stabilizer generators S.
+      3. Build Schreier tree: for each δ ∈ Δ, record u_δ with u_δ(β) = δ.
+      4. Schreier generators: for each δ ∈ Δ, g ∈ S, h = u_{g(δ)}^{−1} ∘ g ∘ u_δ.
+         These generate Stab_G(β).
+      5. Repeat with new generators until stabilizer is trivial.
+
+    Reference: Seress, "Permutation Group Algorithms" (2003), Ch. 4.
+    """
+    if n_points == 0:
+        return SchreierSimsResult()
+
+    generators = [Permutation(dict(g.mapping)) for g in group.generators]
+    if not generators:
+        return SchreierSimsResult(base=[],
+                                  strong_generators=[[]],
+                                  group_order=1)
+
+    base: List[int] = []
+    strong: List[List[Permutation]] = []
+    orders: List[int] = []  # orbit size at each level for order computation
+
+    # S[0] = generators of G (stabilizer of nothing)
+    S = [Permutation(dict(g.mapping)) for g in generators]
+    strong.append(list(S))
+
+    for beta in range(n_points):
+        if beta in base:
+            continue
+
+        base.append(beta)
+
+        # Compute orbit of beta under S and build Schreier tree
+        orbit: List[int] = [beta]
+        orbit_set: Set[int] = {beta}
+        tree: Dict[int, Tuple[int, int]] = {beta: (-1, -1)}  # node → (parent, gen_idx)
+        queue = [beta]
+        while queue:
+            x = queue.pop(0)
+            for gi, g in enumerate(S):
+                y = g.apply_to_idx(x)
+                if y not in orbit_set:
+                    orbit_set.add(y)
+                    orbit.append(y)
+                    tree[y] = (x, gi)
+                    queue.append(y)
+
+        orders.append(len(orbit_set))
+
+        # Build transversal u_δ: u_δ(β) = δ for each δ in orbit
+        # u_δ = g_{i_k} ∘ ... ∘ g_{i_1} where the path from β to δ in tree
+        transversal: Dict[int, Permutation] = {}
+        for delta in orbit:
+            if delta == beta:
+                transversal[delta] = Permutation({})
+            else:
+                # Walk up tree: beta → ... → parent → delta
+                path_gens: List[Permutation] = []
+                cur = delta
+                while cur != beta:
+                    parent, gen_idx = tree[cur]
+                    path_gens.append(S[gen_idx])
+                    cur = parent
+                # Compose: apply generator for last step first, etc.
+                u = Permutation({})
+                for g in reversed(path_gens):
+                    u = u.compose(g)
+                transversal[delta] = u
+
+        # Schreier's lemma: generators for Stab_G(β)
+        # For each δ ∈ orbit, g ∈ S: h = u_{g(δ)}^{−1} ∘ g ∘ u_δ fixes β
+        new_S: List[Permutation] = []
+        seen_new: Set[FrozenSet[Tuple[int, int]]] = set()
+
+        for delta in orbit:
+            u_delta = transversal[delta]
+            for g in S:
+                g_delta = g.apply_to_idx(delta)
+                if g_delta not in transversal:
+                    continue
+                u_gdelta = transversal[g_delta]
+                u_gdelta_inv = u_gdelta.inverse()
+                h = u_gdelta_inv.compose(g).compose(u_delta)
+
+                # h should fix beta — verify and clean
+                if h.apply_to_idx(beta) != beta:
+                    continue
+
+                # Remove beta from mapping to get a clean stabilizer element
+                clean_map = {}
+                for k, v in h.mapping.items():
+                    if k != beta and v != k:
+                        clean_map[k] = v
+                if clean_map:
+                    key = frozenset(clean_map.items())
+                    if key not in seen_new:
+                        seen_new.add(key)
+                        new_S.append(Permutation(clean_map))
+
+        if not new_S:
+            # Stabilizer is trivial — no more levels needed
+            strong.append([])
+            break
+
+        strong.append(list(new_S))
+        S = new_S
+
+    # Compute group order: product of orbit sizes at each level
+    order = 1
+    for sz in orders:
+        order *= sz
+    # If there were more levels implied by base than orbits computed, pad with 1
+    if len(orders) < len(base):
+        order *= 1  # trivial stabilizer at deeper levels
+
+    return SchreierSimsResult(base=base, strong_generators=strong, group_order=order)
+
+
+def _reduce_generators(gens: List[Permutation]) -> List[Permutation]:
+    """Remove redundant generators (those that are products of others)."""
+    if len(gens) <= 1:
+        return gens
+    # Keep unique generators by their mapping dict
+    seen: Set[FrozenSet[Tuple[int, int]]] = set()
+    result = []
+    for g in gens:
+        key = frozenset(g.mapping.items())
+        if key not in seen and g.mapping:
+            seen.add(key)
+            result.append(g)
+    return result
+
+
+# ─── Conjugacy Classes ────────────────────────────────────────────────────────
+
+@dataclass
+class ConjugacyClass:
+    """A conjugacy class: {g⁻¹hg | g ∈ G} for a representative h.
+
+    Two transformations are conjugate iff they represent the "same type"
+    of feature mapping, just applied at different positions.
+    """
+    representative: Permutation
+    members: List[Permutation] = field(default_factory=list)
+    cycle_type: Tuple[int, ...] = field(default_factory=tuple)
+
+    @property
+    def size(self) -> int:
+        return len(self.members)
+
+    @property
+    def description(self) -> str:
+        ct = self.cycle_type
+        if not ct:
+            return "identity"
+        if len(ct) == 1 and ct[0] == 2:
+            return "swap (transposition)"
+        parts = []
+        for c in ct:
+            if c == 2:
+                parts.append("swap")
+            elif c == 3:
+                parts.append("3-cycle")
+            else:
+                parts.append(f"{c}-cycle")
+        return " × ".join(parts)
+
+
+@dataclass
+class ConjugacyReport:
+    """Full conjugacy class decomposition of a permutation group."""
+    classes: List[ConjugacyClass] = field(default_factory=list)
+    total_elements: int = 0
+
+    def summary(self) -> str:
+        lines = [
+            f"Conjugacy Class Decomposition: {len(self.classes)} classes, "
+            f"{self.total_elements} non-identity generators",
+        ]
+        for i, cc in enumerate(self.classes):
+            lines.append(
+                f"  Class {i+1}: {cc.description} "
+                f"(size={cc.size}, {cc.size/self.total_elements*100:.0f}%)"
+            )
+        return "\n".join(lines)
+
+
+def compute_conjugacy_classes(
+    group: PermutationGroup, n_points: int,
+) -> ConjugacyReport:
+    """Decompose group generators into conjugacy classes.
+
+    Two permutations σ, τ ∈ S_n are conjugate iff they have the same
+    cycle type (same multiset of cycle lengths). This is a complete
+    classification: cycle type determines conjugacy class uniquely in S_n.
+
+    However, within a subgroup G < S_n, two elements may have the same
+    cycle type but NOT be conjugate in G. This implementation detects
+    G-conjugacy via orbit computation under the conjugation action.
+
+    Returns a ConjugacyReport with each class labeled by its cycle type.
+    """
+    elements = [Permutation(dict(g.mapping)) for g in group.generators]
+    if not elements:
+        return ConjugacyReport()
+
+    n = len(elements)
+
+    def cycle_type(p: Permutation) -> Tuple[int, ...]:
+        """Extract cycle type (sorted cycle lengths) from a permutation."""
+        visited: Set[int] = set()
+        lengths = []
+        for start in p.mapping:
+            if start in visited:
+                continue
+            length = 0
+            cur = start
+            while cur not in visited:
+                visited.add(cur)
+                cur = p.apply_to_idx(cur)
+                length += 1
+            if length > 1:
+                lengths.append(length)
+        # Also check points mapped to themselves (1-cycles, skipped for compactness)
+        return tuple(sorted(lengths))
+
+    # Group by cycle type first (S_n conjugacy)
+    by_cycle_type: Dict[Tuple[int, ...], List[Permutation]] = defaultdict(list)
+    for g in elements:
+        ct = cycle_type(g)
+        by_cycle_type[ct].append(g)
+
+    # For each cycle type group, split into G-conjugacy classes
+    classes = []
+    for ct, members in by_cycle_type.items():
+        remaining = list(members)
+        while remaining:
+            rep = remaining[0]
+            g_class = [rep]
+            remaining = remaining[1:]
+
+            # Compute G-conjugates of rep
+            orbit: Set[FrozenSet[Tuple[int, int]]] = set()
+            orbit.add(frozenset(rep.mapping.items()))
+
+            queue = [rep]
+            for current in queue:
+                for g in elements:
+                    conjugate = g.inverse().compose(current).compose(g)
+                    key = frozenset(conjugate.mapping.items())
+                    if key not in orbit:
+                        orbit.add(key)
+                        queue.append(conjugate)
+                        # Check if any remaining member is this conjugate
+                        for i in range(len(remaining) - 1, -1, -1):
+                            if frozenset(remaining[i].mapping.items()) == key:
+                                g_class.append(remaining[i])
+                                remaining.pop(i)
+
+            classes.append(ConjugacyClass(
+                representative=rep, members=g_class, cycle_type=ct,
+            ))
+
+    # Sort classes by size descending
+    classes.sort(key=lambda c: c.size, reverse=True)
+
+    return ConjugacyReport(classes=classes, total_elements=n)
+
+
+# ─── Character Theory (lightweight) ───────────────────────────────────────────
+
+@dataclass
+class CharacterTable:
+    """Character table of a permutation representation.
+
+    For a group G acting on feature space V (dim = n_features), the
+    character χ(g) = Tr(ρ(g)) = number of fixed points of permutation g.
+
+    This is a single representation's character (the permutation
+    representation), not the full irreducible character table.
+    """
+    group_description: str = ""
+    n_features: int = 0
+    generators: List[Permutation] = field(default_factory=list)
+    characters: Dict[int, int] = field(default_factory=dict)  # gen_idx → χ(gen)
+
+    def compute_character(self, g: Permutation) -> int:
+        """Character of permutation representation: fixed points of g."""
+        fixed = self.n_features
+        for k in g.mapping:
+            if g.mapping[k] != k:
+                # A point in the mapping domain, not fixed
+                fixed -= 1
+        # Also account for points not in mapping (fixed by definition)
+        n_mapped = len(g.mapping)
+        n_unmapped = self.n_features - n_mapped
+        # All unmapped points are fixed
+        # For mapped points, fixed -= 1 for each non-fixed point
+        for k, v in g.mapping.items():
+            if k == v:
+                fixed += 0  # already counted in unmapped if k not in mapping domain
+        # Simpler: count fixed points directly
+        fixed_count = 0
+        for i in range(self.n_features):
+            if g.apply_to_idx(i) == i:
+                fixed_count += 1
+        return fixed_count
+
+    def build(self):
+        """Compute characters for all generators."""
+        self.characters = {
+            i: self.compute_character(g)
+            for i, g in enumerate(self.generators)
+        }
+        return self
+
+    def inner_product(self, chi1: Callable, chi2: Callable) -> float:
+        """Inner product of class functions: ⟨χ₁, χ₂⟩ = 1/|G| Σ_g χ₁(g)χ₂(g).
+
+        For the permutation character, this approximates the decomposition
+        into irreducibles: ⟨χ, χ⟩ = number of irreducible components.
+        """
+        if not self.generators:
+            return 0.0
+        total = 0.0
+        for g in self.generators:
+            total += chi1(g) * chi2(g)
+        return total / len(self.generators)
+
+    def multiplicity_of_trivial(self) -> float:
+        """Multiplicity of the trivial representation in χ.
+
+        ⟨χ, 1⟩ = 1/|G| Σ_g χ(g) = average number of fixed points.
+        This equals the number of orbits (Burnside's lemma).
+        """
+        if not self.generators:
+            return float(self.n_features)
+        total = sum(self.characters.values())
+        return total / len(self.generators)
+
+    def orbit_count(self) -> int:
+        """Number of orbits under G (Burnside's lemma)."""
+        return int(round(self.multiplicity_of_trivial()))
+
+    def summary(self) -> str:
+        if not self.characters:
+            self.build()
+        lines = [
+            f"Character Table — {self.group_description}",
+            f"  Feature space dim: {self.n_features}",
+            f"  Generators: {len(self.generators)}",
+        ]
+        for i, chi in self.characters.items():
+            lines.append(f"  χ(g{i}) = {chi} fixed points")
+        lines.append(f"  ⟨χ, χ⟩ = {self.inner_product(self.compute_character, self.compute_character):.2f} irreducible components (approx)")
+        lines.append(f"  Orbits (Burnside): {self.orbit_count()}")
+        return "\n".join(lines)
+
+
 @dataclass
 class OrbitDecomposition:
     """Partition of feature space into orbits under group action.

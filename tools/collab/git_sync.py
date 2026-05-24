@@ -12,7 +12,7 @@ def git_run(case_dir: str, *git_args: str) -> subprocess.CompletedProcess:
     result = subprocess.run(
         ["git"] + list(git_args),
         cwd=case_dir, capture_output=True, text=True,
-        encoding="utf-8", errors="replace",
+        encoding="utf-8", errors="replace", timeout=120,
     )
     if result.returncode != 0 and result.stderr:
         print(f"[git] {result.stderr.strip()}")

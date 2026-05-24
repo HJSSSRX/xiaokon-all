@@ -47,7 +47,7 @@ def load_manifest():
     try:
         import yaml
     except ImportError:
-        subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=False)
+        subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=False, timeout=60)
         import yaml
 
     with open(MANIFEST_PATH, encoding="utf-8") as f:

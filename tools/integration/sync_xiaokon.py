@@ -78,7 +78,7 @@ def run(cmd: list[str], cwd: Path | None = None, check: bool = True, capture: bo
     """Run a command, str-ify Paths."""
     cmd = [str(c) if isinstance(c, Path) else c for c in cmd]
     print(f"  $ {' '.join(cmd)}" + (f"  (cwd={cwd})" if cwd else ""))
-    return subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=check, capture_output=capture, text=True)
+    return subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=check, capture_output=capture, text=True, timeout=120)
 
 
 def die(msg: str, code: int = 1) -> None:
