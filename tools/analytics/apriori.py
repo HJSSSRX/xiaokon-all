@@ -249,3 +249,23 @@ def format_rules_table(
         )
 
     return "\n".join(lines)
+
+
+def generate_closed_itemsets(
+    transactions: List[Set[str]],
+    min_support: float = 0.0,
+) -> List[Tuple[Tuple[str, ...], float]]:
+    """Generate closed itemsets from formal concept analysis.
+
+    Closed itemsets are intents of formal concepts — they are lossless:
+    all frequent itemsets can be recovered from the closed ones and their supports.
+    This bridges Apriori with FCA: closed itemsets are strictly more principled
+    than arbitrary frequent itemsets.
+
+    Uses lazy import to avoid circular dependencies with grouptheory.py.
+    """
+    from tools.analytics.grouptheory import FormalContext, enumerate_concepts
+
+    ctx = FormalContext(transactions)
+    concepts = enumerate_concepts(ctx, min_support=min_support)
+    return [(c.intent, c.support) for c in concepts]

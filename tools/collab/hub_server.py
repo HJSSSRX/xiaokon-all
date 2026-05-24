@@ -61,19 +61,31 @@ def cmd_serve(args):
     Handler.case_dir = case_dir
     hub_constants._HUB_STARTED_AT = now_str()
 
-    server = http.server.ThreadingHTTPServer((args.bind, args.port), Handler)
+    port = args.port
+    max_tries = 10
+    for attempt in range(max_tries):
+        try:
+            server = http.server.ThreadingHTTPServer((args.bind, port), Handler)
+            break
+        except OSError as e:
+            if attempt < max_tries - 1:
+                print(f"[!] 端口 {port} 被占用 → 尝试 {port + 1}")
+                port += 1
+            else:
+                print(f"[!] 端口 {args.port}-{port} 全部被占用，启动失败")
+                raise e
 
     print()
     print("=" * 60)
-    print(f"  Collaboration Hub v3  -  port {args.port}")
+    print(f"  Collaboration Hub v3  -  port {port}")
     print("=" * 60)
     print(f"  Case dir:  {case_dir}")
-    print(f"  Bind:      {args.bind}:{args.port}")
+    print(f"  Bind:      {args.bind}:{port}")
     print()
     print("  Remote machines connect via:")
     for ip in get_local_ips():
         if not ip.startswith("127."):
-            print(f"    curl http://{ip}:{args.port}/ping")
+            print(f"    curl http://{ip}:{port}/ping")
     print()
     print("  Press Ctrl+C to stop.")
     print()

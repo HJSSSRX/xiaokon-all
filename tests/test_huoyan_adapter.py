@@ -231,7 +231,7 @@ def t(name: str, cond: bool, msg: str = ""):
 
 def test_config_defaults():
     cfg = HuoyanConfig()
-    t("Config.port 默认 8477 (真实端口)", cfg.port == 8477)
+    t("Config.port 默认 8862 (真实端口)", cfg.port == 8862)
     t("Config.host 默认 127.0.0.1", cfg.host == "127.0.0.1")
     t("Config.timeout 默认 30", cfg.timeout == 30)
 

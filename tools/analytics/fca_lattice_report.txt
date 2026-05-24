@@ -1,0 +1,6 @@
+# FCA 形式概念格分析
+
+Traceback (most recent call last):
+  File "D:\ai\tools\analytics\fca_lattice.py", line 34, in <module>
+    ctx = FormalContext()
+TypeError: FormalContext.__init__() missing 1 required positional argument: 'transactions'

@@ -1,0 +1,873 @@
+# 题目本质分解列 (Problem Essence Decomposition)
+
+题目总数: 69 | 域数: 7
+
+## 域: (未分类) (41 题)
+
+### 逐题分解
+
+#### solved/2026fic_selected_solutions
+  (core=0, structural=0, variable=16)
+
+  (无核心不变量)
+
+#### solved/test_stego_png_hidden_message
+  (core=0, structural=0, variable=8)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/M01
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M02
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M03
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M04
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M05
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M06
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M07
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M08
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M09
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M10
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M11
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M12
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/M13
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {m_phone} |
+
+#### solved/2025pinghang/N01
+  (core=0, structural=0, variable=4)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/N02
+  (core=0, structural=0, variable=4)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/N03
+  (core=0, structural=0, variable=3)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/N04
+  (core=0, structural=0, variable=3)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/N05
+  (core=0, structural=0, variable=4)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/N06
+  (core=0, structural=0, variable=3)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/N07
+  (core=0, structural=0, variable=4)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/N08
+  (core=0, structural=0, variable=4)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/N09
+  (core=0, structural=0, variable=5)
+
+  (无核心不变量)
+
+#### solved/2025pinghang/S01
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S02
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S03
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S04
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S05
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S06
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S07
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S08
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S09
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S10
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S11
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S13
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S14
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S15
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### solved/2025pinghang/S16
+  (core=1, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {s_server} |
+
+#### skills/timestamps_reference
+  (core=0, structural=0, variable=19)
+
+  (无核心不变量)
+
+#### skills/mobile/anti_forensics_and_misleading
+  (core=0, structural=0, variable=16)
+
+  (无核心不变量)
+
+### 特征轨道 (等价变换群)
+
+  | 轨道# | 等价特征 |
+  |-------|----------|
+  | 10 | `sqlite`, `sqlite3` |
+  | 15 | `base64`, `hex` |
+  | 17 | `python3`, `python` |
+
+---
+
+## 域: computer (7 题)
+
+### 逐题分解
+
+#### solved/2022_changancup_computer_forensics
+  (core=1, structural=0, variable=9)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {password_cracking} |
+  | **可变** | browser, chrome, mysql, powershell, remote_connection, sshpass, windows, wsl ... +1 |
+
+#### solved/2024fic_training_validation
+  (core=2, structural=0, variable=10)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {password_cracking} |
+  | **核心** | {python} |
+  | **可变** | dissect, e01_reader, exiftool, mobaxterm, msoffcrypto, qtscrcpy, stable_diffusion, steganography ... +2 |
+
+#### solved/2026fic_computer_forensics_retrospective
+  (core=45, structural=19, variable=7)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {deepin} |
+  | **核心** | {e01} |
+  | **核心** | {email_forensics} |
+  | **核心** | {find} |
+  | **核心** | {grep} |
+  | **核心** | {mmls} |
+  | **结构** | {mount} |
+  | **结构** | {ewfmount, losetup} |
+  | **结构** | {find, mount} |
+  | **结构** | {mmls, mount} |
+  | **结构** | {e01, mount} |
+  | **结构** | {deepin, mount} |
+  | **可变** | fic2026, openssl, python3, retrospective, rsa_fermat, uos_ai, veracrypt |
+
+#### solved/pattern_deepin_mail_forensics
+  (core=21, structural=0, variable=6)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {deepin} |
+  | **核心** | {email_forensics} |
+  | **核心** | {find} |
+  | **核心** | {grep} |
+  | **核心** | {deepin, find} |
+  | **核心** | {email_forensics, grep} |
+  | **可变** | attachment, email_module, eml, foxmail, rsa, sqlite |
+
+#### solved/pattern_disk_image_mount
+  (core=16, structural=13, variable=6)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {e01} |
+  | **核心** | {find} |
+  | **核心** | {e01, find} |
+  | **核心** | {sqlite3} |
+  | **核心** | {find, sqlite3} |
+  | **核心** | {e01, sqlite3} |
+  | **结构** | {mount} |
+  | **结构** | {ewfmount, losetup} |
+  | **结构** | {find, mount} |
+  | **结构** | {e01, mount} |
+  | **结构** | {e01, ewfmount, losetup} |
+  | **结构** | {e01, find, mount} |
+  | **可变** | disk_forensics, ewfinfo, file, file_system, ftk_imager, raw |
+
+#### solved/pattern_wps_et_hidden_field
+  (core=1, structural=0, variable=9)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {python} |
+  | **可变** | descr, et, hidden_data, office_forensics, unzip, wps, xlsx, xml ... +1 |
+
+#### skills/computer/deepin_23_forensic_paths
+  (core=21, structural=9, variable=4)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {deepin} |
+  | **核心** | {find} |
+  | **核心** | {mmls} |
+  | **核心** | {deepin, find} |
+  | **核心** | {deepin, mmls} |
+  | **核心** | {find, mmls} |
+  | **结构** | {mount} |
+  | **结构** | {ewfmount, losetup} |
+  | **结构** | {find, mount} |
+  | **结构** | {mmls, mount} |
+  | **结构** | {deepin, mount} |
+  | **结构** | {deepin, ewfmount, losetup} |
+  | **可变** | dde_data, disk_layout, forensic_paths, technique |
+
+### 特征轨道 (等价变换群)
+
+  | 轨道# | 等价特征 |
+  |-------|----------|
+  | 26 | `ewfmount`, `losetup`, `mount` |
+  | 29 | `python`, `python3` |
+  | 39 | `sqlite3`, `sqlite` |
+
+---
+
+## 域: crypto (5 题)
+
+### 逐题分解
+
+#### solved/pattern_aes_xor_password_reverse
+  (core=90, structural=59, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {aes} |
+  | **核心** | {openssl} |
+  | **核心** | {password} |
+  | **核心** | {pe} |
+  | **核心** | {reverse_engineering} |
+  | **核心** | {s_box} |
+  | **结构** | {python} |
+  | **结构** | {python, reverse_engineering} |
+  | **结构** | {openssl, python} |
+  | **结构** | {python, strings} |
+  | **结构** | {python, xor} |
+  | **结构** | {pe, python} |
+
+#### solved/pattern_malware_static_analysis
+  (core=196, structural=102, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {api_analysis} |
+  | **核心** | {detect_it_easy} |
+  | **核心** | {dotnet} |
+  | **核心** | {exiftool} |
+  | **核心** | {file} |
+  | **核心** | {malware_analysis} |
+  | **结构** | {ida} |
+  | **结构** | {radare2} |
+  | **结构** | {radare2, reverse_engineering} |
+  | **结构** | {radare2, strings} |
+  | **结构** | {openssl, radare2} |
+  | **结构** | {pe, radare2} |
+
+#### solved/pattern_spammimic_decode
+  (core=51, structural=22, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {deepin} |
+  | **核心** | {email_forensics} |
+  | **核心** | {encoding} |
+  | **核心** | {grep} |
+  | **核心** | {requests} |
+  | **核心** | {spammimic} |
+  | **结构** | {python} |
+  | **结构** | {email_forensics, python} |
+  | **结构** | {python, spammimic} |
+  | **结构** | {python, requests} |
+  | **结构** | {python, steganography} |
+  | **结构** | {grep, python} |
+
+#### skills/mobile/apk_crypto_analysis
+  (core=903, structural=418, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {aes} |
+  | **核心** | {androguard} |
+  | **核心** | {android} |
+  | **核心** | {apk} |
+  | **核心** | {apkid} |
+  | **核心** | {apktool} |
+  | **结构** | {ida} |
+  | **结构** | {radare2} |
+  | **结构** | {radare2, reverse_engineering} |
+  | **结构** | {aes, radare2} |
+  | **结构** | {ida, reverse_engineering} |
+  | **结构** | {androguard, radare2} |
+
+#### skills/stego_crypto/rsa_fermat_attack
+  (core=35, structural=16, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {factorization} |
+  | **核心** | {fermat} |
+  | **核心** | {openssl} |
+  | **核心** | {rsa} |
+  | **核心** | {technique} |
+  | **核心** | {weak_key} |
+  | **结构** | {python3} |
+  | **结构** | {python3, rsa} |
+  | **结构** | {factorization, python3} |
+  | **结构** | {python3, technique} |
+  | **结构** | {openssl, python3} |
+  | **结构** | {fermat, python3} |
+
+### 特征轨道 (等价变换群)
+
+  | 轨道# | 等价特征 |
+  |-------|----------|
+  | 4 | `radare2`, `ida`, `ghidra` |
+  | 41 | `python`, `python3` |
+
+### 适用变换规则
+
+  - **rsa_variants**: RSA with different key sizes share the same mathematical essence → `rsa`, `rsa_1024`, `rsa_2048`, `rsa_4096`
+  - **aes_variants**: AES with different modes share the block-cipher essence → `aes`, `aes_ecb`, `aes_cbc`, `aes_ctr` ... +2
+
+---
+
+## 域: memory (1 题)
+
+### 域本质 (跨题目核心不变量)
+
+  - {malware}
+  - {process_analysis}
+  - {strings}
+  - {windows}
+  - {malware, strings}
+  - {vol3, volatility}
+  - {process_analysis, strings}
+  - {malware, windows}
+  - {process_analysis, windows}
+  - {malware, process_analysis}
+
+### 逐题分解
+
+#### solved/example_memory_forensics_pslist
+  (core=14, structural=18, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {malware} |
+  | **核心** | {process_analysis} |
+  | **核心** | {strings} |
+  | **核心** | {windows} |
+  | **核心** | {malware, strings} |
+  | **核心** | {vol3, volatility} |
+  | **结构** | {vol3} |
+  | **结构** | {volatility} |
+  | **结构** | {malware, volatility} |
+  | **结构** | {process_analysis, volatility} |
+  | **结构** | {strings, volatility} |
+  | **结构** | {volatility, windows} |
+
+### 特征轨道 (等价变换群)
+
+  | 轨道# | 等价特征 |
+  |-------|----------|
+  | 3 | `vol3`, `volatility` |
+
+### 跨题目共享不变量
+
+  - {vol3, volatility, windows}
+  - {malware, strings, windows}
+  - {process_analysis, strings, windows}
+  - {malware, strings}
+  - {vol3, volatility}
+  - {process_analysis, strings}
+  - {malware, windows}
+  - {process_analysis, windows}
+
+---
+
+## 域: mobile (13 题)
+
+### 逐题分解
+
+#### solved/2022_changancup_mobile_exe_apk
+  (core=1, structural=0, variable=12)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {android} |
+  | **可变** | apk_analysis, db_browser, detect_it_easy, emulator, exe_analysis, ida, jadx, nox ... +4 |
+
+#### solved/pattern_wechat_db_decrypt
+  (core=4, structural=3, variable=6)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {android} |
+  | **核心** | {grep} |
+  | **核心** | {imei} |
+  | **核心** | {android, grep} |
+  | **结构** | {sqlite3} |
+  | **结构** | {grep, sqlite3} |
+  | **结构** | {android, sqlite3} |
+  | **可变** | database_decrypt, find, python, sqlcipher, uin, wechat |
+
+#### skills/mobile/adb_filesystem_cheatsheet
+  (core=23, structural=0, variable=10)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {adb} |
+  | **核心** | {android} |
+  | **核心** | {exam_prep} |
+  | **核心** | {methodology} |
+  | **核心** | {mobile} |
+  | **核心** | {methodology, mobile} |
+  | **可变** | dd, erofs, f2fs, fastboot, fbe, fde, filesystem, partitions ... +2 |
+
+#### skills/mobile/apk_permission_analysis
+  (core=21, structural=0, variable=10)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {aapt} |
+  | **核心** | {android} |
+  | **核心** | {grep} |
+  | **核心** | {methodology} |
+  | **核心** | {mobile} |
+  | **核心** | {methodology, mobile} |
+  | **可变** | accessibility, androguard, apk, apktool, frida, jadx, malware_triage, manifest ... +2 |
+
+#### skills/mobile/app_data_analysis
+  (core=51, structural=13, variable=8)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {aapt} |
+  | **核心** | {android} |
+  | **核心** | {grep} |
+  | **核心** | {ios} |
+  | **核心** | {knowledgec} |
+  | **核心** | {methodology} |
+  | **结构** | {sqlite3} |
+  | **结构** | {mobile, sqlite3} |
+  | **结构** | {methodology, sqlite3} |
+  | **结构** | {sqlite3, strings} |
+  | **结构** | {grep, sqlite3} |
+  | **结构** | {android, sqlite3} |
+  | **可变** | app_forensics, browser_history, im, input_method, payment, python, search_history, usagestats |
+
+#### skills/mobile/crypto_currency_forensics
+  (core=18, structural=9, variable=16)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {exiftool} |
+  | **核心** | {grep} |
+  | **核心** | {methodology} |
+  | **核心** | {mobile} |
+  | **核心** | {strings} |
+  | **核心** | {methodology, mobile} |
+  | **结构** | {sqlite3} |
+  | **结构** | {mobile, sqlite3} |
+  | **结构** | {methodology, sqlite3} |
+  | **结构** | {sqlite3, strings} |
+  | **结构** | {grep, sqlite3} |
+  | **结构** | {exiftool, sqlite3} |
+  | **可变** | bip39, btc, cryptocurrency, eth, etherscan, foremost, hashcat, jq ... +8 |
+
+#### skills/mobile/device_basic_info
+  (core=39, structural=10, variable=9)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {android} |
+  | **核心** | {exiftool} |
+  | **核心** | {grep} |
+  | **核心** | {imei} |
+  | **核心** | {ios} |
+  | **核心** | {methodology} |
+  | **结构** | {sqlite3} |
+  | **结构** | {mobile, sqlite3} |
+  | **结构** | {methodology, sqlite3} |
+  | **结构** | {grep, sqlite3} |
+  | **结构** | {android, sqlite3} |
+  | **结构** | {exiftool, sqlite3} |
+  | **可变** | build_prop, device_info, iccid, imsi, itunes_backup, lockdown, mac_address, plistutil ... +1 |
+
+#### skills/mobile/extraction_methods
+  (core=40, structural=0, variable=16)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {adb} |
+  | **核心** | {android} |
+  | **核心** | {exam_prep} |
+  | **核心** | {ios} |
+  | **核心** | {methodology} |
+  | **核心** | {mobile} |
+  | **可变** | abe, adb_backup, bootloader, checkm8, chip_off, dd, edl, extraction ... +8 |
+
+#### skills/mobile/fundamentals_cheatsheet
+  (core=4, structural=0, variable=13)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {exam_prep} |
+  | **核心** | {imei} |
+  | **核心** | {mobile} |
+  | **核心** | {exam_prep, mobile} |
+  | **可变** | afu, baseband, bfu, faraday, flash, fundamentals, iccid, imsi ... +5 |
+
+#### skills/mobile/geolocation_forensics
+  (core=15, structural=9, variable=16)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {exiftool} |
+  | **核心** | {knowledgec} |
+  | **核心** | {methodology} |
+  | **核心** | {mobile} |
+  | **核心** | {strings} |
+  | **核心** | {methodology, mobile} |
+  | **结构** | {sqlite3} |
+  | **结构** | {mobile, sqlite3} |
+  | **结构** | {methodology, sqlite3} |
+  | **结构** | {sqlite3, strings} |
+  | **结构** | {exiftool, sqlite3} |
+  | **结构** | {knowledgec, sqlite3} |
+  | **可变** | bssid, cell_id, exif, folium, geoguessr, geolocation, gps, ip_geo ... +8 |
+
+#### skills/mobile/iot_device_forensics
+  (core=12, structural=7, variable=16)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {exiftool} |
+  | **核心** | {methodology} |
+  | **核心** | {mobile} |
+  | **核心** | {strings} |
+  | **核心** | {methodology, mobile} |
+  | **核心** | {mobile, strings} |
+  | **结构** | {sqlite3} |
+  | **结构** | {mobile, sqlite3} |
+  | **结构** | {methodology, sqlite3} |
+  | **结构** | {sqlite3, strings} |
+  | **结构** | {exiftool, sqlite3} |
+  | **结构** | {methodology, mobile, sqlite3} |
+  | **可变** | aqara, ble, datcon, dji, ezviz, homekit, mdns, mihome ... +8 |
+
+#### skills/mobile/log_and_data_parsing
+  (core=37, structural=8, variable=20)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {adb} |
+  | **核心** | {android} |
+  | **核心** | {exam_prep} |
+  | **核心** | {methodology} |
+  | **核心** | {mobile} |
+  | **核心** | {plutil} |
+  | **结构** | {sqlite3} |
+  | **结构** | {mobile, sqlite3} |
+  | **结构** | {methodology, sqlite3} |
+  | **结构** | {sqlite3, strings} |
+  | **结构** | {android, sqlite3} |
+  | **结构** | {plutil, sqlite3} |
+  | **可变** | anr, axmlprinter, blackboxprotobuf, data_format, dropbox, frida, leveldb, logcat ... +12 |
+
+#### skills/mobile/uninstalled_app_recovery
+  (core=27, structural=10, variable=14)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {aapt} |
+  | **核心** | {android} |
+  | **核心** | {grep} |
+  | **核心** | {ios} |
+  | **核心** | {knowledgec} |
+  | **核心** | {mobile} |
+  | **结构** | {sqlite3} |
+  | **结构** | {mobile, sqlite3} |
+  | **结构** | {sqlite3, strings} |
+  | **结构** | {grep, sqlite3} |
+  | **结构** | {android, sqlite3} |
+  | **结构** | {knowledgec, sqlite3} |
+  | **可变** | aleapp, androguard, app_recovery, carving, deleted_app, foremost, ileapp, packages_xml ... +6 |
+
+### 特征轨道 (等价变换群)
+
+  | 轨道# | 等价特征 |
+  |-------|----------|
+  | 131 | `tshark`, `wireshark` |
+  | 145 | `db_browser`, `sqlite3`, `sqlite` |
+
+### 跨题目共享不变量
+
+  - {mobile}
+
+---
+
+## 域: network (1 题)
+
+### 域本质 (跨题目核心不变量)
+
+  - {ble}
+  - {bluetooth}
+  - {btsnoop}
+  - {capinfos}
+  - {capture}
+  - {hci}
+  - {hid}
+  - {network}
+  - {pcap}
+  - {python}
+
+### 逐题分解
+
+#### skills/network/bluetooth_forensics
+  (core=106, structural=90, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {ble} |
+  | **核心** | {bluetooth} |
+  | **核心** | {btsnoop} |
+  | **核心** | {capinfos} |
+  | **核心** | {capture} |
+  | **核心** | {hci} |
+  | **结构** | {tshark} |
+  | **结构** | {wireshark} |
+  | **结构** | {pcap, wireshark} |
+  | **结构** | {bluetooth, wireshark} |
+  | **结构** | {btsnoop, wireshark} |
+  | **结构** | {hid, wireshark} |
+
+### 特征轨道 (等价变换群)
+
+  | 轨道# | 等价特征 |
+  |-------|----------|
+  | 10 | `tshark`, `wireshark` |
+
+### 跨题目共享不变量
+
+  - {ble, btsnoop, capinfos, hci}
+  - {ble, btsnoop, capinfos, hid}
+  - {bluetooth, capinfos, hci, hid}
+  - {ble, bluetooth, btsnoop, capinfos}
+  - {capinfos, hci, hid, python}
+  - {bluetooth, btsnoop, capinfos, hci}
+  - {bluetooth, btsnoop, capinfos, hid}
+  - {capinfos, hci, hid}
+
+---
+
+## 域: server (1 题)
+
+### 域本质 (跨题目核心不变量)
+
+  - {cat}
+  - {centos}
+  - {database_recovery}
+  - {docker}
+  - {docker-compose}
+  - {grep}
+  - {ifconfig}
+  - {jar}
+  - {linux}
+  - {mysql}
+
+### 逐题分解
+
+#### solved/2022_changancup_server_forensics
+  (core=363, structural=0, variable=0)
+
+  | 层级 | 不变量 |
+  |------|--------|
+  | **核心** | {cat} |
+  | **核心** | {centos} |
+  | **核心** | {database_recovery} |
+  | **核心** | {docker} |
+  | **核心** | {docker-compose} |
+  | **核心** | {grep} |
+
+### 跨题目共享不变量
+
+  - {cat, database_recovery, docker, linux, 火眼}
+  - {cat, centos, ssh, 火眼}
+  - {cat, database_recovery, jar, sshpass}
+  - {centos, docker-compose, grep, ifconfig}
+  - {centos, database_recovery, netstat, web_reconstruction}
+  - {database_recovery, docker, jar, web_reconstruction}
+  - {cat, database_recovery, jar, mysql}
+  - {docker-compose, linux, netstat, sshpass}
+
+---
+
+
+> 生成方式: Apriori 频繁项集挖掘 + 置换群轨道分解融合
+> 核心不变量: invariance >= 0.9 且 support >= 2x min_support
+> 结构不变量: invariance >= min_invariance
+> 可变特征: 低不变性特征

@@ -668,6 +668,234 @@ patterns and should be consulted during Phase 1 planning.
 
 ---
 
+## Group Theory Mining Protocol (群体理论模式挖掘)
+
+The Group Theory Mining Protocol provides mathematically rigorous structural analysis of the knowledge base using Formal Concept Analysis (FCA), Galois connections, and lattice theory. While Apriori answers "what items frequently co-occur?", group theory answers "what items are **NECESSARILY** co-present?"
+
+### Core Concepts
+
+| Concept | What It Answers | vs Apriori |
+|---------|----------------|------------|
+| **Galois Closure** | "Given X is present, what else is GUARANTEED?" | Apriori: probabilistic. Closure: logical necessity. |
+| **Equivalence Classes** | "Which tools/tags are interchangeable?" | Apriori: co-occurrence. EqClass: identical transaction sets. |
+| **Implication Basis** | "What is the minimal set of domain rules?" | Apriori: 200+ rules. Basis: ~15 canonical rules, confidence=100%. |
+| **Knowledge Gaps** | "What combinations are documented pairwise but never together?" | Apriori: frequent itemsets. Gaps: missing itemsets. |
+| **Concept Lattice** | "What is the hierarchical structure of knowledge?" | Apriori: flat rules. Lattice: multi-level hierarchy. |
+
+### Commands
+
+```powershell
+python -m tools.cli analytics group closure --items "e01, memory_dump, registry"
+python -m tools.cli analytics group equivalents
+python -m tools.cli analytics group gaps --max-size 4
+python -m tools.cli analytics group basis --min-support 0.05
+python -m tools.cli analytics group compare
+python -m tools.cli analytics group analyze
+python -m tools.cli analytics lattice build --min-support 0.05 --top 20
+python -m tools.cli analytics lattice explore --items "vol3"
+python -m tools.cli analytics lattice domains
+```
+
+---
+
+## Invariant Extraction Protocol (不变量提取 / 题目本质识别)
+
+The Invariant Extraction Protocol fuses **Apriori frequent pattern mining** with **permutation group theory** (actual group theory, not FCA) to identify the invariant core of CTF problems — what stays constant across all valid variations of a problem type. This is the mathematical formalization of "题目本质" (problem essence).
+
+### Core Concepts
+
+| Concept | What It Answers | Mathematical Basis |
+|---------|----------------|-------------------|
+| **Feature Space** | What are all possible features a problem can have? | Set of all tags + tools + categories |
+| **Transformation Group** | What changes can be made without changing the problem's essence? | Permutation group acting on feature indices |
+| **Orbit** | Which features are "equivalent up to transformation"? | Orb_G(x) = {g·x | g in G} |
+| **Invariance Degree** | How resistant is a pattern to transformations? | inv_deg(S) = 1/|Orb_G(S)| (normalized) |
+| **Core Invariant** | What is always present AND always invariant? | support >= 2*min_sup AND inv_deg >= 0.9 |
+| **Structural Invariant** | What is invariant under some but not all transformations? | support >= min_sup AND inv_deg >= 0.5 |
+| **Variable Feature** | What changes freely across problem instances? | inv_deg < 0.5 — these are "accidental" |
+| **Domain Essence** | What is the intersection of all problems' core invariants? | Intersection of all per-problem core sets |
+
+### Three-Tier Invariant Hierarchy
+
+```
+Core Invariants (inv_deg >= 0.9, high support)
+  -> The "DNA" of the problem type. You CANNOT change these without
+     changing the problem type itself. Train on these first.
+     Example: {rsa, factorization} is core for RSA crypto problems.
+
+Structural Invariants (inv_deg >= 0.5)
+  -> Domain-specific patterns that persist across most but not all
+     transformations. Master these to handle most variants.
+     Example: {aes, padding_oracle} is structural for block cipher problems.
+
+Variable Features (inv_deg < 0.5)
+  -> Implementation details the problem setter can freely change.
+     Don't hard-code strategies around these.
+     Example: specific key sizes, tool versions, encoding formats.
+```
+
+### Commands
+
+```powershell
+# Extract problem essence for a specific domain
+python -m tools.cli analytics invariant essence --domain crypto --min-support 0.3
+
+# Extract essence across all domains
+python -m tools.cli analytics invariant essence --min-support 0.2 --min-invariance 0.5
+
+# Compare invariant profiles of two domains
+python -m tools.cli analytics invariant compare --domain-a crypto --domain-b stego
+
+# Show orbit decomposition (which features are equivalent?)
+python -m tools.cli analytics invariant orbits --domain crypto
+
+# Find analogous problem pairs across domains
+python -m tools.cli analytics invariant analogues --min-shared 3
+
+# Show all transformation rules
+python -m tools.cli analytics invariant transform
+```
+
+### Fusion Algorithm (How It Works)
+
+```
+Phase 1: Apriori Mining
+  -> Input: problem signatures from knowledge base
+  -> Output: frequent itemsets with support scores
+  -> Role: discover CANDIDATE invariants (what recurs)
+
+Phase 2: Group Construction
+  -> Input: transformation rules (tool aliases, encoding variants, etc.)
+  -> Output: permutation group G acting on feature space
+  -> Role: define what "variant" means
+
+Phase 3: Orbit Decomposition
+  -> Input: feature space + transformation group
+  -> Output: partition of features into orbits
+  -> Role: understand which features are equivalent
+
+Phase 4: Invariant Filtering
+  -> For each Apriori-discovered itemset:
+      - Compute orbit size under G
+      - Compute invariance degree
+  -> Role: separate true invariants from accidental patterns
+
+Phase 5: Essence Synthesis
+  -> Organize into core / structural / variable tiers
+  -> Compute cross-problem invariants and domain essence
+  -> Role: produce actionable, human-readable report
+```
+
+### Integration with Other Protocols
+
+The three protocols form a complete analytical stack:
+
+```
+Level 1 — Pattern Mining (Apriori):
+  "What tools/tags frequently co-occur?"
+  -> Statistical. Fast. Good for initial hints.
+
+Level 2 — Structural Analysis (FCA):
+  "What items are NECESSARILY co-present?"
+  -> Logical. Rigorous. Good for guaranteed tool sets.
+
+Level 3 — Invariant Extraction (This Protocol):
+  "What is the ESSENCE that persists across all transformations?"
+  -> Mathematical. Deep. Good for understanding problem structure.
+```
+
+**Recommended workflow:**
+1. Run `analytics recommend` (Level 1) for quick tool hints
+2. Run `analytics group closure` (Level 2) for guaranteed tool companions
+3. Run `analytics invariant essence` (Level 3) to understand WHY these tools are needed
+4. Use `analytics invariant orbits` to find substitutes when tools are unavailable
+
+---
+
+## Isomorphism Recognition & Cross-Domain Transfer Protocol (同构识别与跨域知识迁移)
+
+This protocol extends invariant extraction to detect **structural isomorphisms** between problems from different domains. Two problems are isomorphic if their invariant structure graphs match — meaning one domain's solution strategy can be mapped to the other.
+
+### Core Concepts
+
+| Concept | What It Answers |
+|---------|----------------|
+| **Invariant Structure Graph** | What is the graph of invariant features and their co-occurrence relations? |
+| **Graph Signature** | What are the graph-theoretic invariants (degree sequence, density, clustering)? |
+| **Isomorphism Score** | How structurally similar are two problems' invariant graphs? (0-1) |
+| **Feature Mapping** | Which features play the same structural role across domains? |
+| **Transfer Recipe** | Given an isomorphism, what tools/techniques should be mapped? |
+| **Transfer Confidence** | How reliable is the transfer? (high/medium/low) |
+
+### Isomorphism Types
+
+| Type | Conditions | Transfer Confidence |
+|------|-----------|-------------------|
+| **exact** | Graph signature sim >= 0.9, overlap >= 0.6, shared core >= 3 | High — direct knowledge transfer |
+| **strong** | Signature sim >= 0.7, overlap >= 0.4 or shared core >= 2 | Medium — high confidence transfer |
+| **partial** | Signature sim >= 0.5 or shared core >= 2 | Medium-Low — sub-problem transfer |
+| **analogical** | Below thresholds | Low — heuristic inspiration only |
+
+### Commands
+
+```powershell
+# Detect isomorphisms across all domains
+python -m tools.cli analytics invariant isomorph --min-score 0.4
+
+# Include same-domain comparisons
+python -m tools.cli analytics invariant isomorph --all
+
+# Generate cross-domain transfer recipe
+python -m tools.cli analytics invariant transfer --domain-a crypto --domain-b binary_analysis
+
+# High-confidence transfer only
+python -m tools.cli analytics invariant transfer --domain-a memory_forensics --domain-b disk_forensics --min-score 0.6
+```
+
+### How to Use Transfer Recipes
+
+A transfer recipe provides:
+1. **Tool mapping**: `source_tool -> target_tool` with rationale
+2. **Technique mapping**: `source_technique -> target_technique`
+3. **Feature correspondence**: structural role equivalence
+4. **Step-by-step execution plan**: adapted workflow
+5. **Caveats**: limitations and structural differences to watch for
+
+### Built-in Cross-Domain Mappings
+
+The system ships with pre-configured mappings for common domain pairs:
+- Crypto ↔ Binary (mathematical ↔ reverse engineering)
+- Crypto ↔ Stego (encoding/decoding)
+- Memory ↔ Disk (evidence extraction)
+- Network ↔ Binary (traffic ↔ code analysis)
+- Binary ↔ Crypto (decompilation ↔ algebraic attacks)
+
+### Integration with Complete Analytical Stack
+
+```
+Level 1 — Pattern Mining (Apriori):
+  Statistical co-occurrence → initial tool hints
+
+Level 2 — Structural Analysis (FCA):
+  Logical necessity → guaranteed tool companions
+
+Level 3 — Invariant Extraction:
+  Mathematical essence → what CANNOT change
+
+Level 4 — Isomorphism & Transfer (This Protocol):
+  Cross-domain structural equivalence → apply known solutions to new domains
+```
+
+**Full workflow:**
+```
+1. analytics invariant essence     → Understand what's invariant in each domain
+2. analytics invariant isomorph    → Find structurally equivalent problem pairs
+3. analytics invariant transfer    → Generate actionable cross-domain recipes
+4. Apply transfer recipe           → Solve domain-B problem using domain-A knowledge
+```
+
+---
+
 ## Role Prompt Template
 
 When generating specialist prompts, use this structure:

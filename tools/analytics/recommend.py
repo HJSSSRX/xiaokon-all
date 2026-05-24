@@ -229,3 +229,97 @@ def format_recommendations(result: Dict) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+def recommend_by_closure(
+    context: List[str],
+    kb_root: Optional[str] = None,
+    top_n: int = 10,
+) -> Dict:
+    """Recommend items using Galois closure — logical necessity, not probability."""
+    from tools.analytics.grouptheory import FormalContext, recommend_by_closure as _gt_recommend
+    from tools.analytics.transactions import extract_transactions
+
+    if kb_root is None:
+        kb_root = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "knowledge"
+        )
+
+    txns, _ = extract_transactions(kb_root, item_types=("tags", "tools", "categories"))
+    ctx = FormalContext(txns)
+    recs = _gt_recommend(ctx, context)
+
+    return {
+        "context": context,
+        "target": "all",
+        "recommendations": recs[:top_n],
+        "rules_checked": 0,
+        "rules_matched": 0,
+        "method": "galois_closure",
+    }
+
+
+def detect_knowledge_gaps(
+    kb_root: Optional[str] = None,
+    max_size: int = 4,
+) -> List[Dict]:
+    """Detect structural knowledge gaps in the concept lattice."""
+    from tools.analytics.grouptheory import FormalContext, detect_sublattice_gaps
+    from tools.analytics.transactions import extract_transactions
+
+    if kb_root is None:
+        kb_root = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "knowledge"
+        )
+
+    txns, _ = extract_transactions(kb_root, item_types=("tags", "tools", "categories"))
+    ctx = FormalContext(txns)
+    gaps = detect_sublattice_gaps(ctx, max_size=max_size)
+
+    return [
+        {
+            "items": list(g.items),
+            "n_items": g.n_items,
+            "severity": g.severity,
+            "full_cooccurs": g.full_cooccurs,
+        }
+        for g in gaps
+    ]
+
+
+def find_substitute_tools(
+    context: List[str],
+    kb_root: Optional[str] = None,
+) -> Dict:
+    """Find substitutable items using equivalence class analysis."""
+    from tools.analytics.grouptheory import FormalContext, compute_equivalence_classes
+    from tools.analytics.transactions import extract_transactions
+
+    if kb_root is None:
+        kb_root = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "knowledge"
+        )
+
+    txns, _ = extract_transactions(kb_root, item_types=("tags", "tools", "categories"))
+    ctx = FormalContext(txns)
+    eq_classes = compute_equivalence_classes(ctx)
+
+    context_set = set(context)
+    substitutes = []
+
+    for eq_class in eq_classes:
+        class_items = set(eq_class.items)
+        overlap = context_set & class_items
+        if overlap:
+            for item in overlap:
+                for alt in sorted(class_items - {item}):
+                    substitutes.append({
+                        "item": item,
+                        "substitute": alt,
+                        "class_size": len(eq_class.items),
+                    })
+
+    return {
+        "context": context,
+        "substitutes": substitutes,
+    }

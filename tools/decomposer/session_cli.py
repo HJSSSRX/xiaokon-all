@@ -299,6 +299,44 @@ def cmd_allocate(args):
     print(f"会话已保存: {os.path.join(os.path.abspath(case_dir), 'session_state.json')}")
 
 
+def cmd_llm_loop(args):
+    """Run the LLM agent loop on the active session."""
+    from tools.decomposer.llm_loop import LLMOrchestrator, LLMLoopConfig
+
+    session = _get_session(args)
+    config = LLMLoopConfig(
+        model_backend=args.model_backend,
+        model_name=args.model_name,
+        max_rounds_per_sg=args.max_rounds_per_sg,
+        max_total_rounds=args.max_total_rounds,
+        delegate_boost=not args.no_boost,
+        command_sandbox=not args.no_sandbox,
+    )
+    orch = LLMOrchestrator(session, config)
+
+    if args.step_mode:
+        print("单步模式 — 每次执行一个 ReAct 轮次")
+        while True:
+            result = orch.step()
+            if result is None:
+                print("完成或全部阻塞。")
+                break
+            print(json.dumps({
+                "sg_id": result.sg_id,
+                "round_num": result.round_num,
+                "action_type": result.action_type,
+                "action_detail": result.action_detail[:200],
+                "success": result.success,
+                "error": result.error,
+            }, ensure_ascii=False, indent=2))
+            if orch.session.is_complete():
+                break
+    else:
+        print("自动模式 — 全量循环执行")
+        result = orch.run()
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="forensic executor",
@@ -343,6 +381,16 @@ def main():
     p_allocate.add_argument("--boost-threshold", type=float, default=0.40,
                             help="复杂度阈值 (低于此为BOOST)")
 
+    p_llm_loop = sub.add_parser("llm-loop", help="LLM自动循环 — ReAct agent driving sub-goal execution")
+    p_llm_loop.add_argument("--case-dir", default=".", help="案件目录")
+    p_llm_loop.add_argument("--model-backend", default="openai", help="LLM backend")
+    p_llm_loop.add_argument("--model-name", default="gpt-4o-mini", help="Model name")
+    p_llm_loop.add_argument("--max-rounds-per-sg", type=int, default=12, help="Max rounds per sub-goal")
+    p_llm_loop.add_argument("--max-total-rounds", type=int, default=200, help="Max total rounds")
+    p_llm_loop.add_argument("--no-boost", action="store_true", help="Disable BOOST delegation")
+    p_llm_loop.add_argument("--step-mode", action="store_true", help="Single-step manual mode")
+    p_llm_loop.add_argument("--no-sandbox", action="store_true", help="Disable command sandbox")
+
     args = parser.parse_args()
 
     if args.command == "start":
@@ -359,6 +407,8 @@ def main():
         cmd_boost(args)
     elif args.command == "allocate":
         cmd_allocate(args)
+    elif args.command == "llm-loop":
+        cmd_llm_loop(args)
     else:
         parser.print_help()
 

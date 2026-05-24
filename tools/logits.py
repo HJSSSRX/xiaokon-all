@@ -132,6 +132,7 @@ class LogitCapture:
         self.allocations: List[AllocatorLogit] = []
         self.boosts: List[BoostLogit] = []
         self.model_calls: List[ModelCallLogit] = []
+        self.llm_loops: List[Dict] = []
 
     # ── lifecycle ─────────────────────────────────────────────────
 
@@ -152,6 +153,7 @@ class LogitCapture:
             self.allocations.clear()
             self.boosts.clear()
             self.model_calls.clear()
+            self.llm_loops.clear()
 
     # ── record ────────────────────────────────────────────────────
 
@@ -176,6 +178,25 @@ class LogitCapture:
         with self._lock:
             self.model_calls.append(entry)
 
+    def record_llm_loop(self, **kwargs) -> None:
+        if not self._enabled:
+            return
+        entry = {
+            "type": "llm_loop",
+            "sg_id": kwargs.get("sg_id", ""),
+            "round_num": kwargs.get("round_num", 0),
+            "timestamp": kwargs.get("timestamp", ""),
+            "action_type": kwargs.get("action_type", ""),
+            "action_detail": kwargs.get("action_detail", "")[:200],
+            "success": kwargs.get("success", False),
+            "tool_output_snippet": kwargs.get("tool_output_snippet", "")[:200],
+            "kb_hits": kwargs.get("kb_hits", 0),
+            "llm_decision_snippet": kwargs.get("llm_decision_snippet", "")[:200],
+            "error": kwargs.get("error", ""),
+        }
+        with self._lock:
+            self.llm_loops.append(entry)
+
     # ── aggregate ─────────────────────────────────────────────────
 
     def summary(self) -> dict:
@@ -183,12 +204,15 @@ class LogitCapture:
             allocs = list(self.allocations)
             boosts = list(self.boosts)
             calls = list(self.model_calls)
-        return self._compute_summary(allocs, boosts, calls)
+            loops = list(self.llm_loops)
+        return self._compute_summary(allocs, boosts, calls, loops)
 
     # ── serialization ─────────────────────────────────────────────
 
-    def _compute_summary(self, allocs, boosts, calls) -> dict:
+    def _compute_summary(self, allocs, boosts, calls, loops=None) -> dict:
         """Compute summary from already-snapshotted lists (no lock)."""
+        if loops is None:
+            loops = []
         boost_ok = sum(1 for b in boosts if b.success)
         methods = {}
         for b in boosts:
@@ -199,10 +223,20 @@ class LogitCapture:
         modes = {}
         for a in allocs:
             modes[a.mode] = modes.get(a.mode, 0) + 1
+        llm_actions = {}
+        llm_ok = 0
+        for r in loops:
+            at = r.get("action_type", "")
+            llm_actions[at] = llm_actions.get(at, 0) + 1
+            if r.get("success"):
+                llm_ok += 1
         return {
             "total_allocations": len(allocs),
             "total_boosts": len(boosts),
             "total_model_calls": len(calls),
+            "total_llm_rounds": len(loops),
+            "llm_rounds_success": llm_ok,
+            "llm_actions": llm_actions,
             "boost_success_rate": boost_ok / len(boosts) if boosts else 0,
             "methods": methods,
             "confidences": confs,
@@ -218,20 +252,26 @@ class LogitCapture:
             allocs = list(self.allocations)
             boosts = list(self.boosts)
             calls = list(self.model_calls)
+            loops = list(self.llm_loops)
         return {
             "meta": {
                 "captured_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "summary": self._compute_summary(allocs, boosts, calls),
+                "summary": self._compute_summary(allocs, boosts, calls, loops),
             },
             "allocations": [a.to_dict() for a in allocs],
             "boosts": [b.to_dict() for b in boosts],
             "model_calls": [m.to_dict() for m in calls],
+            "llm_loops": loops,
         }
 
     def write_json(self, path: str) -> None:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
 
     def write_jsonl(self, path: str) -> None:
         """Write one JSON object per line — good for streaming / tail -f."""
@@ -240,20 +280,28 @@ class LogitCapture:
             allocs = list(self.allocations)
             boosts = list(self.boosts)
             calls = list(self.model_calls)
-        with open(path, "w", encoding="utf-8") as f:
+            loops = list(self.llm_loops)
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
             for a in allocs:
                 f.write(json.dumps(a.to_dict(), ensure_ascii=False) + "\n")
             for b in boosts:
                 f.write(json.dumps(b.to_dict(), ensure_ascii=False) + "\n")
             for m in calls:
                 f.write(json.dumps(m.to_dict(), ensure_ascii=False) + "\n")
+            for r in loops:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
 
     def write_compact_scores(self, path: str) -> None:
         """Write a minimal TSV: sg_id | complexity | mode | 9 dims."""
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with self._lock:
             allocs = list(self.allocations)
-        with open(path, "w", encoding="utf-8") as f:
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
             header = ["sg_id", "complexity", "mode"]
             if allocs:
                 sample = allocs[0].dimension_scores
@@ -264,6 +312,9 @@ class LogitCapture:
                 for dim in header[3:]:
                     row.append(str(round(a.dimension_scores.get(dim, 0), 4)))
                 f.write("\t".join(row) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
 
 
 # ── Global singleton ────────────────────────────────────────────────

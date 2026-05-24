@@ -79,16 +79,20 @@ def save_yaml(path: Union[str, Path], data: Any, **kwargs) -> None:
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     default_kwargs = {
         "allow_unicode": True,
         "default_flow_style": False,
         "sort_keys": False
     }
     default_kwargs.update(kwargs)
-    
-    with open(path, "w", encoding="utf-8") as f:
+
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, **default_kwargs)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(str(tmp_path), str(path))
 
 
 def load_yaml_str(content: str, default: Any = None) -> Any:
