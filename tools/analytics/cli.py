@@ -274,6 +274,27 @@ def cmd_recommend(args):
     print(format_recommendations(result))
 
 
+def cmd_macro(args):
+    """Generate comprehensive macro-level analytics report."""
+    from tools.analytics.macro_report import generate_macro_report, render_report
+    kb_root = args.kb_root or _default_kb_root()
+    output = args.output or os.path.join(kb_root, "_relations", "macro_report.md")
+
+    print(f"Running comprehensive macro analysis on: {kb_root}")
+    print(f"Output: {output}")
+    print()
+
+    results = generate_macro_report(kb_root)
+    report = render_report(results)
+
+    os.makedirs(os.path.dirname(output), exist_ok=True)
+    with open(output, "w", encoding="utf-8") as f:
+        f.write(report)
+
+    print(report)
+    print(f"\nReport saved to: {output}")
+
+
 def _default_kb_root():
     return os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "knowledge"
@@ -1092,6 +1113,10 @@ def main():
     p_mine.add_argument("--top", type=int, default=15,
                         help="Number of top rules to display (default: 15)")
 
+    p_macro = sub.add_parser("macro", help="Generate comprehensive macro-level analytics report")
+    p_macro.add_argument("--kb-root", help="Path to knowledge/ directory")
+    p_macro.add_argument("--output", "-o", help="Output markdown file path")
+
     p_report = sub.add_parser("report", help="Generate full association rule report")
     p_report.add_argument("--kb-root", help="Path to knowledge/ directory")
     p_report.add_argument("--output", help="Output file path")
@@ -1327,6 +1352,8 @@ def main():
 
     if args.command == "mine":
         cmd_mine(args)
+    elif args.command == "macro":
+        cmd_macro(args)
     elif args.command == "report":
         cmd_report(args)
     elif args.command == "recommend":
