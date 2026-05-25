@@ -33,6 +33,10 @@ tools/
   collab/          — Collaboration package (hub server, sync, conflict resolution)
   collab_hub.py    — Backward-compat shim → tools/collab/
   collab_sync.py   — Backward-compat shim → tools/collab/
+  kb_search.py     — Backward-compat shim → tools/kb/
+  role_log.py      — Backward-compat shim → tools/hub/
+  sync_kb.py       — Backward-compat shim → tools/kb/
+  fic_kb_search.py — Backward-compat shim → tools/kb/comp_search
   core/            — Shared infrastructure (HTTP base, ID gen, YAML, cache, etc.)
   feeder/          — Knowledge ingestion from external sources
   e01_reader.py    — E01/VMDK image reader

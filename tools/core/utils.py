@@ -192,27 +192,8 @@ def repo_root() -> Path:
 
 
 # ─── Sequence ID Generation ───
-
-def next_seq_id(items: List[Dict], prefix: str, key: str = "id") -> str:
-    """
-    生成下一个序列号ID
-    
-    Args:
-        items: 现有项目列表
-        prefix: ID前缀（如 "F", "Q", "B"）
-        key: ID字段名
-    
-    Returns:
-        新的ID字符串（如 "F001", "Q002"）
-    """
-    pat = re.compile(rf"^{prefix}(\d+)$")
-    nums = []
-    for it in items:
-        if isinstance(it, dict):
-            m = pat.match(str(it.get(key, "")))
-            if m:
-                nums.append(int(m.group(1)))
-    return f"{prefix}{max(nums, default=0) + 1:03d}"
+# NOTE: next_seq_id, next_finding_id, etc. have been consolidated into core/ids.py
+# Use `from tools.core import next_seq_id` (re-exported from core/ids.py)
 
 
 # ─── Validation ───

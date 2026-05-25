@@ -5,7 +5,7 @@ Hooks into the allocator (9-dimension scores) and boost pipeline
 persist structured decision traces for later analysis.
 
 Usage:
-    from tools.core.logits import LogitCapture, get_capture
+    from tools.logits import LogitCapture, get_capture
 
     cap = get_capture()                # singleton
     cap.enable()                       # start recording

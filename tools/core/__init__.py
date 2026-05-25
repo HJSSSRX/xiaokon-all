@@ -8,7 +8,7 @@ from .ids import next_seq_id, next_finding_id, next_question_id, next_blocker_id
 from .utils import (
     now_str, load_yaml, load_yaml_str, save_yaml, log,
     shared_dir, shared_path, ensure_dir, repo_root,
-    compute_hash, compute_dict_hash, next_seq_id,
+    compute_hash, compute_dict_hash,
     load_json, save_json, get_env_var, set_env_var,
     safe_call, memoize, CoreError,
     synchronized as synchronized_decorator,
