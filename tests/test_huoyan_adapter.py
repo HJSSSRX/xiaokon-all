@@ -213,6 +213,19 @@ def start_fake() -> tuple[HTTPServer, threading.Thread, int]:
     return server, th, port
 
 
+# ─── pytest fixtures ────────────────────────────────
+
+try:
+    import pytest
+
+    @pytest.fixture
+    def fake():
+        server, th, port = start_fake()
+        yield server, th, port
+        server.shutdown()
+except ImportError:
+    pass
+
 # ─── 测试 ───────────────────────────────────────────
 
 PASSED = 0
@@ -236,14 +249,22 @@ def test_config_defaults():
     t("Config.timeout 默认 30", cfg.timeout == 30)
 
 
-def test_config_from_env(set_env):
-    set_env("HUOYAN_HOST", "10.0.0.1")
-    set_env("HUOYAN_PORT", "9999")
-    set_env("HUOYAN_CID", "42")
-    cfg = HuoyanConfig.from_env()
-    t("Env HUOYAN_HOST 生效", cfg.host == "10.0.0.1")
-    t("Env HUOYAN_PORT 生效", cfg.port == 9999)
-    t("Env HUOYAN_CID 生效", cfg.default_cid == 42)
+def test_config_from_env():
+    old = {k: os.environ.get(k) for k in ("HUOYAN_HOST", "HUOYAN_PORT", "HUOYAN_CID")}
+    os.environ["HUOYAN_HOST"] = "10.0.0.1"
+    os.environ["HUOYAN_PORT"] = "9999"
+    os.environ["HUOYAN_CID"] = "42"
+    try:
+        cfg = HuoyanConfig.from_env()
+        t("Env HUOYAN_HOST 生效", cfg.host == "10.0.0.1")
+        t("Env HUOYAN_PORT 生效", cfg.port == 9999)
+        t("Env HUOYAN_CID 生效", cfg.default_cid == 42)
+    finally:
+        for k, v in old.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
 
 
 def test_ping_not_running():
@@ -469,8 +490,7 @@ def main():
 
     print("\n--- Config ---")
     test_config_defaults()
-    test_config_from_env(set_env)
-    restore_env()
+    test_config_from_env()
 
     print("\n--- ping (未起) ---")
     test_ping_not_running()
