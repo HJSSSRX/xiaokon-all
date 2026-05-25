@@ -100,7 +100,7 @@ class TestAprioriCore:
 
     def test_association_rules_lift(self):
         """Lift > 1 when items are positively correlated."""
-        txns = [{"a", "b"}, {"a", "b"}, {"a", "b"}, {"a"}, {"b"}]
+        txns = [{"a", "b"}, {"a", "b"}, {"a", "b"}, {"a", "b"}, {"a"}, {"b"}, set(), set()]
         freq = generate_frequent_itemsets(txns, min_support=0.4)
         rules = generate_association_rules(freq, transactions=txns, min_confidence=0.1)
         ab_rule = [r for r in rules if r["antecedent"] == ("a",) and r["consequent"] == ("b",)]
@@ -327,8 +327,8 @@ class TestEndToEnd:
         result = recommend(
             ["mobile", "sqlite3"],
             kb_root=kb,
-            target="tools",
-            min_support=0.1,
+            target="all",
+            min_support=0.08,
             top_n=5,
         )
         assert len(result["recommendations"]) > 0

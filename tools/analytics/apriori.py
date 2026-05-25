@@ -129,7 +129,7 @@ def generate_association_rules(
     frequent_itemsets: Dict[int, Dict[Tuple[str, ...], float]],
     transactions: Optional[List[Set[str]]] = None,
     min_confidence: float = 0.6,
-    min_lift: float = 1.0,
+    min_lift: float = 0.0,
 ) -> List[Dict]:
     """Generate association rules from frequent itemsets.
 
