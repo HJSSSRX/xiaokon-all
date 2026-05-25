@@ -18,8 +18,7 @@ import sys
 GROUPS = {
     "hub": "tools.collab.hub_server",
     "sync": "tools.collab.sync_cli",
-    "schedule": "tools.smart_scheduler",
-    "generate-roles": "tools.generate_role_prompts_v5",
+    "schedule": "tools.decomposer.smart_scheduler",
     "captain": "tools.captain",
     "kb": None,       # sub-routed below
     "analytics": None,  # sub-routed below
@@ -27,7 +26,7 @@ GROUPS = {
     "executor": None,  # sub-routed below
     "import": "tools.hub.import_yaml",
     "export": None,   # sub-routed below
-    "lint": "tools.answer_format_lint",
+    "lint": "tools.competition.answer_format_lint",
 }
 
 

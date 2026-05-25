@@ -82,7 +82,7 @@ def _try_lint(case_dir: str) -> list[dict]:
     try:
         tools_dir = Path(__file__).parent
         sys.path.insert(0, str(tools_dir))
-        from answer_format_lint import quick_lint  # type: ignore
+        from tools.competition.answer_format_lint import quick_lint
         fails, _ = quick_lint(case_dir)
         return fails
     except Exception as e:

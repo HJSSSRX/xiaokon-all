@@ -97,7 +97,7 @@ except Exception as e:
 # ══════════════════════════════════════════════════════════════
 _stdout.write("\n=== 3. C3 answer_format_lint ===\n"); _stdout.flush()
 try:
-    from answer_format_lint import check_answer, infer_rule, FORMAT_RULES
+    from tools.competition.answer_format_lint import check_answer, infer_rule, FORMAT_RULES
 
     check("FORMAT_RULES 规则数 >= 20", len(FORMAT_RULES) >= 20, f"实际: {len(FORMAT_RULES)} 条")
 
@@ -139,7 +139,7 @@ try:
         check(f"infer_rule({ref[:20]}) = {expected}", got == expected, f"实际: {got}")
 
     # 无 meta 时 lint 不崩溃
-    from answer_format_lint import lint_answers
+    from tools.competition.answer_format_lint import lint_answers
     results_lint = lint_answers(str(ROOT.parent / "ffffff-JIANCAI" / "2026FIC团体赛" / "case"))
     check("lint_answers 不崩溃", True, f"返回 {len(results_lint)} 条记录")
 
