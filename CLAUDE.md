@@ -25,21 +25,24 @@ knowledge/
   skills/          — Per-role skill files (techniques, tool usage)
   cards/           — Extracted knowledge cards from external sources
 tools/
-  cli.py           — Unified CLI entry point (hub, sync, kb, schedule, lint)
+  cli.py           — Unified CLI entry point (hub, sync, kb, schedule, lint, analytics, decompose)
   manifest.yaml    — Tool manifest (single source of truth)
   tool_status.py   — Query tool availability + paths
-  kb_search.py     — Knowledge base search
-  analytics/       — Apriori association rule mining (tool/tag pattern discovery)
+  analytics/       — Apriori, causality, macro reports, recommendations
   collab/          — Collaboration package (hub server, sync, conflict resolution)
-  collab_hub.py    — Backward-compat shim → tools/collab/
-  collab_sync.py   — Backward-compat shim → tools/collab/
-  kb_search.py     — Backward-compat shim → tools/kb/
-  role_log.py      — Backward-compat shim → tools/hub/
-  sync_kb.py       — Backward-compat shim → tools/kb/
-  fic_kb_search.py — Backward-compat shim → tools/kb/comp_search
+  decomposer/      — Auto-decomposition, execution engine, allocator, boost
+  kb/              — Knowledge base search, build, sync, feeder crawl
+  forensics/       — E01/VMDK readers, ZFS analysis, extraction tools
+  competition/     — Question parsing, answer diff, answer format lint
+  vision/          — OCR engine, mindmap image parsing
+  pcap/            — Packet capture analysis
+  hub/             — Import, inspect, findings, role log utilities
+  integration/     — Huoyan MCP adapter, remote alive checks
+  dev/             — Layout detection, monitoring
   core/            — Shared infrastructure (HTTP base, ID gen, YAML, cache, etc.)
   feeder/          — Knowledge ingestion from external sources
-  e01_reader.py    — E01/VMDK image reader
+  bin/             — External tool binaries (nuclei, etc.)
+  _archived/       — Historical one-off scripts, not imported
 ```
 
 ## Key Rules
@@ -86,9 +89,17 @@ knowledge/
 │   ├── patterns/      # Common solution patterns
 │   └── _index.yaml
 ├── skills/            # Fusion layer: Skills from both tracks
-│   ├── computer/      # By forensics domain
+│   ├── binary/        # 11 domains (computer, mobile, network, server,
+│   ├── cloud/         #   binary, web, crypto, cloud, iot, stego_crypto, misc)
+│   ├── computer/
+│   ├── crypto/
+│   ├── iot/
+│   ├── misc/
 │   ├── mobile/
 │   ├── network/
+│   ├── server/
+│   ├── stego_crypto/
+│   ├── web/
 │   └── _index.yaml
 └── _relations/        # Tag-based linking
     ├── tag_index.yaml
