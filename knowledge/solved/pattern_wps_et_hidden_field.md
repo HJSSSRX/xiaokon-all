@@ -1,5 +1,5 @@
 ---
-tags: [office_forensics, wps, et, xlsx, hidden_data, xml, descr]
+tags: [office_forensics, wps, et, xlsx, hidden_data, xml, descr, computer_forensics]
 tools: [python, zipfile, unzip]
 category: computer_forensics
 difficulty: easy
@@ -7,6 +7,7 @@ source: fic2026
 date: 2026-05-05
 verified: true
 ---
+
 # Title: WPS .et 文件隐藏字段提取 (descr 属性)
 
 ## Problem

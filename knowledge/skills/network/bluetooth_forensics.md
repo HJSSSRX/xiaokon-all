@@ -1,11 +1,12 @@
 ---
-tags: [network, pcap, capture, bluetooth, hci, btsnoop, ble, hid]
+tags: [network, pcap, capture, bluetooth, hci, btsnoop, ble, hid, network_forensics]
 tools: [wireshark, tshark, capinfos, python]
 category: network_forensics
 difficulty: medium
 source: kb_seed_2026-05-06
 verified: false
 ---
+
 # Bluetooth / HCI / btsnoop 流量取证速查
 
 蓝牙取证题的抓包文件通常是 `.btsnoop`、`.pcap`、`.pcapng`，里面承载 HCI（Host Controller Interface）数据：HCI Command、HCI Event、ACL/SCO，再上层是 LE Advertising Report、L2CAP、ATT、SDP、RFCOMM、HID。

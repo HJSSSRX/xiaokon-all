@@ -1,32 +1,27 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S10"
-  category: "S_server"
-  short_name: "免运费门槛"
-  difficulty: "easy"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: "在网站购物满多少免运费（格式：1）"
-answer:
-  value: "100000"
-  format_note: "tp_config 表 freight_free 字段值（单位：元）"
-walkthrough:
-  identify: "TPshop 配置项 freight_free 控制免运费门槛 (application/common.php 第 1203-1204 行使用)"
-  extract: |
-    grep 'freight_free' /tmp/binlog_decoded/mysql-bin.000026.sql
-  analyze: |
-    binlog 中：INSERT INTO `tp_config` VALUES ('14', 'freight_free', '100000', 'shopping', '')
-    application/common.php:
-      $freight_free = tpCache('shopping.freight_free');
-      if ($freight_free > 0 && $goods_price >= $freight_free) { /* 免运费 */ }
-    所以满 100000（元）免运费。
-  verify: "tp_config 表的 group='shopping' 类目下 name='freight_free' value='100000'"
-  command: |
-    grep 'freight_free' /tmp/binlog_decoded/mysql-bin.000026.sql
+  competition: 2025pinghang
+  question_id: S10
+  category: S_server
+  short_name: 免运费门槛
+  difficulty: easy
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: 在网站购物满多少免运费（格式：1）}
+answer: {value: '100000', format_note: tp_config 表 freight_free 字段值（单位：元）}
+walkthrough: {identify: TPshop 配置项 freight_free 控制免运费门槛 (application/common.php 第
+    1203-1204 行使用), extract: 'grep ''freight_free'' /tmp/binlog_decoded/mysql-bin.000026.sql
+
+    ', analyze: "binlog 中：INSERT INTO `tp_config` VALUES ('14', 'freight_free', '100000',\
+    \ 'shopping', '')\napplication/common.php:\n  $freight_free = tpCache('shopping.freight_free');\n\
+    \  if ($freight_free > 0 && $goods_price >= $freight_free) { /* 免运费 */ }\n所以满\
+    \ 100000（元）免运费。\n", verify: tp_config 表的 group='shopping' 类目下 name='freight_free'
+    value='100000', command: 'grep ''freight_free'' /tmp/binlog_decoded/mysql-bin.000026.sql
+
+    '}
 integrity:
-  source: "binlog mysql-bin.000026 + application/common.php"
+  source: binlog mysql-bin.000026 + application/common.php
   external_access: false
-  tools: ["grep"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_binlog3.sh"
+  tools: [grep]
+  artifacts: [cases/2025平航杯/artifacts/s_binlog3.sh]
+tags: [server_forensics]

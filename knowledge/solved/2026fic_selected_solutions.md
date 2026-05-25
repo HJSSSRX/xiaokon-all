@@ -1,5 +1,5 @@
 ---
-tags: [fic2026, deepin, uos, android, xiaomi, clash, ngrok, sqlite, todo, vpn]
+tags: [fic2026, deepin, uos, android, xiaomi, clash, ngrok, sqlite, todo, vpn, computer_forensics]
 tools: [cat, grep, find, sqlite3, r2]
 category: mixed
 difficulty: easy-medium
@@ -7,6 +7,7 @@ source: fic2026
 date: 2026-05-05
 verified: false
 ---
+
 # Title: FIC2026 精选题解 (C01/C05/I03/M01/M02)
 
 ## C01 — 操作系统版本识别 (Deepin/UOS)

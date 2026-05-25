@@ -1,12 +1,15 @@
 ---
-tags: [mobile, android, apk, permissions, manifest, accessibility, runtime_permissions, malware_triage, frida, methodology]
+tags: [mobile, android, apk, permissions, manifest, accessibility, runtime_permissions,
+  malware_triage, frida, methodology, mobile_forensics]
 tools: [aapt, androguard, jadx, apktool, frida, grep]
 category: mobile_forensics
 difficulty: medium
 source: kb_seed_2026-05-07
 verified: false
-related: [apk_crypto_analysis.md, anti_forensics_and_misleading.md, uninstalled_app_recovery.md, 2022_changancup_mobile_exe_apk.md]
+related: [apk_crypto_analysis.md, anti_forensics_and_misleading.md, uninstalled_app_recovery.md,
+  2022_changancup_mobile_exe_apk.md]
 ---
+
 # APK 权限分析 — 看权限读懂 App 真实意图
 
 > **核心心法**：权限是 App 能力的"证据声明"。

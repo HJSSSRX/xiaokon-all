@@ -1,37 +1,28 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S16"
-  category: "S_server"
-  short_name: "连续三天内下单的用户数"
-  difficulty: "hard"
-  status: "solved"
-  confidence: "medium"
-question:
-  raw: "找出连续三天内下单的用户并统计总共有多少个（格式：1）"
-answer:
-  value: "40"
-  format_note: "解释：同用户在 ≤3 个日历日窗口内有 ≥3 单。备选解释 1（连续 3 个日历日每天有单）= 1。"
-walkthrough:
-  identify: "需统计每个 user_id 的下单时间分布"
-  extract: "python3 cases/2025平航杯/artifacts/s_consec3.py"
-  analyze: |
-    两种解释：
-    
-    解释 A: 连续 3 个日历日每天 ≥1 单 → count = 1（仅 uid=1，344 单覆盖大量天）
-    解释 B: 同用户存在 3 单时间差 ≤ 3 个日历日 → count = 40
-    
-    题目原文"连续三天内下单的用户"中文存在歧义。
-    选 B (40) 因为：
-      - 题面明示"统计总共多少个"，期望答案>1
-      - "三天内下单"更接近"在 3 天的时间跨度内有多次下单"
-  verify: "范围 [2016-04-01, 2025-04-01) 内 668 用户参与，40 用户在 3 天窗口下了 ≥3 单"
-  command: |
-    python3 cases/2025平航杯/artifacts/s_consec3.py
+  competition: 2025pinghang
+  question_id: S16
+  category: S_server
+  short_name: 连续三天内下单的用户数
+  difficulty: hard
+  status: solved
+  confidence: medium
+  tags: [server_forensics]
+question: {raw: 找出连续三天内下单的用户并统计总共有多少个（格式：1）}
+answer: {value: '40', format_note: 解释：同用户在 ≤3 个日历日窗口内有 ≥3 单。备选解释 1（连续 3 个日历日每天有单）=
+    1。}
+walkthrough: {identify: 需统计每个 user_id 的下单时间分布, extract: python3 cases/2025平航杯/artifacts/s_consec3.py,
+  analyze: "两种解释：\n\n解释 A: 连续 3 个日历日每天 ≥1 单 → count = 1（仅 uid=1，344 单覆盖大量天）\n解释 B:\
+    \ 同用户存在 3 单时间差 ≤ 3 个日历日 → count = 40\n\n题目原文\"连续三天内下单的用户\"中文存在歧义。\n选 B (40) 因为：\n\
+    \  - 题面明示\"统计总共多少个\"，期望答案>1\n  - \"三天内下单\"更接近\"在 3 天的时间跨度内有多次下单\"\n", verify: '范围
+    [2016-04-01, 2025-04-01) 内 668 用户参与，40 用户在 3 天窗口下了 ≥3 单', command: 'python3 cases/2025平航杯/artifacts/s_consec3.py
+
+    '}
 integrity:
-  source: "binlog mysql-bin.000026 → tp_order"
+  source: binlog mysql-bin.000026 → tp_order
   external_access: false
-  tools: ["python3"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_consec3.py"
-notes: |
-  解释 A 答案 = 1，解释 B = 40。先填 40，等用户确认。
+  tools: [python3]
+  artifacts: [cases/2025平航杯/artifacts/s_consec3.py]
+notes: '解释 A 答案 = 1，解释 B = 40。先填 40，等用户确认。
+
+  '
+tags: [server_forensics]

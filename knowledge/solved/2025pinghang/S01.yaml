@@ -1,30 +1,32 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S01"
-  category: "S_server"
-  short_name: "服务器最早开机时间"
-  difficulty: "easy"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: "该电脑最早的开机时间是什么（格式：2025/1/1 01:01:01）"
-answer:
-  value: "2022/2/23 12:23:49"
-  format_note: "wtmp 第一条 reboot system boot 的时间 (UTC+8)"
-walkthrough:
-  identify: "/var/log/wtmp 记录系统启动 / 用户登录历史"
-  extract: "last -f /mnt/server/var/log/wtmp -F | tail -1"
-  analyze: |
-    输出: reboot system boot 3.10.0-514.el7.x Wed Feb 23 12:23:49 2022 - Wed Feb 23 15:22:04 2022 (02:58)
+  competition: 2025pinghang
+  question_id: S01
+  category: S_server
+  short_name: 服务器最早开机时间
+  difficulty: easy
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: '该电脑最早的开机时间是什么（格式：2025/1/1 01:01:01）'}
+answer: {value: '2022/2/23 12:23:49', format_note: wtmp 第一条 reboot system boot 的时间
+    (UTC+8)}
+walkthrough: {identify: /var/log/wtmp 记录系统启动 / 用户登录历史, extract: last -f /mnt/server/var/log/wtmp
+    -F | tail -1, analyze: '输出: reboot system boot 3.10.0-514.el7.x Wed Feb 23 12:23:49
+    2022 - Wed Feb 23 15:22:04 2022 (02:58)
+
     wtmp begins Wed Feb 23 12:23:49 2022 → 这是 wtmp 文件中最早一条记录，即系统首次开机时间。
-  verify: "对应 /etc/redhat-release Birth time、/root 目录 birth time 都在 2022-02-23 11:35–12:23"
-  command: |
-    sudo last -f /mnt/server/var/log/wtmp -F | tail -1
+
+    ', verify: '对应 /etc/redhat-release Birth time、/root 目录 birth time 都在 2022-02-23
+    11:35–12:23', command: 'sudo last -f /mnt/server/var/log/wtmp -F | tail -1
+
+    '}
 integrity:
-  source: "/var/log/wtmp (export-disk0-000002.vmdk)"
+  source: /var/log/wtmp (export-disk0-000002.vmdk)
   external_access: false
-  tools: ["last", "qemu-nbd", "mount"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_recon2.sh"
-notes: |
-  挂载方式：qemu-nbd -r -c /dev/nbd0 vmdk → vgchange -ay cl → mount -o ro,norecovery /dev/mapper/cl-root
+  tools: [last, qemu-nbd, mount]
+  artifacts: [cases/2025平航杯/artifacts/s_recon2.sh]
+notes: '挂载方式：qemu-nbd -r -c /dev/nbd0 vmdk → vgchange -ay cl → mount -o ro,norecovery
+  /dev/mapper/cl-root
+
+  '
+tags: [server_forensics]

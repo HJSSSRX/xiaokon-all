@@ -1,5 +1,5 @@
 ---
-tags: [stego, png, base64, hex, tEXt_chunk, trailing_data]
+tags: [stego, png, base64, hex, tEXt_chunk, trailing_data, stego_crypto]
 tools: [strings, python3, base64]
 category: stego
 difficulty: easy
@@ -7,6 +7,7 @@ source: pipeline_test_2026
 date: 2026-05-05
 verified: true
 ---
+
 # PNG Steganography — Hidden Data in tEXt Chunk and Trailing Bytes
 
 ## Problem

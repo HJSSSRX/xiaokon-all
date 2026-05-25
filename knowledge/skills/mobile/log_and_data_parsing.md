@@ -1,12 +1,17 @@
 ---
-tags: [mobile, android, logcat, dropbox, anr, tombstones, sqlite, sqlcipher, realm, leveldb, mmkv, protobuf, plist, manual_parsing, data_format, methodology, exam_prep]
-tools: [adb, logcat, sqlite3, undark, plyvel, blackboxprotobuf, plutil, frida, axmlprinter, realm_studio, xxd, strings]
+tags: [mobile, android, logcat, dropbox, anr, tombstones, sqlite, sqlcipher, realm,
+  leveldb, mmkv, protobuf, plist, manual_parsing, data_format, methodology, exam_prep,
+  mobile_forensics]
+tools: [adb, logcat, sqlite3, undark, plyvel, blackboxprotobuf, plutil, frida, axmlprinter,
+  realm_studio, xxd, strings]
 category: mobile_forensics
 difficulty: hard
 source: kb_seed_2026-05-08
 verified: false
-related: [apk_crypto_analysis.md, app_data_analysis.md, uninstalled_app_recovery.md, pattern_wechat_db_decrypt.md, timestamps_reference.md]
+related: [apk_crypto_analysis.md, app_data_analysis.md, uninstalled_app_recovery.md,
+  pattern_wechat_db_decrypt.md, timestamps_reference.md]
 ---
+
 # 安卓日志 + 应用数据结构 + 手工解析 + 加解密
 
 > **核心心法**：app 数据 = 容器格式 + 业务结构 + 可选加密。三层都要会拆：

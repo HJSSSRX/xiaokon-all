@@ -1,5 +1,5 @@
 ---
-tags: [email_forensics, deepin, foxmail, eml, sqlite, rsa, attachment]
+tags: [email_forensics, deepin, foxmail, eml, sqlite, rsa, attachment, computer_forensics]
 tools: [python, sqlite3, grep, find, email_module]
 category: computer_forensics
 difficulty: medium
@@ -7,6 +7,7 @@ source: fic2026
 date: 2026-05-05
 verified: true
 ---
+
 # Title: Deepin-mail / Foxmail 邮件取证
 
 ## Problem

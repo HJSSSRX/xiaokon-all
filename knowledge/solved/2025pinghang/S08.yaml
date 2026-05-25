@@ -1,31 +1,36 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S08"
-  category: "S_server"
-  short_name: "GD 版本"
-  difficulty: "easy"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: "网站后台显示的服务器 GD 版本是多少（格式：1.1.1 abc）"
-answer:
-  value: "bundled (2.1.0 compatible)"
-  format_note: "PHP 5.6 内置 GD 版本字符串（gd_info()['GD Version']）"
-walkthrough:
-  identify: "TPshop 后台 welcome 页面调用 gd_info() 显示版本"
-  extract: |
-    grep -B2 -A3 gd_info application/admin/controller/Index.php
-    # if(function_exists("gd_info")){ $gd = gd_info(); $sys_info['gdinfo'] = $gd['GD Version']; }
-  analyze: |
-    nginx vhost www.tpshop.com.conf 引用 enable-php-56.conf → tpshop 跑在 PHP 5.6.x。
+  competition: 2025pinghang
+  question_id: S08
+  category: S_server
+  short_name: GD 版本
+  difficulty: easy
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: 网站后台显示的服务器 GD 版本是多少（格式：1.1.1 abc）}
+answer: {value: bundled (2.1.0 compatible), format_note: 'PHP 5.6 内置 GD 版本字符串（gd_info()[''GD
+    Version'']）'}
+walkthrough: {identify: TPshop 后台 welcome 页面调用 gd_info() 显示版本, extract: 'grep -B2
+    -A3 gd_info application/admin/controller/Index.php
+
+    # if(function_exists("gd_info")){ $gd = gd_info(); $sys_info[''gdinfo''] = $gd[''GD
+    Version'']; }
+
+    ', analyze: 'nginx vhost www.tpshop.com.conf 引用 enable-php-56.conf → tpshop 跑在
+    PHP 5.6.x。
+
     PHP 5.6 binary strings 输出：bundled (2.1.0 compatible)
+
     （PHP 7.4 同样是 bundled (2.1.0 compatible)，结果一致）
-  verify: "strings /mnt/server/www/server/php/56/bin/php | grep 'bundled (2'"
-  command: |
-    strings /mnt/server/www/server/php/56/bin/php | grep -oE 'bundled \(2\.[0-9]+\.[0-9]+ compatible\)'
+
+    ', verify: strings /mnt/server/www/server/php/56/bin/php | grep 'bundled (2',
+  command: 'strings /mnt/server/www/server/php/56/bin/php | grep -oE ''bundled \(2\.[0-9]+\.[0-9]+
+    compatible\)''
+
+    '}
 integrity:
-  source: "/www/server/php/56/bin/php (PHP 5.6.x bundled GD)"
+  source: /www/server/php/56/bin/php (PHP 5.6.x bundled GD)
   external_access: false
-  tools: ["strings", "grep"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_recon11.sh"
+  tools: [strings, grep]
+  artifacts: [cases/2025平航杯/artifacts/s_recon11.sh]
+tags: [server_forensics]

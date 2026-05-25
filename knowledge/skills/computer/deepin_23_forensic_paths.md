@@ -1,5 +1,5 @@
 ---
-tags: [technique, deepin, forensic_paths, disk_layout, dde_data]
+tags: [technique, deepin, forensic_paths, disk_layout, dde_data, computer_forensics]
 tools: [ewfmount, losetup, mount, mmls, find]
 category: computer_forensics
 difficulty: easy
@@ -7,6 +7,7 @@ source: fic2026
 date: 2026-05-09
 verified: true
 ---
+
 # Title: Deepin 23.1 取证路径速查
 
 ## Disk Layout (A/B 双系统镜像)

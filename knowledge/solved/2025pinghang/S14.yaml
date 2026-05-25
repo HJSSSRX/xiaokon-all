@@ -1,38 +1,28 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S14"
-  category: "S_server"
-  short_name: "注册→首单 间隔最短用户"
-  difficulty: "hard"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: "对于每个用户，计算其注册时间（用户表中的注册时间戳）到首次下单时间（订单表中最早时间戳）的间隔，找出间隔最短的用户 id（格式：1）"
-answer:
-  value: "385"
-  format_note: "uid=385，注册→首单 = 48 秒"
-walkthrough:
-  identify: |
-    需 join tp_users.reg_time 和 tp_order.add_time（每用户最小值）。
-    binlog 中包含两表完整 INSERT：
-      tp_users 5142 行 distinct 2571 用户
-      tp_order 2770 行 distinct 1385 订单
-  extract: |
-    python3 cases/2025平航杯/artifacts/s_user_orders.py
-  analyze: |
-    Top 5 (gap 单位：秒)：
-      uid=385  gap=48s   reg=2016-06-28 12:47:57  first_order=2016-06-28 12:48:45
-      uid=2192 gap=53s   reg=2016-08-30 12:40:26  first_order=2016-08-30 12:41:19
-      uid=1000 gap=55s
-      uid=1157 gap=56s
-      uid=1325 gap=61s
-    最短 = uid 385 (48 秒)
-  verify: "在范围内 668 个用户至少有一单。结果稳定。"
-  command: |
-    python3 cases/2025平航杯/artifacts/s_user_orders.py
+  competition: 2025pinghang
+  question_id: S14
+  category: S_server
+  short_name: 注册→首单 间隔最短用户
+  difficulty: hard
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: 对于每个用户，计算其注册时间（用户表中的注册时间戳）到首次下单时间（订单表中最早时间戳）的间隔，找出间隔最短的用户 id（格式：1）}
+answer: {value: '385', format_note: uid=385，注册→首单 = 48 秒}
+walkthrough: {identify: "需 join tp_users.reg_time 和 tp_order.add_time（每用户最小值）。\nbinlog\
+    \ 中包含两表完整 INSERT：\n  tp_users 5142 行 distinct 2571 用户\n  tp_order 2770 行 distinct\
+    \ 1385 订单\n", extract: 'python3 cases/2025平航杯/artifacts/s_user_orders.py
+
+    ', analyze: "Top 5 (gap 单位：秒)：\n  uid=385  gap=48s   reg=2016-06-28 12:47:57 \
+    \ first_order=2016-06-28 12:48:45\n  uid=2192 gap=53s   reg=2016-08-30 12:40:26\
+    \  first_order=2016-08-30 12:41:19\n  uid=1000 gap=55s\n  uid=1157 gap=56s\n \
+    \ uid=1325 gap=61s\n最短 = uid 385 (48 秒)\n", verify: 在范围内 668 个用户至少有一单。结果稳定。, command: 'python3
+    cases/2025平航杯/artifacts/s_user_orders.py
+
+    '}
 integrity:
-  source: "binlog mysql-bin.000026 → tp_users + tp_order INSERTs"
+  source: binlog mysql-bin.000026 → tp_users + tp_order INSERTs
   external_access: false
-  tools: ["mysqlbinlog", "python3"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_user_orders.py"
+  tools: [mysqlbinlog, python3]
+  artifacts: [cases/2025平航杯/artifacts/s_user_orders.py]
+tags: [server_forensics]

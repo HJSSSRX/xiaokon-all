@@ -1,63 +1,33 @@
-# 2025 平航杯 N04 — 首次改名 UTC 时间
 meta:
-  competition: "2025 平航杯"
-  competition_id: "2025pinghang"
-  question_id: "N04"
-  question_text: "流量包中首次捕获到该伪装设备修改自身名称的 UTC+0 时间（格式：2024/03/07 01:02:03.123）"
-  category_l1: "network_traffic"
-  category_l2: "bluetooth_le"
-  tags: ["timestamp", "utc", "ble_adv"]
+  competition: 2025 平航杯
+  competition_id: 2025pinghang
+  question_id: N04
+  question_text: 流量包中首次捕获到该伪装设备修改自身名称的 UTC+0 时间（格式：2024/03/07 01:02:03.123）
+  category_l1: network_traffic
+  category_l2: bluetooth_le
+  tags: [timestamp, utc, ble_adv, network_forensics]
   points: 10
-  difficulty: "easy"
-
-answer:
-  value: "2025/04/09 02:31:26.710"
-  value_type: "datetime"
-  confidence: "high"
-  verified: true
-  verified_method: "earliest_adv_epoch_from_spoofed_mac"
-  verified_date: "2026-05-04"
-
+  difficulty: easy
+answer: {value: '2025/04/09 02:31:26.710', value_type: datetime, confidence: high,
+  verified: true, verified_method: earliest_adv_epoch_from_spoofed_mac, verified_date: '2026-05-04'}
 walkthrough:
-  summary: "伪装 MAC 80:e1:26:35:32:31 发出 QQ_WF_SP8OON 的首个包 epoch → UTC 格式化"
+  summary: 伪装 MAC 80:e1:26:35:32:31 发出 QQ_WF_SP8OON 的首个包 epoch → UTC 格式化
   steps:
-    - seq: 1
-      description: "Find earliest packet from spoofed MAC"
-      command: "grep '80:e1:26:35:32:31' /tmp/ble_names.tsv | sort -k1n | head -1"
-      tool: "grep+sort"
-      expected_output: "1744165886.710747000  80:e1:26:35:32:31  QQ_WF_SP8OON"
-    - seq: 2
-      description: "Convert epoch to UTC string with ms precision"
-      command: "python3 convert_time.py"
-      tool: "python3"
-      expected_output: "2025/04/09 02:31:26.710"
-      human_note: "t.microsecond // 1000 → ms，不做四舍五入"
-  evidence_path: "BLE pcapng frame time (unix epoch UTC)"
-
+  - {seq: 1, description: Find earliest packet from spoofed MAC, command: 'grep ''80:e1:26:35:32:31''
+      /tmp/ble_names.tsv | sort -k1n | head -1', tool: grep+sort, expected_output: '1744165886.710747000  80:e1:26:35:32:31  QQ_WF_SP8OON'}
+  - {seq: 2, description: Convert epoch to UTC string with ms precision, command: python3
+      convert_time.py, tool: python3, expected_output: '2025/04/09 02:31:26.710',
+    human_note: t.microsecond // 1000 → ms，不做四舍五入}
+  evidence_path: BLE pcapng frame time (unix epoch UTC)
 tools_used:
-  - name: "python3"
-    version: "3.10+"
-    platform: "linux"
-    install_path: "/usr/bin/python3"
-  - name: "grep, sort"
-    version: "coreutils"
-    platform: "linux"
-
-ai_meta:
-  first_solved_by: "cascade"
-  solve_time_seconds: 60
-  model_difficulty: "trivial"
-
+- {name: python3, version: 3.10+, platform: linux, install_path: /usr/bin/python3}
+- {name: 'grep, sort', version: coreutils, platform: linux}
+ai_meta: {first_solved_by: cascade, solve_time_seconds: 60, model_difficulty: trivial}
 education:
-  prerequisites: ["Unix epoch", "UTC vs local time", "Python datetime"]
+  prerequisites: [Unix epoch, UTC vs local time, Python datetime]
   common_mistakes:
-    - mistake: "用 CST (UTC+8) 时间提交"
-      correction: "题目明确 UTC+0"
-    - mistake: "微秒截断为秒"
-      correction: "格式要 .XXX 毫秒 3 位"
-  related_questions: ["2025pinghang/N02", "2025pinghang/N03"]
-
-status:
-  progress: "complete"
-  human_reviewed: false
-  last_updated: "2026-05-04"
+  - {mistake: 用 CST (UTC+8) 时间提交, correction: 题目明确 UTC+0}
+  - {mistake: 微秒截断为秒, correction: 格式要 .XXX 毫秒 3 位}
+  related_questions: [2025pinghang/N02, 2025pinghang/N03]
+status: {progress: complete, human_reviewed: false, last_updated: '2026-05-04'}
+tags: [network_forensics]

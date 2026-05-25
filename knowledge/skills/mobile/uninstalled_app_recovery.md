@@ -1,11 +1,14 @@
 ---
-tags: [mobile, android, ios, uninstalled, deleted_app, app_recovery, packages_xml, usagestats, knowledgec, recent_images, carving]
-tools: [aleapp, ileapp, sleuthkit, foremost, photorec, strings, grep, sqlite3, aapt, androguard, plaso]
+tags: [mobile, android, ios, uninstalled, deleted_app, app_recovery, packages_xml,
+  usagestats, knowledgec, recent_images, carving, mobile_forensics]
+tools: [aleapp, ileapp, sleuthkit, foremost, photorec, strings, grep, sqlite3, aapt,
+  androguard, plaso]
 category: mobile_forensics
 difficulty: medium
 source: kb_seed_2026-05-07
 verified: false
 ---
+
 # 已删除 App 的痕迹挖掘
 
 > **核心心法**：App 卸载只删了"入口"，痕迹分布在 N 个层面。普通用户点删图标根本删不掉痕迹。要真"擦干净"必须 `pm uninstall -k` + 清缓存 + factory reset + 多次写入覆盖物理扇区。

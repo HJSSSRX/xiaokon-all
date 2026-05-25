@@ -1,5 +1,6 @@
 ---
-tags: [mobile, cryptocurrency, wallet, btc, eth, trc20, usdt, bip39, keystore, tronscan, etherscan, ocr, methodology]
+tags: [mobile, cryptocurrency, wallet, btc, eth, trc20, usdt, bip39, keystore, tronscan,
+  etherscan, ocr, methodology, mobile_forensics]
 tools: [strings, grep, sqlite3, tesseract, hashcat, requests, jq, exiftool, foremost]
 category: mobile_forensics
 difficulty: medium
@@ -7,6 +8,7 @@ source: kb_seed_2026-05-07
 verified: false
 related: [uninstalled_app_recovery.md, anti_forensics_and_misleading.md, pattern_wechat_db_decrypt.md]
 ---
+
 # 虚拟货币取证 — 手机无直接信息时的破局
 
 > **核心心法**：虚拟货币痕迹分布在 **链上 / 链下应用层 / 链外辅助层** 三个空间。

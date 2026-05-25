@@ -1,34 +1,40 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S06"
-  category: "S_server"
-  short_name: "Trojan remote_addr 用途"
-  difficulty: "easy"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: |
-    关于 Trojan 服务器配置文件中配置的 remote_addr 和 remote_port 的作用，正确的是：
+  competition: 2025pinghang
+  question_id: S06
+  category: S_server
+  short_name: Trojan remote_addr 用途
+  difficulty: easy
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: '关于 Trojan 服务器配置文件中配置的 remote_addr 和 remote_port 的作用，正确的是：
+
     A. 代理流量转发到外部互联网服务器
+
     B. 将流量转发到本地的 HTTP 服务（如 Nginx）
+
     C. 用于数据库连接
+
     D. 加密流量解密后的目标地址
-answer:
-  value: "B"
-  format_note: "单选 — 转发到本地 HTTP（伪装站点）"
-walkthrough:
-  identify: "Trojan server 模式下 remote_addr/port 是『非合规请求的伪装目标』"
-  extract: "grep -E remote_addr|remote_port /mnt/server/etc/trojan/config.json/config.json"
-  analyze: |
-    配置：\"remote_addr\": \"127.0.0.1\", \"remote_port\": 80
-    Trojan 协议：未持有正确密码的客户端（即扫描器/合规检测）请求会被原封不动转发到 remote_addr:remote_port，让攻击者看上去就是访问一个普通 HTTPS 网站。
+
+    '}
+answer: {value: B, format_note: 单选 — 转发到本地 HTTP（伪装站点）}
+walkthrough: {identify: Trojan server 模式下 remote_addr/port 是『非合规请求的伪装目标』, extract: grep
+    -E remote_addr|remote_port /mnt/server/etc/trojan/config.json/config.json, analyze: '配置：\"remote_addr\":
+    \"127.0.0.1\", \"remote_port\": 80
+
+    Trojan 协议：未持有正确密码的客户端（即扫描器/合规检测）请求会被原封不动转发到 remote_addr:remote_port，让攻击者看上去就是访问一个普通
+    HTTPS 网站。
+
     这里 remote=127.0.0.1:80 意味转发到本地 nginx（提供伪装站点 www.tpshop.com）。
-  verify: "nginx vhost 在 80 端口监听 www.tpshop.com — 验证伪装链"
-  command: |
-    grep -E 'remote_addr|remote_port|local_port' /mnt/server/etc/trojan/config.json/config.json
+
+    ', verify: nginx vhost 在 80 端口监听 www.tpshop.com — 验证伪装链, command: 'grep -E ''remote_addr|remote_port|local_port''
+    /mnt/server/etc/trojan/config.json/config.json
+
+    '}
 integrity:
-  source: "/etc/trojan/config.json/config.json + nginx vhost"
+  source: /etc/trojan/config.json/config.json + nginx vhost
   external_access: false
-  tools: ["grep"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_recon4.sh"
+  tools: [grep]
+  artifacts: [cases/2025平航杯/artifacts/s_recon4.sh]
+tags: [server_forensics]

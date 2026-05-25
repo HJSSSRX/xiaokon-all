@@ -1,33 +1,36 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S05"
-  category: "S_server"
-  short_name: "Trojan 运行模式"
-  difficulty: "easy"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: |
-    分析起早王的服务器检材，Trojan 服务运行的模式为：
+  competition: 2025pinghang
+  question_id: S05
+  category: S_server
+  short_name: Trojan 运行模式
+  difficulty: easy
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: '分析起早王的服务器检材，Trojan 服务运行的模式为：
+
     A. forward
+
     B. nat
+
     C. server
+
     D. client
-answer:
-  value: "C"
-  format_note: "单选 — server 模式"
-walkthrough:
-  identify: "Trojan 的 run_type 字段指明运行模式"
-  extract: "grep run_type /mnt/server/etc/trojan/config.json/config.json"
-  analyze: |
-    config.json 第二行：\"run_type\": \"server\" → 选 C。
+
+    '}
+answer: {value: C, format_note: 单选 — server 模式}
+walkthrough: {identify: Trojan 的 run_type 字段指明运行模式, extract: grep run_type /mnt/server/etc/trojan/config.json/config.json,
+  analyze: 'config.json 第二行：\"run_type\": \"server\" → 选 C。
+
     server 模式：监听 443 接受 trojan 客户端流量；非合规请求转发 remote_addr/port 伪装为普通 https 网站。
-  verify: "和 S06 配合：remote_addr=127.0.0.1:80 → 转发本地 nginx 伪装"
-  command: |
-    grep run_type /mnt/server/etc/trojan/config.json/config.json
+
+    ', verify: '和 S06 配合：remote_addr=127.0.0.1:80 → 转发本地 nginx 伪装', command: 'grep
+    run_type /mnt/server/etc/trojan/config.json/config.json
+
+    '}
 integrity:
-  source: "/etc/trojan/config.json/config.json"
+  source: /etc/trojan/config.json/config.json
   external_access: false
-  tools: ["grep"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_recon1.sh"
+  tools: [grep]
+  artifacts: [cases/2025平航杯/artifacts/s_recon1.sh]
+tags: [server_forensics]

@@ -1,60 +1,32 @@
-# 2025 平航杯 N03 — 伪装前后 MAC md5
 meta:
-  competition: "2025 平航杯"
-  competition_id: "2025pinghang"
-  question_id: "N03"
-  question_text: "该设备修改成耳机前后的大写 MAC 地址（格式：md5(原 MAC_修改后 MAC)）"
-  category_l1: "network_traffic"
-  category_l2: "bluetooth_le"
-  tags: ["ble_mac", "md5", "spoofing"]
+  competition: 2025 平航杯
+  competition_id: 2025pinghang
+  question_id: N03
+  question_text: 该设备修改成耳机前后的大写 MAC 地址（格式：md5(原 MAC_修改后 MAC)）
+  category_l1: network_traffic
+  category_l2: bluetooth_le
+  tags: [ble_mac, md5, spoofing, network_forensics]
   points: 10
-  difficulty: "trivial"
-
-answer:
-  value: "4885b4dc1361b7a3bd0249ddec5ea280"
-  value_type: "md5_hex"
-  confidence: "high"
-  verified: true
-  verified_method: "computed_from_n02_finding"
-  verified_date: "2026-05-04"
-
+  difficulty: trivial
+answer: {value: 4885b4dc1361b7a3bd0249ddec5ea280, value_type: md5_hex, confidence: high,
+  verified: true, verified_method: computed_from_n02_finding, verified_date: '2026-05-04'}
 walkthrough:
-  summary: "承接 N02，取原 MAC 80:E1:26:33:32:31 和伪装 MAC 80:E1:26:35:32:31，按题目格式拼接后 md5"
+  summary: 承接 N02，取原 MAC 80:E1:26:33:32:31 和伪装 MAC 80:E1:26:35:32:31，按题目格式拼接后 md5
   steps:
-    - seq: 1
-      description: "Compose the string per task format"
-      command: null
-      expected_output: "80:E1:26:33:32:31_80:E1:26:35:32:31"
-      human_note: "MAC 必须大写，以 _ 分隔"
-    - seq: 2
-      description: "Compute md5"
-      command: "echo -n '80:E1:26:33:32:31_80:E1:26:35:32:31' | md5sum"
-      tool: "md5sum"
-      expected_output: "4885b4dc1361b7a3bd0249ddec5ea280"
-      human_note: "echo -n 避免尾随换行污染 hash"
-  evidence_path: "N02 分析结果"
-
+  - {seq: 1, description: Compose the string per task format, command: null, expected_output: '80:E1:26:33:32:31_80:E1:26:35:32:31',
+    human_note: MAC 必须大写，以 _ 分隔}
+  - {seq: 2, description: Compute md5, command: 'echo -n ''80:E1:26:33:32:31_80:E1:26:35:32:31''
+      | md5sum', tool: md5sum, expected_output: 4885b4dc1361b7a3bd0249ddec5ea280,
+    human_note: echo -n 避免尾随换行污染 hash}
+  evidence_path: N02 分析结果
 tools_used:
-  - name: "md5sum"
-    version: "coreutils 8.32"
-    platform: "linux"
-    install_path: "/usr/bin/md5sum"
-
-ai_meta:
-  first_solved_by: "cascade"
-  solve_time_seconds: 20
-  model_difficulty: "trivial"
-
+- {name: md5sum, version: coreutils 8.32, platform: linux, install_path: /usr/bin/md5sum}
+ai_meta: {first_solved_by: cascade, solve_time_seconds: 20, model_difficulty: trivial}
 education:
-  prerequisites: ["md5 哈希", "shell 字符串处理"]
+  prerequisites: [md5 哈希, shell 字符串处理]
   common_mistakes:
-    - mistake: "用 echo（带换行）算 md5"
-      correction: "必须 echo -n 或 printf 去掉尾换行"
-    - mistake: "MAC 小写"
-      correction: "题目明确要求大写"
-  related_questions: ["2025pinghang/N02"]
-
-status:
-  progress: "complete"
-  human_reviewed: false
-  last_updated: "2026-05-04"
+  - {mistake: 用 echo（带换行）算 md5, correction: 必须 echo -n 或 printf 去掉尾换行}
+  - {mistake: MAC 小写, correction: 题目明确要求大写}
+  related_questions: [2025pinghang/N02]
+status: {progress: complete, human_reviewed: false, last_updated: '2026-05-04'}
+tags: [network_forensics]

@@ -1,67 +1,36 @@
-# 2025 平航杯 N06 — 起早王真名（UNSOLVED）
 meta:
-  competition: "2025 平航杯"
-  competition_id: "2025pinghang"
-  question_id: "N06"
-  question_text: "起早王的真名是什么（格式：Cai_Xu_Kun 每个首字母均需大写）"
-  category_l1: "network_traffic"
-  category_l2: "bluetooth_le"
-  tags: ["real_name", "unsolved", "cross_evidence"]
+  competition: 2025 平航杯
+  competition_id: 2025pinghang
+  question_id: N06
+  question_text: 起早王的真名是什么（格式：Cai_Xu_Kun 每个首字母均需大写）
+  category_l1: network_traffic
+  category_l2: bluetooth_le
+  tags: [real_name, unsolved, cross_evidence, network_forensics]
   points: 10
-  difficulty: "hard"
-
-answer:
-  value: null
-  value_type: "text"
-  confidence: "none"
-  verified: false
-  verified_method: "unsolved"
-  verified_date: null
-
+  difficulty: hard
+answer: {value: null, value_type: text, confidence: none, verified: false, verified_method: unsolved,
+  verified_date: null}
 walkthrough:
-  summary: "本题被归入流量分析板块，但在 BLE+USBPcap 中未找到三字拼音真名。真名可能在 window.e01（起早王电脑）或倩倩手机检材中，需跨板块回填。"
+  summary: 本题被归入流量分析板块，但在 BLE+USBPcap 中未找到三字拼音真名。真名可能在 window.e01（起早王电脑）或倩倩手机检材中，需跨板块回填。
   steps:
-    - seq: 1
-      description: "Exhaust BLE device names"
-      command: "tshark -r BLE -Y 'btcommon.eir_ad.entry.device_name' | sort -u"
-      tool: "tshark"
-      expected_output: "仅见型号名：Flipper 123all / Cracked / QQ_WF_SP8OON / LE-YANG QC35 II / RAPOO 5.0MS"
-      human_note: "无 Xxx_Xxx_Xxx 模式字符串"
-    - seq: 2
-      description: "Decode all manufacturer data as ASCII"
-      command: "strings -n 6 BLE | grep -iE '^[A-Z][a-z]+_[A-Z][a-z]+_[A-Z][a-z]+'"
-      tool: "strings"
-      expected_output: "(空)"
-    - seq: 3
-      description: "Check USBPcap HID keyboard decoded text"
-      command: "python3 decode_hid.py"
-      tool: "python3"
-      expected_output: "聊天里提到 wang qi zhao / qi zao wang（均化名，非真名）"
-
-  evidence_path: "N/A（当前两个文件不足以解答）"
-
+  - {seq: 1, description: Exhaust BLE device names, command: tshark -r BLE -Y 'btcommon.eir_ad.entry.device_name'
+      | sort -u, tool: tshark, expected_output: 仅见型号名：Flipper 123all / Cracked / QQ_WF_SP8OON
+      / LE-YANG QC35 II / RAPOO 5.0MS, human_note: 无 Xxx_Xxx_Xxx 模式字符串}
+  - {seq: 2, description: Decode all manufacturer data as ASCII, command: 'strings
+      -n 6 BLE | grep -iE ''^[A-Z][a-z]+_[A-Z][a-z]+_[A-Z][a-z]+''', tool: strings,
+    expected_output: (空)}
+  - {seq: 3, description: Check USBPcap HID keyboard decoded text, command: python3
+      decode_hid.py, tool: python3, expected_output: 聊天里提到 wang qi zhao / qi zao wang（均化名，非真名）}
+  evidence_path: N/A（当前两个文件不足以解答）
 tools_used:
-  - name: "tshark, strings, python3"
-    platform: "linux"
-
-ai_meta:
-  first_solved_by: null
-  solve_time_seconds: 900
-  model_difficulty: "hard_or_out_of_scope"
-
+- {name: 'tshark, strings, python3', platform: linux}
+ai_meta: {first_solved_by: null, solve_time_seconds: 900, model_difficulty: hard_or_out_of_scope}
 education:
-  prerequisites: ["BLE adv 全字段", "USB HID 解码", "跨板块证据思维"]
-  learning_objectives:
-    - "识别题目可能跨板块的信号（格式暗示身份信息）"
-    - "避免在一个板块内硬找答案——学会记下待办，转去相关板块"
+  prerequisites: [BLE adv 全字段, USB HID 解码, 跨板块证据思维]
+  learning_objectives: [识别题目可能跨板块的信号（格式暗示身份信息）, 避免在一个板块内硬找答案——学会记下待办，转去相关板块]
   common_mistakes:
-    - mistake: "把化名（wang_qi_zhao / qi_zao_wang）当真名交"
-      correction: "题面已知这是化名"
-    - mistake: "在 BLE 里硬挖 manufacturer data 强行当拼音解"
-      correction: "应交叉其他检材（电脑日记、聊天软件数据库）"
-
-status:
-  progress: "unsolved"
-  human_reviewed: false
-  last_updated: "2026-05-04"
-  notes: "待 C（计算机取证）或 M（手机取证）板块完成后回填。可能线索：SillyTavern 角色卡 / neo4j 关系图 / 倩倩微信通讯录"
+  - {mistake: 把化名（wang_qi_zhao / qi_zao_wang）当真名交, correction: 题面已知这是化名}
+  - {mistake: 在 BLE 里硬挖 manufacturer data 强行当拼音解, correction: 应交叉其他检材（电脑日记、聊天软件数据库）}
+status: {progress: unsolved, human_reviewed: false, last_updated: '2026-05-04', notes: 待
+    C（计算机取证）或 M（手机取证）板块完成后回填。可能线索：SillyTavern 角色卡 / neo4j 关系图 / 倩倩微信通讯录}
+tags: [network_forensics]

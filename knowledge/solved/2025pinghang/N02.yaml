@@ -1,81 +1,47 @@
-# 2025 平航杯 N02 — 伪装设备的原始名称
 meta:
-  competition: "2025 平航杯"
-  competition_id: "2025pinghang"
-  question_id: "N02"
-  question_text: "起早王有一个用于伪装成倩倩耳机的蓝牙设备，该设备的原始设备名称为什么（格式：XXX_xxx）"
-  category_l1: "network_traffic"
-  category_l2: "bluetooth_le"
-  tags: ["ble_adv", "device_name", "flipper_zero", "spoofing"]
+  competition: 2025 平航杯
+  competition_id: 2025pinghang
+  question_id: N02
+  question_text: 起早王有一个用于伪装成倩倩耳机的蓝牙设备，该设备的原始设备名称为什么（格式：XXX_xxx）
+  category_l1: network_traffic
+  category_l2: bluetooth_le
+  tags: [ble_adv, device_name, flipper_zero, spoofing, network_forensics]
   points: 10
-  difficulty: "easy"
-
-answer:
-  value: "Flipper 123all"
-  value_type: "text"
-  confidence: "high"
-  verified: true
-  verified_method: "time_ordered_adv_name_diff"
-  verified_date: "2026-05-04"
-
+  difficulty: easy
+answer: {value: Flipper 123all, value_type: text, confidence: high, verified: true,
+  verified_method: time_ordered_adv_name_diff, verified_date: '2026-05-04'}
 walkthrough:
-  summary: "Flipper Zero (MAC 80:e1:26:33:32:31) 原始广告名为 Flipper 123all；后修改第三字节与名字伪装成 QQ_WF_SP8OON"
+  summary: Flipper Zero (MAC 80:e1:26:33:32:31) 原始广告名为 Flipper 123all；后修改第三字节与名字伪装成
+    QQ_WF_SP8OON
   steps:
-    - seq: 1
-      description: "Dump all adv device names with timestamps and MACs"
-      command: |
-        tshark -r BLE -Y 'btcommon.eir_ad.entry.device_name' \
-          -T fields -e frame.time_epoch -e btle.advertising_address \
-          -e btcommon.eir_ad.entry.device_name > /tmp/ble_names.tsv
-      tool: "tshark"
-      expected_output: "~1900 valid rows, mostly duplicate samples due to 3-channel BLE"
-      human_note: null
-
-    - seq: 2
-      description: "Find paired MACs differing by one byte (Flipper rotation pattern)"
-      command: "awk ... | sort -u"
-      tool: "awk"
-      expected_output: "80:e1:26:33:32:31 → Flipper 123all;  80:e1:26:35:32:31 → QQ_WF_SP8OON"
-      human_note: "Flipper Zero 的 BLE 伪装通常只改 MAC 的部分字节，OUI 保持不变"
-
-    - seq: 3
-      description: "Compare earliest timestamps for the two MACs"
-      command: "grep '80:e1:26:33:32:31' /tmp/ble_names.tsv | sort -k1n | head -1"
-      tool: "grep+sort"
-      expected_output: "1744165654.337 (原始) < 1744165886.710 (伪装)"
-      human_note: "早出现的是原始名"
-
-  evidence_path: "BLE pcapng → ADV_IND packets → AD type 0x09 (Complete Local Name)"
-
+  - {seq: 1, description: Dump all adv device names with timestamps and MACs, command: "tshark\
+      \ -r BLE -Y 'btcommon.eir_ad.entry.device_name' \\\n  -T fields -e frame.time_epoch\
+      \ -e btle.advertising_address \\\n  -e btcommon.eir_ad.entry.device_name > /tmp/ble_names.tsv\n",
+    tool: tshark, expected_output: '~1900 valid rows, mostly duplicate samples due
+      to 3-channel BLE', human_note: null}
+  - {seq: 2, description: Find paired MACs differing by one byte (Flipper rotation
+      pattern), command: awk ... | sort -u, tool: awk, expected_output: '80:e1:26:33:32:31
+      → Flipper 123all;  80:e1:26:35:32:31 → QQ_WF_SP8OON', human_note: Flipper Zero
+      的 BLE 伪装通常只改 MAC 的部分字节，OUI 保持不变}
+  - {seq: 3, description: Compare earliest timestamps for the two MACs, command: 'grep
+      ''80:e1:26:33:32:31'' /tmp/ble_names.tsv | sort -k1n | head -1', tool: grep+sort,
+    expected_output: 1744165654.337 (原始) < 1744165886.710 (伪装), human_note: 早出现的是原始名}
+  evidence_path: BLE pcapng → ADV_IND packets → AD type 0x09 (Complete Local Name)
 tools_used:
-  - name: "tshark"
-    version: "3.6.2"
-    platform: "linux"
-    install_script: "apt install -y tshark"
-    install_path: "/usr/bin/tshark"
-
-ai_meta:
-  first_solved_by: "cascade"
-  solve_time_seconds: 180
-  model_difficulty: "easy"
-  requires_gui: false
-  requires_internet: false
-
+- {name: tshark, version: 3.6.2, platform: linux, install_script: apt install -y tshark,
+  install_path: /usr/bin/tshark}
+ai_meta: {first_solved_by: cascade, solve_time_seconds: 180, model_difficulty: easy,
+  requires_gui: false, requires_internet: false}
 education:
-  prerequisites: ["BLE advertising 格式", "AD Structure (AD Type/Length/Data)"]
-  learning_objectives:
-    - "理解 BLE device name AD type (0x09 complete / 0x08 shortened)"
-    - "掌握通过 MAC 前缀 + 广告内容关联"
-    - "识别 Flipper Zero BadUSB/BadBT 攻击特征"
-  difficulty_for_human: "beginner"
-  estimated_learning_time: "10min"
+  prerequisites: [BLE advertising 格式, AD Structure (AD Type/Length/Data)]
+  learning_objectives: [理解 BLE device name AD type (0x09 complete / 0x08 shortened),
+    掌握通过 MAC 前缀 + 广告内容关联, 识别 Flipper Zero BadUSB/BadBT 攻击特征]
+  difficulty_for_human: beginner
+  estimated_learning_time: 10min
   common_mistakes:
-    - mistake: "把 Description 字段（'nRF Sniffer for Bluetooth LE'）当成设备名"
-      correction: "Description 是抓包器注释；设备名在 AD entry device_name"
-  related_questions: ["2025pinghang/N03", "2025pinghang/N04"]
-
-status:
-  progress: "complete"
-  human_reviewed: false
-  last_updated: "2026-05-04"
-  notes: "题目格式 XXX_xxx 仅为示例，实际答案含空格"
+  - {mistake: 把 Description 字段（'nRF Sniffer for Bluetooth LE'）当成设备名, correction: Description
+      是抓包器注释；设备名在 AD entry device_name}
+  related_questions: [2025pinghang/N03, 2025pinghang/N04]
+status: {progress: complete, human_reviewed: false, last_updated: '2026-05-04', notes: 题目格式
+    XXX_xxx 仅为示例，实际答案含空格}
+tags: [network_forensics]

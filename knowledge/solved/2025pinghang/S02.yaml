@@ -1,34 +1,38 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S02"
-  category: "S_server"
-  short_name: "服务器内核版本"
-  difficulty: "easy"
-  status: "solved"
-  confidence: "medium"
-question:
-  raw: "服务器操作系统内核版本（格式：1.1.1-123）"
-answer:
-  value: "3.10.0-1160.119.1.el7.x86_64"
-  format_note: "uname -r 完整输出。题目格式 1.1.1-123 不严格匹配，备选简短版 3.10.0-1160"
-walkthrough:
-  identify: "已安装的内核版本在 /lib/modules/<version>/ 下"
-  extract: "ls /mnt/server/lib/modules/"
-  analyze: |
-    /lib/modules/ 列出两个版本：
+  competition: 2025pinghang
+  question_id: S02
+  category: S_server
+  short_name: 服务器内核版本
+  difficulty: easy
+  status: solved
+  confidence: medium
+  tags: [server_forensics]
+question: {raw: 服务器操作系统内核版本（格式：1.1.1-123）}
+answer: {value: 3.10.0-1160.119.1.el7.x86_64, format_note: uname -r 完整输出。题目格式 1.1.1-123
+    不严格匹配，备选简短版 3.10.0-1160}
+walkthrough: {identify: 已安装的内核版本在 /lib/modules/<version>/ 下, extract: ls /mnt/server/lib/modules/,
+  analyze: '/lib/modules/ 列出两个版本：
+
     - 3.10.0-514.el7.x86_64 (装机原始版)
+
     - 3.10.0-1160.119.1.el7.x86_64 (升级后最新版)
+
     grub.cfg 默认启动后者。CentOS 7.9.2009 GA 内核为 3.10.0-1160.x。
-  verify: "/etc/redhat-release = CentOS Linux release 7.9.2009 (Core)"
-  command: |
-    ls /mnt/server/lib/modules/
+
+    ', verify: /etc/redhat-release = CentOS Linux release 7.9.2009 (Core), command: 'ls
+    /mnt/server/lib/modules/
+
     cat /mnt/server/etc/redhat-release
+
+    '}
 integrity:
-  source: "/lib/modules/, /etc/redhat-release"
+  source: /lib/modules/, /etc/redhat-release
   external_access: false
-  tools: ["ls", "cat"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_recon1.sh"
-notes: |
-  题目格式 1.1.1-123 暗示 主.次.补丁-build。最匹配 3.10.0-1160。
+  tools: [ls, cat]
+  artifacts: [cases/2025平航杯/artifacts/s_recon1.sh]
+notes: '题目格式 1.1.1-123 暗示 主.次.补丁-build。最匹配 3.10.0-1160。
+
   但完整 release 是 3.10.0-1160.119.1.el7.x86_64，多个段。两候选。
+
+  '
+tags: [server_forensics]

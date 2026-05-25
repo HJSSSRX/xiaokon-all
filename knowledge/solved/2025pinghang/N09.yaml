@@ -1,70 +1,41 @@
-# 2025 平航杯 N09 — 最后一条命令 md5
 meta:
-  competition: "2025 平航杯"
-  competition_id: "2025pinghang"
-  question_id: "N09"
-  question_text: "起早王对倩倩的电脑执行的最后一条命令（格式：md5(完整命令)）"
-  category_l1: "network_traffic"
-  category_l2: "usb_hid"
-  tags: ["rundll32", "url_dll", "fakeupdate", "bsod_prank", "md5"]
+  competition: 2025 平航杯
+  competition_id: 2025pinghang
+  question_id: N09
+  question_text: 起早王对倩倩的电脑执行的最后一条命令（格式：md5(完整命令)）
+  category_l1: network_traffic
+  category_l2: usb_hid
+  tags: [rundll32, url_dll, fakeupdate, bsod_prank, md5, network_forensics]
   points: 10
-  difficulty: "easy"
-
-answer:
-  value: "0566c1d6dd49db699d422db31fd1be8f"
-  value_type: "md5_hex"
-  confidence: "high"
-  verified: true
-  verified_method: "md5_of_decoded_last_command"
-  verified_date: "2026-05-04"
-
+  difficulty: easy
+answer: {value: 0566c1d6dd49db699d422db31fd1be8f, value_type: md5_hex, confidence: high,
+  verified: true, verified_method: md5_of_decoded_last_command, verified_date: '2026-05-04'}
 walkthrough:
-  summary: "命令序列最后一条是 rundll32 url.dll FileProtocolHandler + 假蓝屏 URL。需要正确处理 CapsLock 使 'FileProtocolHandler' 四个单词首字母大写"
+  summary: 命令序列最后一条是 rundll32 url.dll FileProtocolHandler + 假蓝屏 URL。需要正确处理 CapsLock
+    使 'FileProtocolHandler' 四个单词首字母大写
   steps:
-    - seq: 1
-      description: "From N07 decoded output, take last non-empty command"
-      command: null
-      expected_output: "rundll32 url.dll,FileProtocolHandler https://fakeupdate.net/win10ue/bsod.html"
-      human_note: "rundll32.exe url.dll,FileProtocolHandler <URI> 等同于用默认 handler 打开 URI，此处是打开浏览器跳假蓝屏页"
-    - seq: 2
-      description: "CapsLock correct decoding"
-      command: null
-      expected_output: "<CAPS>f<CAPS>ile<CAPS>p<CAPS>rotocol<CAPS>h<CAPS>andler → FileProtocolHandler"
-      human_note: "每次切 CAPS on → 下一字母大写 → 切 OFF → 后续字母小写"
-    - seq: 3
-      description: "Compute md5"
-      command: "python3 -c \"import hashlib;print(hashlib.md5(b'rundll32 url.dll,FileProtocolHandler https://fakeupdate.net/win10ue/bsod.html').hexdigest())\""
-      tool: "python3"
-      expected_output: "0566c1d6dd49db699d422db31fd1be8f"
-  evidence_path: "USBPcap 2.4.1 → HID 解码 → cmd line [7]"
-
+  - {seq: 1, description: 'From N07 decoded output, take last non-empty command',
+    command: null, expected_output: 'rundll32 url.dll,FileProtocolHandler https://fakeupdate.net/win10ue/bsod.html',
+    human_note: 'rundll32.exe url.dll,FileProtocolHandler <URI> 等同于用默认 handler 打开
+      URI，此处是打开浏览器跳假蓝屏页'}
+  - {seq: 2, description: CapsLock correct decoding, command: null, expected_output: <CAPS>f<CAPS>ile<CAPS>p<CAPS>rotocol<CAPS>h<CAPS>andler
+      → FileProtocolHandler, human_note: 每次切 CAPS on → 下一字母大写 → 切 OFF → 后续字母小写}
+  - {seq: 3, description: Compute md5, command: 'python3 -c "import hashlib;print(hashlib.md5(b''rundll32
+      url.dll,FileProtocolHandler https://fakeupdate.net/win10ue/bsod.html'').hexdigest())"',
+    tool: python3, expected_output: 0566c1d6dd49db699d422db31fd1be8f}
+  evidence_path: USBPcap 2.4.1 → HID 解码 → cmd line [7]
 tools_used:
-  - name: "python3"
-    version: "3.10+"
-
-ai_meta:
-  first_solved_by: "cascade"
-  solve_time_seconds: 120
-  model_difficulty: "easy"
-
+- {name: python3, version: 3.10+}
+ai_meta: {first_solved_by: cascade, solve_time_seconds: 120, model_difficulty: easy}
 education:
-  prerequisites:
-    - "Windows rundll32.exe 语法"
-    - "url.dll,FileProtocolHandler 的作用（打开 URI）"
-    - "CapsLock 状态机"
-  learning_objectives:
-    - "认识 BadUSB 恶作剧 payload 常见形式（fakeupdate.net）"
-    - "掌握 rundll32 调用 DLL 导出函数的格式 `dll,FuncName arg`"
+  prerequisites: [Windows rundll32.exe 语法, 'url.dll,FileProtocolHandler 的作用（打开 URI）',
+    CapsLock 状态机]
+  learning_objectives: [认识 BadUSB 恶作剧 payload 常见形式（fakeupdate.net）, '掌握 rundll32 调用
+      DLL 导出函数的格式 `dll,FuncName arg`']
   common_mistakes:
-    - mistake: "把 'fileprotocolhandler' 全小写算 md5"
-      correction: "CapsLock 切换使 F/P/H 大写"
-    - mistake: "命令字符串首尾加空格"
-      correction: "以解码输出原样为准，尾部不要 \\n"
-    - mistake: "把整个命令序列（7 条）都拼接算 md5"
-      correction: "题目问'最后一条'命令，只取最后一行"
-  related_questions: ["2025pinghang/N07", "2025pinghang/N08"]
-
-status:
-  progress: "complete"
-  human_reviewed: false
-  last_updated: "2026-05-04"
+  - {mistake: 把 'fileprotocolhandler' 全小写算 md5, correction: CapsLock 切换使 F/P/H 大写}
+  - {mistake: 命令字符串首尾加空格, correction: 以解码输出原样为准，尾部不要 \n}
+  - {mistake: 把整个命令序列（7 条）都拼接算 md5, correction: 题目问'最后一条'命令，只取最后一行}
+  related_questions: [2025pinghang/N07, 2025pinghang/N08]
+status: {progress: complete, human_reviewed: false, last_updated: '2026-05-04'}
+tags: [network_forensics]

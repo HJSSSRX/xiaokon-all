@@ -1,5 +1,5 @@
 ---
-tags: [disk_forensics, e01, raw, mount, ewfmount, ftk_imager, file_system]
+tags: [disk_forensics, e01, raw, mount, ewfmount, ftk_imager, file_system, computer_forensics]
 tools: [ewfmount, ewfinfo, losetup, mount, file, sqlite3, find]
 category: computer_forensics
 difficulty: easy
@@ -7,6 +7,7 @@ source: fic2026
 date: 2026-05-05
 verified: true
 ---
+
 # Title: 磁盘镜像挂载与分析 (E01/RAW)
 
 ## Problem

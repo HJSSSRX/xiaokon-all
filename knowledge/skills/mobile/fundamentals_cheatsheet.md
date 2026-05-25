@@ -1,5 +1,6 @@
 ---
-tags: [mobile, fundamentals, theory, imei, meid, iccid, imsi, msisdn, faraday, bfu, afu, ram, rom, flash, baseband, exam_prep]
+tags: [mobile, fundamentals, theory, imei, meid, iccid, imsi, msisdn, faraday, bfu,
+  afu, ram, rom, flash, baseband, exam_prep, mobile_forensics]
 tools: []
 category: mobile_forensics
 difficulty: foundational
@@ -7,6 +8,7 @@ source: kb_seed_2026-05-08
 verified: false
 related: [device_basic_info.md, app_data_analysis.md, timestamps_reference.md, geolocation_forensics.md]
 ---
+
 # 手机取证基础理论速查（考前 10 分钟扫一遍）
 
 > 这页面不教操作，专治**选择题 / 简答题**：4 大标识符差异、信号屏蔽 SOP、RAM/ROM/Flash 区分、BFU/AFU、Android/iOS 对比。

@@ -1,12 +1,15 @@
 ---
-tags: [mobile, android, adb, filesystem, partitions, fbe, fde, erofs, f2fs, selinux, exam_prep, methodology]
+tags: [mobile, android, adb, filesystem, partitions, fbe, fde, erofs, f2fs, selinux,
+  exam_prep, methodology, mobile_forensics]
 tools: [adb, fastboot, dd, tar]
 category: mobile_forensics
 difficulty: foundational
 source: kb_seed_2026-05-08
 verified: false
-related: [fundamentals_cheatsheet.md, device_basic_info.md, app_data_analysis.md, uninstalled_app_recovery.md]
+related: [fundamentals_cheatsheet.md, device_basic_info.md, app_data_analysis.md,
+  uninstalled_app_recovery.md]
 ---
+
 # ADB 命令 / Android 文件系统速查
 
 > **核心心法**：

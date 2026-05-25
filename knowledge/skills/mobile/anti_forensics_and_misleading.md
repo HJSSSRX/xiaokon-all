@@ -1,11 +1,13 @@
 ---
-tags: [methodology, anti_forensics, misleading, mobile, cross_domain, timeline, cross_validation]
+tags: [methodology, anti_forensics, misleading, mobile, cross_domain, timeline, cross_validation,
+  mobile_forensics]
 tools: [aleapp, ileapp, sqlite3, strings, binwalk, plaso, mftecmd, exiftool, grep]
 category: methodology
 difficulty: foundational
 source: kb_seed_2026-05-07
 verified: false
 ---
+
 # 反取证 / 干扰信息应对方法论
 
 > 适用范围：手机取证为主，但思路对计算机/服务器/流量同样有效。

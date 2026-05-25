@@ -1,41 +1,45 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S09"
-  category: "S_server"
-  short_name: "订单数 (2016-04 ~ 2025-04)"
-  difficulty: "hard"
-  status: "solved"
-  confidence: "medium"
-question:
-  raw: "网站后台中 2016-04-01 00:00:00 到 2025-04-01 00:00:00 订单列表有多少条记录（格式：1）"
-answer:
-  value: "1292"
-  format_note: "tp_order 表中 add_time 落在区间内的 distinct order_id 数（按 add_time 半开区间 [T1, T2)）"
-walkthrough:
-  identify: |
-    数据库 tpshop2.0/ 目录在攻击/系统维护后只剩 db.opt（表 .ibd 全被删）。
+  competition: 2025pinghang
+  question_id: S09
+  category: S_server
+  short_name: 订单数 (2016-04 ~ 2025-04)
+  difficulty: hard
+  status: solved
+  confidence: medium
+  tags: [server_forensics]
+question: {raw: '网站后台中 2016-04-01 00:00:00 到 2025-04-01 00:00:00 订单列表有多少条记录（格式：1）'}
+answer: {value: '1292', format_note: 'tp_order 表中 add_time 落在区间内的 distinct order_id
+    数（按 add_time 半开区间 [T1, T2)）'}
+walkthrough: {identify: '数据库 tpshop2.0/ 目录在攻击/系统维护后只剩 db.opt（表 .ibd 全被删）。
+
     但 mysql-bin.000026 (25MB) 包含完整业务 binlog（statement-based）。
-  extract: |
-    sudo mysqlbinlog --base64-output=DECODE-ROWS -v /www/server/data/mysql-bin.000026 > /tmp/binlog_decoded/mysql-bin.000026.sql
-  analyze: |
-    Python 解析 INSERT INTO `tp_order` VALUES (...)，提取 col1=order_id, col3=user_id, col30=add_time。
+
+    ', extract: 'sudo mysqlbinlog --base64-output=DECODE-ROWS -v /www/server/data/mysql-bin.000026
+    > /tmp/binlog_decoded/mysql-bin.000026.sql
+
+    ', analyze: 'Python 解析 INSERT INTO `tp_order` VALUES (...)，提取 col1=order_id, col3=user_id,
+    col30=add_time。
+
     distinct order_id 共 1385 行；
+
     add_time ∈ [2016-04-01 00:00:00 +08, 2025-04-01 00:00:00 +08) → 1292 条
+
     时间范围实际只有 2016-01 至 2017-05（演示数据）。
-  verify: |
-    artifacts/s_orders_count.py 输出：
-      Distinct order_id: 1385
-      Orders with add_time in [2016-04-01, 2025-04-01): 1292
-  command: |
-    python3 cases/2025平航杯/artifacts/s_orders_count.py
+
+    ', verify: "artifacts/s_orders_count.py 输出：\n  Distinct order_id: 1385\n  Orders\
+    \ with add_time in [2016-04-01, 2025-04-01): 1292\n", command: 'python3 cases/2025平航杯/artifacts/s_orders_count.py
+
+    '}
 integrity:
-  source: "/www/server/data/mysql-bin.000026 (binlog statement events)"
+  source: /www/server/data/mysql-bin.000026 (binlog statement events)
   external_access: false
-  tools: ["mysqlbinlog (mariadb-server)", "python3"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_binlog_decode.sh"
-    - "cases/2025平航杯/artifacts/s_orders_count.py"
-notes: |
-  题目"网站后台订单列表"通常等同 tp_order.add_time。
+  tools: [mysqlbinlog (mariadb-server), python3]
+  artifacts: [cases/2025平航杯/artifacts/s_binlog_decode.sh, cases/2025平航杯/artifacts/s_orders_count.py]
+notes: '题目"网站后台订单列表"通常等同 tp_order.add_time。
+
   binlog 是 mysql 5.6.50 格式；用 MariaDB 10.6 mysqlbinlog 工具兼容解析。
+
   本数据集订单全在 2016-2017 年，2016-04 之前还有 2016-01 至 2016-03 共 93 条不计入。
+
+  '
+tags: [server_forensics]

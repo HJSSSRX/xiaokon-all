@@ -1,12 +1,16 @@
 ---
-tags: [mobile, android, ios, extraction, adb_backup, vendor_backup, itunes_backup, root, bootloader, magisk, dd, jtag, chip_off, edl, checkm8, methodology, exam_prep]
+tags: [mobile, android, ios, extraction, adb_backup, vendor_backup, itunes_backup,
+  root, bootloader, magisk, dd, jtag, chip_off, edl, checkm8, methodology, exam_prep,
+  mobile_forensics]
 tools: [adb, fastboot, abe, magisk, dd, qemu-nbd, mtkclient, edl, plutil]
 category: mobile_forensics
 difficulty: medium
 source: kb_seed_2026-05-08
 verified: false
-related: [adb_filesystem_cheatsheet.md, fundamentals_cheatsheet.md, device_basic_info.md, app_data_analysis.md, 2022_changancup_mobile_exe_apk.md]
+related: [adb_filesystem_cheatsheet.md, fundamentals_cheatsheet.md, device_basic_info.md,
+  app_data_analysis.md, 2022_changancup_mobile_exe_apk.md]
 ---
+
 # 手机数据提取方法 — 五大类全景
 
 > **核心心法**：

@@ -1,113 +1,60 @@
-# 2025 平航杯 N01 — 蓝牙抓包接口名称
-# Source: training session 2026-05-04, exam_mode=strict
-
 meta:
-  competition: "2025 平航杯"
-  competition_id: "2025pinghang"
-  question_id: "N01"
-  question_text: "请问侦查人员是用哪个接口进行抓到蓝牙数据包的（格式：DVI1-2.1）"
-  category_l1: "network_traffic"
-  category_l2: "bluetooth_le"
-  tags:
-    - "pcapng_metadata"
-    - "interface_description_block"
-    - "nrf_sniffer"
-    - "ble"
+  competition: 2025 平航杯
+  competition_id: 2025pinghang
+  question_id: N01
+  question_text: 请问侦查人员是用哪个接口进行抓到蓝牙数据包的（格式：DVI1-2.1）
+  category_l1: network_traffic
+  category_l2: bluetooth_le
+  tags: [pcapng_metadata, interface_description_block, nrf_sniffer, ble, network_forensics]
   points: 10
-  difficulty: "trivial"
-
-answer:
-  value: "COM3-3.6"
-  value_type: "text"
-  confidence: "high"
-  verified: true
-  verified_method: "direct_metadata_extraction"
-  verified_date: "2026-05-04"
-
+  difficulty: trivial
+answer: {value: COM3-3.6, value_type: text, confidence: high, verified: true, verified_method: direct_metadata_extraction,
+  verified_date: '2026-05-04'}
 walkthrough:
-  summary: "pcapng IDB（Interface Description Block）的 if_name 字段直接记录了抓包接口名"
+  summary: pcapng IDB（Interface Description Block）的 if_name 字段直接记录了抓包接口名
   steps:
-    - seq: 1
-      description: "Identify file type"
-      command: "file '/mnt/f/TEXT(important)/Jian cai/2025平航杯/BLE'"
-      tool: "file"
-      expected_output: "BLE: pcapng capture file - version 1.0"
-      human_note: "无后缀但是 pcapng 格式，magic 字节 0x0a0d0d0a"
-
-    - seq: 2
-      description: "Read pcapng metadata via capinfos"
-      command: "capinfos '/mnt/f/TEXT(important)/Jian cai/2025平航杯/BLE'"
-      tool: "capinfos"
-      expected_output: |
-        Interface #0 info:
-          Name = COM3-3.6
-          Description = nRF Sniffer for Bluetooth LE COM3
-          Encapsulation = nRF Sniffer for Bluetooth LE
-      human_note: "capinfos 隶属 wireshark-common 包，apt install tshark 时一并安装"
-
-    - seq: 3
-      description: "Confirm capture context"
-      command: null
-      tool: null
-      expected_output: "Capture host: AMD Ryzen 7 5800H, Win10 22H2; Tool: Dumpcap (Wireshark) 3.6.7"
-      human_note: "侦查人员在 Win10 上用 nRF52 dongle 接 COM3 抓 BLE，COM3-3.6 中 3.6 是 USB 物理端口路径"
-
-  evidence_path: "F:\\TEXT(important)\\Jian cai\\2025平航杯\\BLE → IDB[0].if_name"
-
+  - {seq: 1, description: Identify file type, command: file '/mnt/f/TEXT(important)/Jian
+      cai/2025平航杯/BLE', tool: file, expected_output: 'BLE: pcapng capture file - version
+      1.0', human_note: 无后缀但是 pcapng 格式，magic 字节 0x0a0d0d0a}
+  - {seq: 2, description: Read pcapng metadata via capinfos, command: capinfos '/mnt/f/TEXT(important)/Jian
+      cai/2025平航杯/BLE', tool: capinfos, expected_output: "Interface #0 info:\n  Name\
+      \ = COM3-3.6\n  Description = nRF Sniffer for Bluetooth LE COM3\n  Encapsulation\
+      \ = nRF Sniffer for Bluetooth LE\n", human_note: capinfos 隶属 wireshark-common
+      包，apt install tshark 时一并安装}
+  - {seq: 3, description: Confirm capture context, command: null, tool: null, expected_output: 'Capture
+      host: AMD Ryzen 7 5800H, Win10 22H2; Tool: Dumpcap (Wireshark) 3.6.7', human_note: 侦查人员在
+      Win10 上用 nRF52 dongle 接 COM3 抓 BLE，COM3-3.6 中 3.6 是 USB 物理端口路径}
+  evidence_path: F:\TEXT(important)\Jian cai\2025平航杯\BLE → IDB[0].if_name
 tools_used:
-  - name: "capinfos"
-    version: "3.6.2 (Wireshark)"
-    platform: "linux"
-    install_script: "apt install -y tshark"
-    install_path: "/usr/bin/capinfos"
-    alternative: "tshark -r FILE  (头部输出含 interface 但不如 capinfos 直观)"
-  - name: "file"
-    version: "any"
-    platform: "linux"
-    install_script: null
-    install_path: "/usr/bin/file"
-    alternative: null
-
-ai_meta:
-  first_solved_by: "cascade"
-  solve_time_seconds: 60
-  token_cost_usd: 0.05
-  model_difficulty: "trivial"
-  requires_gui: false
-  requires_internet: false
-
+- {name: capinfos, version: 3.6.2 (Wireshark), platform: linux, install_script: apt
+    install -y tshark, install_path: /usr/bin/capinfos, alternative: tshark -r FILE  (头部输出含
+    interface 但不如 capinfos 直观)}
+- {name: file, version: any, platform: linux, install_script: null, install_path: /usr/bin/file,
+  alternative: null}
+ai_meta: {first_solved_by: cascade, solve_time_seconds: 60, token_cost_usd: 0.05,
+  model_difficulty: trivial, requires_gui: false, requires_internet: false}
 education:
-  prerequisites:
-    - "pcapng 文件格式（SHB / IDB / EPB 块结构）"
-    - "BLE 抓包工具（nRF Sniffer / Ubertooth / hci snoop）"
-  learning_objectives:
-    - "知道 pcapng 文件除了报文外还携带 interface metadata"
-    - "学会用 capinfos 一行命令拿到 capture 元数据"
-    - "理解 nRF Sniffer 的接口命名规则（COM 端口 + USB 路径）"
-  difficulty_for_human: "beginner"
-  estimated_learning_time: "5min"
+  prerequisites: [pcapng 文件格式（SHB / IDB / EPB 块结构）, BLE 抓包工具（nRF Sniffer / Ubertooth
+      / hci snoop）]
+  learning_objectives: [知道 pcapng 文件除了报文外还携带 interface metadata, 学会用 capinfos 一行命令拿到
+      capture 元数据, 理解 nRF Sniffer 的接口命名规则（COM 端口 + USB 路径）]
+  difficulty_for_human: beginner
+  estimated_learning_time: 5min
   guided_prompts:
-    - prompt: "题目要 'DVI1-2.1' 形式的接口名。pcapng 文件里这个信息保存在哪个块？"
-      hints:
-        - "pcapng 由多种 block 组成：SHB (Section Header Block), IDB (Interface Description Block), EPB (Enhanced Packet Block)..."
-        - "Interface 名字属于 IDB 的 option `if_name`"
-      answer_keywords: ["IDB", "Interface Description Block", "if_name"]
-    - prompt: "不写代码，怎么快速读出 IDB 的内容？"
-      hints:
-        - "Wireshark 套件自带 capinfos 工具"
-        - "tshark -r FILE 也能看，但 capinfos 输出更结构化"
-      answer_keywords: ["capinfos", "wireshark", "tshark"]
+  - prompt: 题目要 'DVI1-2.1' 形式的接口名。pcapng 文件里这个信息保存在哪个块？
+    hints: ['pcapng 由多种 block 组成：SHB (Section Header Block), IDB (Interface Description
+        Block), EPB (Enhanced Packet Block)...', Interface 名字属于 IDB 的 option `if_name`]
+    answer_keywords: [IDB, Interface Description Block, if_name]
+  - prompt: 不写代码，怎么快速读出 IDB 的内容？
+    hints: [Wireshark 套件自带 capinfos 工具, tshark -r FILE 也能看，但 capinfos 输出更结构化]
+    answer_keywords: [capinfos, wireshark, tshark]
   common_mistakes:
-    - mistake: "把 'Description' 字段（nRF Sniffer for Bluetooth LE COM3）当答案"
-      correction: "题目格式 'DVI1-2.1' 是 if_name 字段，不是 description"
-    - mistake: "用 wireshark GUI 打开却不知道怎么看 interface 元数据"
-      correction: "GUI 路径：Statistics → Capture File Properties → Interfaces"
+  - {mistake: 把 'Description' 字段（nRF Sniffer for Bluetooth LE COM3）当答案, correction: 题目格式
+      'DVI1-2.1' 是 if_name 字段，不是 description}
+  - {mistake: 用 wireshark GUI 打开却不知道怎么看 interface 元数据, correction: GUI 路径：Statistics
+      → Capture File Properties → Interfaces}
   related_questions: []
-  knowledge_refs:
-    - "https://www.ietf.org/staging/draft-tuexen-opsawg-pcapng.html"
-
-status:
-  progress: "complete"
-  human_reviewed: false
-  last_updated: "2026-05-04"
-  notes: "答案直接从 pcapng IDB 元数据读取。无歧义。"
+  knowledge_refs: ['https://www.ietf.org/staging/draft-tuexen-opsawg-pcapng.html']
+status: {progress: complete, human_reviewed: false, last_updated: '2026-05-04', notes: 答案直接从
+    pcapng IDB 元数据读取。无歧义。}
+tags: [network_forensics]

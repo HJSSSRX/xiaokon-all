@@ -1,5 +1,5 @@
 ---
-tags: [reverse_engineering, aes, xor, password, pe, radare2, s_box]
+tags: [reverse_engineering, aes, xor, password, pe, radare2, s_box, crypto]
 tools: [radare2, python, openssl, strings]
 category: stego_crypto
 difficulty: hard
@@ -7,6 +7,7 @@ source: fic2026
 date: 2026-05-05
 verified: true
 ---
+
 # Title: AES + XOR Mask 密码校验逆向
 
 ## Problem

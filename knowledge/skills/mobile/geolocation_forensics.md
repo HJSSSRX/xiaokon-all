@@ -1,12 +1,15 @@
 ---
-tags: [mobile, geolocation, gps, exif, wifi, bssid, cell_id, ip_geo, ocr, geoguessr, knowledgec, routined, methodology]
-tools: [exiftool, tesseract, paddleocr, sqlite3, folium, qgis, mmdblookup, plistutil, strings]
+tags: [mobile, geolocation, gps, exif, wifi, bssid, cell_id, ip_geo, ocr, geoguessr,
+  knowledgec, routined, methodology, mobile_forensics]
+tools: [exiftool, tesseract, paddleocr, sqlite3, folium, qgis, mmdblookup, plistutil,
+  strings]
 category: mobile_forensics
 difficulty: medium
 source: kb_seed_2026-05-07
 verified: false
 related: [uninstalled_app_recovery.md, anti_forensics_and_misleading.md, timestamps_reference.md]
 ---
+
 # 位置 / 活动区域取证
 
 > **核心心法**：位置信息分布在 8 类源头里，没有任何单一源完整。**没拍 GPS 的照片 ≠ 没法定位**。视觉 OCR + WiFi BSSID + 同时段聊天 三处一拼，多数能锁到 50 米内。

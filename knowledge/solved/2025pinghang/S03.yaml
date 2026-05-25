@@ -1,32 +1,28 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S03"
-  category: "S_server"
-  short_name: "非系统用户数"
-  difficulty: "easy"
-  status: "solved"
-  confidence: "medium"
-question:
-  raw: "除系统用户外，总共有多少个用户（格式：1）"
-answer:
-  value: "2"
-  format_note: "UID >= 1000 的用户：www, mysql"
-walkthrough:
-  identify: "/etc/passwd 中 UID >= 1000 的为非系统用户（CentOS 7 起 UID_MIN=1000）"
-  extract: "awk -F: '$3>=1000 && $3<65534 {print $1,$3}' /mnt/server/etc/passwd"
-  analyze: |
-    输出：
-      www  1000  /home/www  /sbin/nologin
-      mysql 1001 /home/mysql /sbin/nologin
-    两个均为宝塔面板 + tpshop 业务用户。root 是超管不计。
-  verify: "ls /home/ → 仅有 www 子目录（mysql home /home/mysql 未实建）"
-  command: |
-    awk -F: '$3>=1000 && $3<65534 {print $1,$3,$6,$7}' /mnt/server/etc/passwd
+  competition: 2025pinghang
+  question_id: S03
+  category: S_server
+  short_name: 非系统用户数
+  difficulty: easy
+  status: solved
+  confidence: medium
+  tags: [server_forensics]
+question: {raw: 除系统用户外，总共有多少个用户（格式：1）}
+answer: {value: '2', format_note: 'UID >= 1000 的用户：www, mysql'}
+walkthrough: {identify: /etc/passwd 中 UID >= 1000 的为非系统用户（CentOS 7 起 UID_MIN=1000）,
+  extract: 'awk -F: ''$3>=1000 && $3<65534 {print $1,$3}'' /mnt/server/etc/passwd',
+  analyze: "输出：\n  www  1000  /home/www  /sbin/nologin\n  mysql 1001 /home/mysql /sbin/nologin\n\
+    两个均为宝塔面板 + tpshop 业务用户。root 是超管不计。\n", verify: ls /home/ → 仅有 www 子目录（mysql home
+    /home/mysql 未实建）, command: 'awk -F: ''$3>=1000 && $3<65534 {print $1,$3,$6,$7}''
+    /mnt/server/etc/passwd
+
+    '}
 integrity:
-  source: "/etc/passwd"
+  source: /etc/passwd
   external_access: false
-  tools: ["awk"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_recon1.sh"
-notes: |
-  www 与 mysql 都是 nologin 的服务账户，但它们是宝塔面板创建的"非系统默认"账户，应计入。
+  tools: [awk]
+  artifacts: [cases/2025平航杯/artifacts/s_recon1.sh]
+notes: 'www 与 mysql 都是 nologin 的服务账户，但它们是宝塔面板创建的"非系统默认"账户，应计入。
+
+  '
+tags: [server_forensics]

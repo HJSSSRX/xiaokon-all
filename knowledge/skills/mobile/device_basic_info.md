@@ -1,12 +1,15 @@
 ---
-tags: [mobile, android, ios, device_info, imei, iccid, imsi, mac_address, build_prop, telephony, lockdown, itunes_backup, methodology]
+tags: [mobile, android, ios, device_info, imei, iccid, imsi, mac_address, build_prop,
+  telephony, lockdown, itunes_backup, methodology, mobile_forensics]
 tools: [sqlite3, plutil, grep, plistutil, exiftool]
 category: mobile_forensics
 difficulty: foundational
 source: kb_seed_2026-05-07
 verified: false
-related: [quick_reference.md, iot_device_forensics.md, geolocation_forensics.md, anti_forensics_and_misleading.md, timestamps_reference.md]
+related: [quick_reference.md, iot_device_forensics.md, geolocation_forensics.md, anti_forensics_and_misleading.md,
+  timestamps_reference.md]
 ---
+
 # 手机设备基本信息提取速查
 
 > **核心心法**：每个字段都有"权威源"和"备份源"。

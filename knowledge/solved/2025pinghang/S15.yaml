@@ -1,38 +1,25 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S15"
-  category: "S_server"
-  short_name: "订单最多月份"
-  difficulty: "medium"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: "统计每月订单数量，找出订单最多的月份（例：2025 年 9 月）"
-answer:
-  value: "2016 年 12 月"
-  format_note: "按 tp_order.add_time 月份分组，2016-12 共 197 单最多"
-walkthrough:
-  identify: "对 tp_order add_time 按 (year, month) 分组"
-  extract: "python3 cases/2025平航杯/artifacts/s_orders_count.py"
-  analyze: |
-    Top 10 月份（落入 2016-04 ~ 2025-04 区间）:
-      2016-12 → 197
-      2016-11 → 186
-      2016-09 → 185
-      2016-07 → 181
-      2016-08 → 166
-      2016-10 → 130
-      2016-06 →  89
-      2016-05 →  68
-      2017-01 →  47
-      2017-02 →  23
-    最多 = 2016 年 12 月 (197)
-  verify: "全数据范围最大值与范围内一致"
-  command: |
-    python3 cases/2025平航杯/artifacts/s_orders_count.py
+  competition: 2025pinghang
+  question_id: S15
+  category: S_server
+  short_name: 订单最多月份
+  difficulty: medium
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: 统计每月订单数量，找出订单最多的月份（例：2025 年 9 月）}
+answer: {value: 2016 年 12 月, format_note: 按 tp_order.add_time 月份分组，2016-12 共 197 单最多}
+walkthrough: {identify: '对 tp_order add_time 按 (year, month) 分组', extract: python3
+    cases/2025平航杯/artifacts/s_orders_count.py, analyze: "Top 10 月份（落入 2016-04 ~ 2025-04\
+    \ 区间）:\n  2016-12 → 197\n  2016-11 → 186\n  2016-09 → 185\n  2016-07 → 181\n \
+    \ 2016-08 → 166\n  2016-10 → 130\n  2016-06 →  89\n  2016-05 →  68\n  2017-01\
+    \ →  47\n  2017-02 →  23\n最多 = 2016 年 12 月 (197)\n", verify: 全数据范围最大值与范围内一致, command: 'python3
+    cases/2025平航杯/artifacts/s_orders_count.py
+
+    '}
 integrity:
-  source: "binlog mysql-bin.000026 → tp_order"
+  source: binlog mysql-bin.000026 → tp_order
   external_access: false
-  tools: ["mysqlbinlog", "python3"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_orders_count.py"
+  tools: [mysqlbinlog, python3]
+  artifacts: [cases/2025平航杯/artifacts/s_orders_count.py]
+tags: [server_forensics]

@@ -1,66 +1,37 @@
-# 2025 平航杯 N08 — 影子账户名+密码 md5
 meta:
-  competition: "2025 平航杯"
-  competition_id: "2025pinghang"
-  question_id: "N08"
-  question_text: "倩倩电脑中影子账户的账户名和密码（格式：md5(账号名称_密码)）"
-  category_l1: "network_traffic"
-  category_l2: "usb_hid"
-  tags: ["shadow_account", "windows", "net_user", "md5"]
+  competition: 2025 平航杯
+  competition_id: 2025pinghang
+  question_id: N08
+  question_text: 倩倩电脑中影子账户的账户名和密码（格式：md5(账号名称_密码)）
+  category_l1: network_traffic
+  category_l2: usb_hid
+  tags: [shadow_account, windows, net_user, md5, network_forensics]
   points: 10
-  difficulty: "easy"
-
-answer:
-  value: "53af9cd5e53e237020bea0932a1cbdaa"
-  value_type: "md5_hex"
-  confidence: "high"
-  verified: true
-  verified_method: "md5_of_extracted_credentials"
-  verified_date: "2026-05-04"
-
+  difficulty: easy
+answer: {value: 53af9cd5e53e237020bea0932a1cbdaa, value_type: md5_hex, confidence: high,
+  verified: true, verified_method: md5_of_extracted_credentials, verified_date: '2026-05-04'}
 walkthrough:
-  summary: "从 N07 解码出的 'net user qianqianwoaini$ abcdefghijkImn /add' 提取账号和密码，拼接 md5"
+  summary: 从 N07 解码出的 'net user qianqianwoaini$ abcdefghijkImn /add' 提取账号和密码，拼接 md5
   steps:
-    - seq: 1
-      description: "Identify Windows shadow account convention"
-      command: null
-      expected_output: "用户名以 $ 结尾 → net user 默认不列出（shadow account 技巧）"
-      human_note: "起早王故意加 $，使倩倩用 net user 看不到这个账号"
-    - seq: 2
-      description: "Parse the /add command"
-      command: "grep '/add' /tmp/decoded.txt | head -1"
-      expected_output: "net user qianqianwoaini$ abcdefghijkImn /add"
-    - seq: 3
-      description: "Compose and hash"
-      command: "python3 -c \"import hashlib;print(hashlib.md5(b'qianqianwoaini$_abcdefghijkImn').hexdigest())\""
-      tool: "python3"
-      expected_output: "53af9cd5e53e237020bea0932a1cbdaa"
-  evidence_path: "USBPcap 2.4.1 → HID 解码 → cmd line [3]"
-
+  - {seq: 1, description: Identify Windows shadow account convention, command: null,
+    expected_output: 用户名以 $ 结尾 → net user 默认不列出（shadow account 技巧）, human_note: 起早王故意加
+      $，使倩倩用 net user 看不到这个账号}
+  - {seq: 2, description: Parse the /add command, command: grep '/add' /tmp/decoded.txt
+      | head -1, expected_output: net user qianqianwoaini$ abcdefghijkImn /add}
+  - {seq: 3, description: Compose and hash, command: python3 -c "import hashlib;print(hashlib.md5(b'qianqianwoaini$_abcdefghijkImn').hexdigest())",
+    tool: python3, expected_output: 53af9cd5e53e237020bea0932a1cbdaa}
+  evidence_path: USBPcap 2.4.1 → HID 解码 → cmd line [3]
 tools_used:
-  - name: "python3"
-    version: "3.10+"
-
-ai_meta:
-  first_solved_by: "cascade"
-  solve_time_seconds: 60
-  model_difficulty: "trivial"
-
+- {name: python3, version: 3.10+}
+ai_meta: {first_solved_by: cascade, solve_time_seconds: 60, model_difficulty: trivial}
 education:
-  prerequisites: ["Windows shadow account ($ 后缀)", "net user 命令"]
-  learning_objectives:
-    - "理解 Windows 用户隐藏技巧（$ 后缀）"
-    - "熟悉 net user /add 语法：username password /add"
+  prerequisites: [Windows shadow account ($ 后缀), net user 命令]
+  learning_objectives: [理解 Windows 用户隐藏技巧（$ 后缀）, 熟悉 net user /add 语法：username password
+      /add]
   common_mistakes:
-    - mistake: "把密码打成 'abcdefghijkimn'（全小写）"
-      correction: "CapsLock 切换使第 12 位为 I (大写)"
-    - mistake: "去掉 $ 再算 md5"
-      correction: "账号名就是带 $ 的完整字符串"
-    - mistake: "忘了加下划线分隔"
-      correction: "题目明确格式 账号_密码"
-  related_questions: ["2025pinghang/N07", "2025pinghang/N09"]
-
-status:
-  progress: "complete"
-  human_reviewed: false
-  last_updated: "2026-05-04"
+  - {mistake: 把密码打成 'abcdefghijkimn'（全小写）, correction: CapsLock 切换使第 12 位为 I (大写)}
+  - {mistake: 去掉 $ 再算 md5, correction: 账号名就是带 $ 的完整字符串}
+  - {mistake: 忘了加下划线分隔, correction: 题目明确格式 账号_密码}
+  related_questions: [2025pinghang/N07, 2025pinghang/N09]
+status: {progress: complete, human_reviewed: false, last_updated: '2026-05-04'}
+tags: [network_forensics]

@@ -1,37 +1,32 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S04"
-  category: "S_server"
-  short_name: "Trojan 混淆域名"
-  difficulty: "easy"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: "分析起早王的服务器检材，Trojan 服务器混淆流量所使用的域名是什么（格式：xxx.xxx）"
-answer:
-  value: "www.wyzaizaoqi.com"
-  format_note: "trojan SSL 证书路径中的域名"
-walkthrough:
-  identify: "Trojan 配置文件 /etc/trojan/config.json/config.json 内 ssl.cert 字段"
-  extract: "cat /mnt/server/etc/trojan/config.json/config.json"
-  analyze: |
-    {
-      \"run_type\": \"server\",
-      \"ssl\": {
-        \"cert\": \"/etc/letsencrypt/live/www.wyzaizaoqi.com/fullchain.pem\",
-        \"key\":  \"/etc/letsencrypt/live/www.wyzaizaoqi.com/privkey.pem\"
-      }
-    }
-    Trojan 服务器用 letsencrypt 签发的 www.wyzaizaoqi.com 证书向客户端伪装为合法 HTTPS 网站。
-  verify: "wyzaizaoqi 应该是『王要早起』拼音，与剧情『起早王』化名呼应"
-  command: |
-    cat /mnt/server/etc/trojan/config.json/config.json | python3 -m json.tool
+  competition: 2025pinghang
+  question_id: S04
+  category: S_server
+  short_name: Trojan 混淆域名
+  difficulty: easy
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: 分析起早王的服务器检材，Trojan 服务器混淆流量所使用的域名是什么（格式：xxx.xxx）}
+answer: {value: www.wyzaizaoqi.com, format_note: trojan SSL 证书路径中的域名}
+walkthrough: {identify: Trojan 配置文件 /etc/trojan/config.json/config.json 内 ssl.cert
+    字段, extract: cat /mnt/server/etc/trojan/config.json/config.json, analyze: "{\n\
+    \  \\\"run_type\\\": \\\"server\\\",\n  \\\"ssl\\\": {\n    \\\"cert\\\": \\\"\
+    /etc/letsencrypt/live/www.wyzaizaoqi.com/fullchain.pem\\\",\n    \\\"key\\\":\
+    \  \\\"/etc/letsencrypt/live/www.wyzaizaoqi.com/privkey.pem\\\"\n  }\n}\nTrojan\
+    \ 服务器用 letsencrypt 签发的 www.wyzaizaoqi.com 证书向客户端伪装为合法 HTTPS 网站。\n", verify: wyzaizaoqi
+    应该是『王要早起』拼音，与剧情『起早王』化名呼应, command: 'cat /mnt/server/etc/trojan/config.json/config.json
+    | python3 -m json.tool
+
+    '}
 integrity:
-  source: "/etc/trojan/config.json/config.json"
+  source: /etc/trojan/config.json/config.json
   external_access: false
-  tools: ["cat", "python3"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_recon1.sh"
-notes: |
-  题目格式 xxx.xxx 三段也对应 www.wyzaizaoqi.com。
+  tools: [cat, python3]
+  artifacts: [cases/2025平航杯/artifacts/s_recon1.sh]
+notes: '题目格式 xxx.xxx 三段也对应 www.wyzaizaoqi.com。
+
   letsencrypt 证书目录 /etc/letsencrypt/live/<domain>/ 是标准结构。
+
+  '
+tags: [server_forensics]

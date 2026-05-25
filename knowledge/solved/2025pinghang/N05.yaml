@@ -1,73 +1,50 @@
-# 2025 平航杯 N05 — 起早王手机/外设制造商数据
 meta:
-  competition: "2025 平航杯"
-  competition_id: "2025pinghang"
-  question_id: "N05"
-  question_text: "起早王手机蓝牙的制造商数据（格式：0x0102030405060708）"
-  category_l1: "network_traffic"
-  category_l2: "bluetooth_le"
-  tags: ["ble_adv", "manufacturer_specific_data", "ch9140", "wch"]
+  competition: 2025 平航杯
+  competition_id: 2025pinghang
+  question_id: N05
+  question_text: 起早王手机蓝牙的制造商数据（格式：0x0102030405060708）
+  category_l1: network_traffic
+  category_l2: bluetooth_le
+  tags: [ble_adv, manufacturer_specific_data, ch9140, wch, network_forensics]
   points: 10
-  difficulty: "medium"
-
+  difficulty: medium
 answer:
-  value: "0x0701434839313430"
-  value_type: "hex_blob"
-  confidence: "medium"
+  value: '0x0701434839313430'
+  value_type: hex_blob
+  confidence: medium
   verified: true
-  verified_method: "dominant_mfr_data_value"
-  verified_date: "2026-05-04"
+  verified_method: dominant_mfr_data_value
+  verified_date: '2026-05-04'
   alternative_answers:
-    - value: "0x57ab0701434839313430"
-      reason: "若 grader 要求包含 company_id 前缀 (LE 0x57 0xab)"
-
+  - {value: '0x57ab0701434839313430', reason: 若 grader 要求包含 company_id 前缀 (LE 0x57
+      0xab)}
 walkthrough:
-  summary: "人为构造的 BLE 广播（name=Cracked, MAC=55:79:c6:86:8d:13）携带固定 8 字节 manufacturer data，ASCII 解码为 \\x07\\x01CH9140（WCH 蓝牙 HID 芯片型号）"
+  summary: 人为构造的 BLE 广播（name=Cracked, MAC=55:79:c6:86:8d:13）携带固定 8 字节 manufacturer
+    data，ASCII 解码为 \x07\x01CH9140（WCH 蓝牙 HID 芯片型号）
   steps:
-    - seq: 1
-      description: "Count manufacturer data occurrences"
-      command: |
-        tshark -r BLE -Y 'btcommon.eir_ad.entry.company_id' \
-          -T fields -e btle.advertising_address -e btcommon.eir_ad.entry.company_id \
-          -e btcommon.eir_ad.entry.data | sort | uniq -c | sort -rn
-      tool: "tshark"
-      expected_output: "55:79:c6:86:8d:13 / 0xab57 / 0701434839313430 × 2457 (99.5%)"
-    - seq: 2
-      description: "Decode 0701434839313430 as ASCII"
-      command: "echo '0701434839313430' | xxd -r -p"
-      tool: "xxd"
-      expected_output: "\\x07\\x01CH9140"
-      human_note: "CH9140 是 WCH 的 BLE HID 模块芯片，用于 BadBT/BadUSB"
-  evidence_path: "BLE pcapng → ADV_IND from 55:79:c6:86:8d:13"
-
+  - {seq: 1, description: Count manufacturer data occurrences, command: "tshark -r\
+      \ BLE -Y 'btcommon.eir_ad.entry.company_id' \\\n  -T fields -e btle.advertising_address\
+      \ -e btcommon.eir_ad.entry.company_id \\\n  -e btcommon.eir_ad.entry.data |\
+      \ sort | uniq -c | sort -rn\n", tool: tshark, expected_output: '55:79:c6:86:8d:13
+      / 0xab57 / 0701434839313430 × 2457 (99.5%)'}
+  - {seq: 2, description: Decode 0701434839313430 as ASCII, command: echo '0701434839313430'
+      | xxd -r -p, tool: xxd, expected_output: \x07\x01CH9140, human_note: CH9140
+      是 WCH 的 BLE HID 模块芯片，用于 BadBT/BadUSB}
+  evidence_path: BLE pcapng → ADV_IND from 55:79:c6:86:8d:13
 tools_used:
-  - name: "tshark"
-    version: "3.6.2"
-  - name: "xxd"
-    version: "any"
-
-ai_meta:
-  first_solved_by: "cascade"
-  solve_time_seconds: 240
-  model_difficulty: "medium"
-
+- {name: tshark, version: 3.6.2}
+- {name: xxd, version: any}
+ai_meta: {first_solved_by: cascade, solve_time_seconds: 240, model_difficulty: medium}
 education:
-  prerequisites:
-    - "BLE AD Structure 0xFF (Manufacturer Specific Data)"
-    - "Bluetooth SIG Company Identifier"
-  learning_objectives:
-    - "理解 Manufacturer Specific Data 结构"
-    - "区分 assigned vs unassigned company_id (0xab57 为非标)"
-    - "识别常见 BLE HID 注入模块（CH9140, RN4870 等）"
+  prerequisites: [BLE AD Structure 0xFF (Manufacturer Specific Data), Bluetooth SIG
+      Company Identifier]
+  learning_objectives: [理解 Manufacturer Specific Data 结构, 区分 assigned vs unassigned
+      company_id (0xab57 为非标), '识别常见 BLE HID 注入模块（CH9140, RN4870 等）']
   common_mistakes:
-    - mistake: "把 company_id 也包含在答案中"
-      correction: "题目格式 0x+16hex 暗示 8 字节，纯 data 部分"
-    - mistake: "把 nRF Sniffer 自己的 timestamp 当制造商数据"
-      correction: "manufacturer data 在 AD entry 里，不在 pcapng header"
+  - {mistake: 把 company_id 也包含在答案中, correction: 题目格式 0x+16hex 暗示 8 字节，纯 data 部分}
+  - {mistake: 把 nRF Sniffer 自己的 timestamp 当制造商数据, correction: manufacturer data 在
+      AD entry 里，不在 pcapng header}
   related_questions: []
-
-status:
-  progress: "complete"
-  human_reviewed: false
-  last_updated: "2026-05-04"
-  notes: "答案的 company_id 前缀包含与否取决于 grader；已记录两种形式"
+status: {progress: complete, human_reviewed: false, last_updated: '2026-05-04', notes: 答案的
+    company_id 前缀包含与否取决于 grader；已记录两种形式}
+tags: [network_forensics]

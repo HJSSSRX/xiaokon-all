@@ -1,5 +1,5 @@
 ---
-tags: [email_forensics, spammimic, encoding, steganography, deepin]
+tags: [email_forensics, spammimic, encoding, steganography, deepin, stego_crypto]
 tools: [python, requests, grep]
 category: stego_crypto
 difficulty: medium
@@ -7,6 +7,7 @@ source: fic2026
 date: 2026-05-05
 verified: true
 ---
+
 # Title: Spammimic 邮件隐写解码
 
 ## Problem

@@ -1,87 +1,61 @@
-# 2025 平航杯 N07 — cmd 命令条数
 meta:
-  competition: "2025 平航杯"
-  competition_id: "2025pinghang"
-  question_id: "N07"
-  question_text: "起早王对倩倩的电脑执行了几条 cmd 里的命令（格式：1）"
-  category_l1: "network_traffic"
-  category_l2: "usb_hid"
-  tags: ["usb_hid", "keyboard_decoding", "badusb", "count"]
+  competition: 2025 平航杯
+  competition_id: 2025pinghang
+  question_id: N07
+  question_text: 起早王对倩倩的电脑执行了几条 cmd 里的命令（格式：1）
+  category_l1: network_traffic
+  category_l2: usb_hid
+  tags: [usb_hid, keyboard_decoding, badusb, count, network_forensics]
   points: 10
-  difficulty: "medium"
-
-answer:
-  value: "7"
-  value_type: "integer"
-  confidence: "high"
-  verified: true
-  verified_method: "manual_count_after_hid_decode"
-  verified_date: "2026-05-04"
-
+  difficulty: medium
+answer: {value: '7', value_type: integer, confidence: high, verified: true, verified_method: manual_count_after_hid_decode,
+  verified_date: '2026-05-04'}
 walkthrough:
-  summary: "USBPcap 2.4.1 → host 的 37 字节 HID 报告解码成击键序列，聊天结尾 'cmd' 打开 Run 对话框，随后在 cmd 窗口输入 7 条命令"
+  summary: USBPcap 2.4.1 → host 的 37 字节 HID 报告解码成击键序列，聊天结尾 'cmd' 打开 Run 对话框，随后在 cmd
+    窗口输入 7 条命令
   steps:
-    - seq: 1
-      description: "Identify keyboard device"
-      command: |
-        tshark -r USBPcap -Y 'usb.bInterfaceClass==0x03' \
-          -T fields -e usb.src -e usb.bInterfaceSubClass -e usb.bInterfaceProtocol
-      tool: "tshark"
-      expected_output: "2.4.0 subclass=0x01 protocol=0x01 → Boot Keyboard"
-    - seq: 2
-      description: "Extract HID reports (37 bytes incl. report ID + 1 modifier + 1 reserved + 6 keys + padding)"
-      command: |
-        tshark -r USBPcap -Y 'usb.src=="2.4.1" && usb.data_len==37' \
-          -T fields -e frame.time_epoch -e usbhid.data > /tmp/kbd.tsv
-      tool: "tshark"
-      expected_output: "1295 rows"
-    - seq: 3
-      description: "Decode with CapsLock state machine"
-      command: "python3 decode_hid.py"
-      tool: "python3"
-      expected_output: |
-        [0] 聊天 + cmd
-        [1] whoami
-        [2] net user
-        [3] net user qianqianwoaini$ abcdefghijkImn /add
-        [4] net localgroup administrators qianqianwoaini$ /add
-        [5] net user qianqianwoaini$ /del
-        [6] net localgroup administrators qianqianwoaini$ /add
-        [7] rundll32 url.dll,FileProtocolHandler https://fakeupdate.net/win10ue/bsod.html
-      human_note: "CapsLock 键 0x39 需要状态切换，不能当成字符输出"
-  evidence_path: "USBPcap → device 2.4 (ITE 048d:c102 Lenovo builtin keyboard) → endpoint 1 IN"
+  - {seq: 1, description: Identify keyboard device, command: "tshark -r USBPcap -Y\
+      \ 'usb.bInterfaceClass==0x03' \\\n  -T fields -e usb.src -e usb.bInterfaceSubClass\
+      \ -e usb.bInterfaceProtocol\n", tool: tshark, expected_output: 2.4.0 subclass=0x01
+      protocol=0x01 → Boot Keyboard}
+  - {seq: 2, description: Extract HID reports (37 bytes incl. report ID + 1 modifier
+      + 1 reserved + 6 keys + padding), command: "tshark -r USBPcap -Y 'usb.src==\"\
+      2.4.1\" && usb.data_len==37' \\\n  -T fields -e frame.time_epoch -e usbhid.data\
+      \ > /tmp/kbd.tsv\n", tool: tshark, expected_output: 1295 rows}
+  - {seq: 3, description: Decode with CapsLock state machine, command: python3 decode_hid.py,
+    tool: python3, expected_output: '[0] 聊天 + cmd
 
+      [1] whoami
+
+      [2] net user
+
+      [3] net user qianqianwoaini$ abcdefghijkImn /add
+
+      [4] net localgroup administrators qianqianwoaini$ /add
+
+      [5] net user qianqianwoaini$ /del
+
+      [6] net localgroup administrators qianqianwoaini$ /add
+
+      [7] rundll32 url.dll,FileProtocolHandler https://fakeupdate.net/win10ue/bsod.html
+
+      ', human_note: CapsLock 键 0x39 需要状态切换，不能当成字符输出}
+  evidence_path: USBPcap → device 2.4 (ITE 048d:c102 Lenovo builtin keyboard) → endpoint
+    1 IN
 tools_used:
-  - name: "tshark"
-    version: "3.6.2"
-    install_script: "apt install tshark"
-  - name: "python3"
-    version: "3.10+"
-
-ai_meta:
-  first_solved_by: "cascade"
-  solve_time_seconds: 600
-  model_difficulty: "medium"
-
+- {name: tshark, version: 3.6.2, install_script: apt install tshark}
+- {name: python3, version: 3.10+}
+ai_meta: {first_solved_by: cascade, solve_time_seconds: 600, model_difficulty: medium}
 education:
-  prerequisites:
-    - "USB HID Boot Keyboard 协议"
-    - "HID Usage Page 0x07 (Keyboard/Keypad)"
-    - "CapsLock 状态机 vs Shift 叠加"
-  learning_objectives:
-    - "识别 USB device tree 中的 HID 键盘"
-    - "解码非标准报告长度（37 字节 vs 典型 8 字节）"
-    - "理解 Flipper Zero BLE-HoG 注入可在 USBPcap 中以 BT dongle 上游设备形式呈现"
+  prerequisites: [USB HID Boot Keyboard 协议, HID Usage Page 0x07 (Keyboard/Keypad),
+    CapsLock 状态机 vs Shift 叠加]
+  learning_objectives: [识别 USB device tree 中的 HID 键盘, 解码非标准报告长度（37 字节 vs 典型 8 字节）,
+    理解 Flipper Zero BLE-HoG 注入可在 USBPcap 中以 BT dongle 上游设备形式呈现]
   common_mistakes:
-    - mistake: "把 'cmd'（Run 对话框输入）算作 cmd 内命令"
-      correction: "cmd 是启动命令窗口，不是窗口内执行的命令"
-    - mistake: "HID 默认报告 8 字节 → 查不到数据"
-      correction: "实际长度因设备而异，先用 usb.data_len 探测"
-    - mistake: "忽略 CapsLock 切换，把 'abcdefghijkimn' 当密码"
-      correction: "正确解码为 'abcdefghijkImn'（第 12 位大写 I）"
-  related_questions: ["2025pinghang/N08", "2025pinghang/N09"]
-
-status:
-  progress: "complete"
-  human_reviewed: false
-  last_updated: "2026-05-04"
+  - {mistake: 把 'cmd'（Run 对话框输入）算作 cmd 内命令, correction: cmd 是启动命令窗口，不是窗口内执行的命令}
+  - {mistake: HID 默认报告 8 字节 → 查不到数据, correction: 实际长度因设备而异，先用 usb.data_len 探测}
+  - {mistake: 忽略 CapsLock 切换，把 'abcdefghijkimn' 当密码, correction: 正确解码为 'abcdefghijkImn'（第
+      12 位大写 I）}
+  related_questions: [2025pinghang/N08, 2025pinghang/N09]
+status: {progress: complete, human_reviewed: false, last_updated: '2026-05-04'}
+tags: [network_forensics]

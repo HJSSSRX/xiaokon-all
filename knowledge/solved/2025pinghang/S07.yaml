@@ -1,33 +1,28 @@
 meta:
-  competition: "2025pinghang"
-  question_id: "S07"
-  category: "S_server"
-  short_name: "TPshop 后台密码加密"
-  difficulty: "medium"
-  status: "solved"
-  confidence: "high"
-question:
-  raw: "分析网站后台登录密码的加密逻辑，给出密码 sbwyz1 加密后存在数据库中的值（格式：1a2b3c4d）"
-answer:
-  value: "f8537858eb0eabada34e7021d19974ea"
-  format_note: "32 位小写 md5"
-walkthrough:
-  identify: "TPshop 后台密码加密函数定义在 application/function.php"
-  extract: "grep -A1 'function encrypt' application/function.php"
-  analyze: |
-    function encrypt($str){
-      return md5(C(\"AUTH_CODE\").$str);
-    }
-    AUTH_CODE 在 application/config.php = \"TPSHOP\"。
-    所以 sbwyz1 加密 = md5(\"TPSHOP\" . \"sbwyz1\") = md5(\"TPSHOPsbwyz1\")
-  verify: |
-    $ echo -n 'TPSHOPsbwyz1' | md5sum
+  competition: 2025pinghang
+  question_id: S07
+  category: S_server
+  short_name: TPshop 后台密码加密
+  difficulty: medium
+  status: solved
+  confidence: high
+  tags: [server_forensics]
+question: {raw: 分析网站后台登录密码的加密逻辑，给出密码 sbwyz1 加密后存在数据库中的值（格式：1a2b3c4d）}
+answer: {value: f8537858eb0eabada34e7021d19974ea, format_note: 32 位小写 md5}
+walkthrough: {identify: TPshop 后台密码加密函数定义在 application/function.php, extract: grep
+    -A1 'function encrypt' application/function.php, analyze: "function encrypt($str){\n\
+    \  return md5(C(\\\"AUTH_CODE\\\").$str);\n}\nAUTH_CODE 在 application/config.php\
+    \ = \\\"TPSHOP\\\"。\n所以 sbwyz1 加密 = md5(\\\"TPSHOP\\\" . \\\"sbwyz1\\\") = md5(\\\
+    \"TPSHOPsbwyz1\\\")\n", verify: '$ echo -n ''TPSHOPsbwyz1'' | md5sum
+
     f8537858eb0eabada34e7021d19974ea  -
-  command: |
-    echo -n 'TPSHOPsbwyz1' | md5sum
+
+    ', command: 'echo -n ''TPSHOPsbwyz1'' | md5sum
+
+    '}
 integrity:
-  source: "application/function.php + application/config.php"
+  source: application/function.php + application/config.php
   external_access: false
-  tools: ["grep", "md5sum"]
-  artifacts:
-    - "cases/2025平航杯/artifacts/s_recon9.sh"
+  tools: [grep, md5sum]
+  artifacts: [cases/2025平航杯/artifacts/s_recon9.sh]
+tags: [server_forensics]

@@ -229,7 +229,10 @@ def build_causal_graph_from_transactions(
         dom_prior = domain_counts[dom] / total_txns
 
         for feat, count in feature_by_domain[dom].items():
-            strength = count / domain_counts[dom]  # P(feat | domain)
+            # Laplace smoothing: prevents P=1.0 for single-observation domains
+            smoothed_count = count + 1.0
+            smoothed_dom_total = domain_counts[dom] + 2.0
+            strength = smoothed_count / smoothed_dom_total  # P(feat | domain)
             support = count / total_txns
             if strength >= min_confidence:
                 edge = CausalEdge(
@@ -358,16 +361,26 @@ def abductive_inference(
     for cause in cause_prior:
         cause_prior[cause] /= total_cause_strength
 
-    # Compute posterior for each candidate cause
+    # ── Precompute domain→feature strengths for Bayes factor ──
+    domain_nodes = [n for n in graph.nodes if graph.node_types.get(n) == "domain"]
+    n_domains = max(len(domain_nodes), 2)
+
+    # P(feature | domain) lookup: (domain, feature) → strength
+    p_f_given_d: Dict[Tuple[str, str], float] = {}
+    for dom in domain_nodes:
+        for child, ei in graph.outgoing.get(dom, []):
+            edge = graph.edges[ei]
+            p_f_given_d[(dom, child)] = edge.strength
+
+    # ── Compute posterior for each candidate cause ──
     results = []
     for cause in candidate_causes:
-        # P(effects | cause): evidence likelihood via causal edges
         log_likelihood = 0.0
         evidence_count = 0
         supporting = []
 
         for effect in observed_effects:
-            # Check if there's a direct causal edge cause → effect
+            # Direct causal edge cause → effect
             best_strength = 0.0
             for child, ei in graph.outgoing.get(cause, []):
                 if child == effect:
@@ -380,25 +393,72 @@ def abductive_inference(
                     })
                     break
 
-            # Also check indirect: cause → intermediate → effect
+            # Indirect chain: cause → intermediate → effect
             if best_strength == 0.0:
                 for child, ei1 in graph.outgoing.get(cause, []):
                     for grandchild, ei2 in graph.outgoing.get(child, []):
                         if grandchild == effect:
                             e1 = graph.edges[ei1]
                             e2 = graph.edges[ei2]
-                            chain_strength = e1.strength * e2.strength
-                            best_strength = max(best_strength, chain_strength)
+                            best_strength = max(best_strength, e1.strength * e2.strength)
                             break
 
-            if best_strength > 0.0:
-                log_likelihood += math.log(max(best_strength, 1e-10))
-                evidence_count += 1
-            else:
-                # Penalty for unexplained effects
-                log_likelihood += math.log(0.01)
+            # ── Bayes factor: P(effect | cause) / P(effect | not cause) ──
+            p_f_given_c = max(best_strength, 0.01)  # floor for unseen
 
-        likelihood = math.exp(log_likelihood) if evidence_count > 0 else 1e-10
+            # P(effect | not cause) = weighted avg over other domains
+            other_prior_sum = sum(
+                cause_prior.get(d, 0.0) for d in domain_nodes if d != cause
+            )
+            if other_prior_sum > 0:
+                p_f_given_not_c = sum(
+                    p_f_given_d.get((d, effect), 0.005) * cause_prior.get(d, 0.0)
+                    for d in domain_nodes if d != cause
+                ) / other_prior_sum
+            else:
+                p_f_given_not_c = 0.01
+
+            # Floor for numerical stability
+            p_f_given_not_c = max(p_f_given_not_c, 0.002)
+
+            bf = p_f_given_c / p_f_given_not_c
+            if bf > 1e-8:
+                log_likelihood += math.log(bf)
+            else:
+                log_likelihood += math.log(1e-8)
+            evidence_count += 1
+
+        # ── Negative evidence: distinctive tools expected but MISSING ──
+        # For each candidate cause, find its most distinctive features.
+        # If they're absent from observed_effects, penalise.
+        if cause in domain_nodes:
+            cause_features = []
+            for child, ei in graph.outgoing.get(cause, []):
+                edge = graph.edges[ei]
+                p_fc = edge.strength
+                p_f_not_c = sum(
+                    p_f_given_d.get((d, child), 0.005) * cause_prior.get(d, 0.0)
+                    for d in domain_nodes if d != cause
+                ) / max(sum(cause_prior.get(d, 0.0) for d in domain_nodes if d != cause), 0.001)
+                p_f_not_c = max(p_f_not_c, 0.002)
+                distinctiveness = p_fc / p_f_not_c
+                cause_features.append((child, p_fc, distinctiveness))
+
+            cause_features.sort(key=lambda x: -x[2])
+            missing_penalty = 0.0
+            penalty_count = 0
+            for feat, p_fc, dist in cause_features[:5]:
+                if dist < 3.0:  # not distinctive enough to care
+                    continue
+                if feat not in observed_effects:
+                    # Strongly distinctive feature is missing → evidence against this cause
+                    missing_penalty += math.log(0.15)
+                    penalty_count += 1
+                    if penalty_count >= 2:  # cap at 2 penalties
+                        break
+            log_likelihood += missing_penalty
+
+        likelihood = math.exp(log_likelihood)
         prior = cause_prior.get(cause, 0.01)
         posterior = likelihood * prior  # unnormalized
 
@@ -410,7 +470,7 @@ def abductive_inference(
             prior=round(prior, 4),
             likelihood=round(likelihood, 6),
             explanation=_build_abductive_explanation(
-                cause, observed_effects, evidence_count, graph
+                cause, observed_effects, len(supporting), graph
             ),
             supporting_rules=supporting,
         ))
