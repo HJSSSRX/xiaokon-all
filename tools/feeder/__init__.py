@@ -37,6 +37,7 @@ from .ai_tag_engine import (
 )
 from .js_renderer import JsRenderer, launch_chrome_with_debug
 from .api_extractor import JsApiExtractor
+from .spa_crawler import SpaCrawler
 
 __all__ = [
     "WebPageParser",
@@ -51,6 +52,7 @@ __all__ = [
     "get_context_for_learning", "suggest_next_action", "rebuild_cache", "get_stats",
     "JsRenderer", "launch_chrome_with_debug",
     "JsApiExtractor",
+    "SpaCrawler",
 ]
 
 __version__ = "2.2.0"
