@@ -30,6 +30,63 @@ _EXPERT_TOOLS = {
     "apktool", "binwalk", "ewfmount", "fls", "icat",
 }
 
+# Universal tools: always present in ALL domains (FCA equivalence class #1, 100% support).
+# These provide zero discriminatory signal for allocation decisions — strip before scoring.
+_UNIVERSAL_TOOLS = {
+    "competition:answer_diff", "competition:answer_format", "competition:question_parser",
+    "core:cache", "core:config", "core:http_base", "core:id_gen", "core:yaml_utils",
+    "hub:findings", "hub:http_server", "hub:role_log",
+    "kb:feeder_crawl", "kb:kb_build", "kb:kb_search", "kb:kb_sync", "kb:tag_engine",
+}
+_UNIVERSAL_PREFIXES = ("competition:", "core:", "hub:", "kb:")
+
+# Co-occurrence classes from FCA equivalence analysis.
+# When one member is detected, the entire class is implied (always used together).
+# Used to infer hidden complexity — if you see one, you're doing the whole class.
+_COOCCURRENCE_CLASSES = [
+    {  # Class 2: CTF automation toolchain (web + misc domains)
+        "members": {"feeder:ctf_patterns", "feeder:ctf_recognizer", "feeder:ctf_coordinator",
+                     "feeder:ctf_scanner", "feeder:blind_sqli", "feeder:flag_submit",
+                     "feeder:spa_crawler", "feeder:skill_gen"},
+        "complexity_boost": 0.15,  # moderate — these are semi-automated
+    },
+    {  # Class 3: Server virtualization forensics (server domain only)
+        "members": {"forensics:vmdk_reader", "forensics:zfs_analysis", "integration:huoyan_mcp"},
+        "complexity_boost": 0.25,  # high — enterprise virtualization stack
+    },
+    {  # Class 4: Network propagation analysis (network domain only)
+        "members": {"analytics:propagation", "integration:remote_alive"},
+        "complexity_boost": 0.10,  # low-moderate
+    },
+    {  # Class 5: Packet capture pipeline (network + server domains)
+        "members": {"pcap:pcap_analysis", "pcap:flow_recon", "pcap:protocol_dissection"},
+        "complexity_boost": 0.15,
+    },
+]
+
+# Implication basis from FCA: when premise holds, conclusion is logically guaranteed.
+# Used for pre-allocation hints.
+_IMPLICATIONS = [
+    # Rule 2: vision:ocr_engine + core tools => analytics:apriori + analytics:ncd
+    {
+        "premise": {"vision:ocr_engine"},
+        "conclusion": {"analytics:apriori", "analytics:ncd"},
+        "support": 0.182,
+    },
+]
+
+# Single-domain tools: only 1 domain uses them → deterministic role assignment.
+_SINGLE_DOMAIN_TOOLS = {
+    "forensics:e01_reader": "computer",
+    "forensics:vmdk_reader": "server",
+    "forensics:zfs_analysis": "server",
+    "integration:huoyan_mcp": "server",
+    "integration:cloudflared_tunnel": "cloud",
+    "integration:remote_alive": "network",
+    "analytics:propagation": "network",
+    "vision:mindmap_parser": "stego_crypto",
+}
+
 
 @dataclass
 class AllocationConfig:
@@ -141,9 +198,38 @@ def _score_task_type(task_type: str) -> float:
 def _score_tools(tools: List[str]) -> float:
     if not tools:
         return 0.20
-    expert_count = sum(1 for t in tools if t.lower() in _EXPERT_TOOLS)
-    ratio = expert_count / len(tools)
-    return 0.20 + 0.75 * ratio
+
+    # Strip universal tools — they provide zero discriminatory signal
+    # (FCA equivalence class #1: 16 tools with 100% co-occurrence across all 11 domains)
+    signal_tools = [t for t in tools
+                    if t.lower() not in _UNIVERSAL_TOOLS
+                    and not any(t.lower().startswith(p) for p in _UNIVERSAL_PREFIXES)]
+
+    if not signal_tools:
+        return 0.15  # only universal tools → trivial task
+
+    expert_count = sum(1 for t in signal_tools if t.lower() in _EXPERT_TOOLS)
+
+    # Detect co-occurrence classes: if any member is found, infer the whole class
+    cooccurrence_boost = 0.0
+    detected_members = set()
+    for cls in _COOCCURRENCE_CLASSES:
+        found = {t.lower() for t in signal_tools} & {m.lower() for m in cls["members"]}
+        if found:
+            cooccurrence_boost = max(cooccurrence_boost, cls["complexity_boost"])
+            detected_members.update(found)
+        # Check original tools too (before universal filter)
+        found_orig = {t.lower() for t in tools} & {m.lower() for m in cls["members"]}
+        if found_orig:
+            cooccurrence_boost = max(cooccurrence_boost, cls["complexity_boost"])
+
+    # Single-domain tools are always expert-level
+    domain_expert_count = sum(1 for t in signal_tools
+                              if t.lower() in _SINGLE_DOMAIN_TOOLS)
+
+    ratio = (expert_count + domain_expert_count * 0.8) / len(signal_tools)
+    base = 0.20 + 0.75 * ratio
+    return min(1.0, base + cooccurrence_boost)
 
 
 def _score_estimated_minutes(minutes: int) -> float:
