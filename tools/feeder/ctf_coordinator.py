@@ -30,7 +30,7 @@ from tools.feeder.ctf_patterns import PatternDB, get_pattern_db
 from tools.feeder.ctf_recognizer import (
     CTFRecognizer, CTFChallenge, RecognitionResult, get_recognizer,
 )
-from tools.feeder.ctf_scanner import quick_recon, scan_ssrf, scan_lfi, scan_backup
+from tools.feeder.ctf_scanner import quick_recon, scan_ssrf, scan_lfi, scan_backup, scan_sqli
 
 
 # ── Constants ──────────────────────────────────────────────────────────────
@@ -298,6 +298,10 @@ class CTFCoordinator:
                 flag, findings = scan_backup(target_url)
             elif subcat == "文件包含":
                 flag, findings = scan_lfi(target_url)
+            elif subcat == "SQL注入":
+                flag, findings = scan_sqli(target_url,
+                                           forms=recon.get('forms', []),
+                                           endpoints=recon.get('endpoints', []))
 
         if flag:
             result.flag = flag
