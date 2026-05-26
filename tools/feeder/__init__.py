@@ -38,6 +38,16 @@ from .ai_tag_engine import (
 from .js_renderer import JsRenderer, launch_chrome_with_debug
 from .api_extractor import JsApiExtractor
 from .spa_crawler import SpaCrawler
+from .ctf_patterns import (
+    VulnerabilityPattern, PatternDB, PATTERNS, get_pattern_db,
+)
+from .ctf_recognizer import (
+    CTFChallenge, RecognitionResult, CTFRecognizer,
+    recognize, get_recognizer,
+)
+from .ctf_coordinator import CTFCoordinator, SolveResult
+from .blind_sqli_extractor import BlindSqliExtractor, quick_dump
+from .ctfhub_flag_submit import submit_flag
 
 __all__ = [
     "WebPageParser",
@@ -53,6 +63,13 @@ __all__ = [
     "JsRenderer", "launch_chrome_with_debug",
     "JsApiExtractor",
     "SpaCrawler",
+    # CTF recognition system
+    "VulnerabilityPattern", "PatternDB", "PATTERNS", "get_pattern_db",
+    "CTFChallenge", "RecognitionResult", "CTFRecognizer",
+    "recognize", "get_recognizer",
+    "CTFCoordinator", "SolveResult",
+    "BlindSqliExtractor", "quick_dump",
+    "submit_flag",
 ]
 
 __version__ = "2.2.0"

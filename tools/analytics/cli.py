@@ -1092,6 +1092,66 @@ def cmd_causal(args):
         print("Usage: python -m tools.cli analytics causal <subcommand> [options]")
 
 
+def cmd_patterns(args):
+    """List vulnerability patterns from the CTF pattern database."""
+    from tools.feeder.ctf_patterns import PatternDB, get_pattern_db
+    db = get_pattern_db()
+
+    if args.category:
+        patterns = [(p, 1.0) for p in db.get_by_tag(args.category)]
+    else:
+        patterns = [(p, 1.0) for p in db.patterns]
+
+    if args.solved_only:
+        patterns = [(p, s) for p, s in patterns if p.solved_examples]
+
+    print("Pattern Database: %d patterns (%d shown)" % (len(db.patterns), len(patterns)))
+    print()
+    for p, _ in patterns:
+        solved = " [SOLVED: %s]" % ", ".join(p.solved_examples) if p.solved_examples else ""
+        print("  %s (%s/%s)%s" % (p.technique, p.category, p.subcategory, solved))
+        print("    Tags: %s" % ", ".join(p.tags))
+        if p.attack_chain:
+            steps = " → ".join(s["action"] for s in p.attack_chain[:4])
+            print("    Chain: %s" % steps)
+
+
+def cmd_recognize(args):
+    """Recognize a CTF challenge from tags and description."""
+    from tools.feeder.ctf_recognizer import CTFRecognizer, CTFChallenge, get_recognizer
+
+    tags = [t.strip() for t in args.tags.split(",")]
+    r = get_recognizer()
+
+    challenge = CTFChallenge(
+        challenge_id=0,
+        title=args.title,
+        description=args.description,
+        tags=tags,
+        level=args.level,
+    )
+
+    result = r.recognize(challenge)
+    print(result.plan_summary(verbose=True))
+    print()
+
+    # Show top N alternative patterns
+    print("All matches (ranked):")
+    for i, (p, score) in enumerate(result.patterns[:args.top * 2]):
+        marker = " ← TOP" if i == 0 else ""
+        print("  %.0f%% %s (%s)%s" % (score * 100, p.technique, p.subcategory, marker))
+
+    if result.predicted_techniques:
+        print("\nApriori predictions:")
+        for tech, conf in result.predicted_techniques[:5]:
+            print("  %s (%.0f%%)" % (tech, conf * 100))
+
+    if result.isomorphic_challenges:
+        print("\nSimilar solved challenges:")
+        for name, sim in result.isomorphic_challenges[:5]:
+            print("  %s (%.0f%%)" % (name, sim * 100))
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="forensic analytics",
@@ -1136,6 +1196,25 @@ def main():
                        help="Min lift threshold (default: 1.0)")
     p_rec.add_argument("--top", type=int, default=10,
                        help="Number of recommendations (default: 10)")
+
+    # CTF challenge recognition
+    p_patterns = sub.add_parser("patterns", help="List vulnerability patterns in the CTF pattern database")
+    p_patterns.add_argument("--category", default=None,
+                            help="Filter by category (e.g. SSRF, SQL注入)")
+    p_patterns.add_argument("--solved-only", action="store_true",
+                            help="Show only patterns with solved examples")
+
+    p_recognize = sub.add_parser("recognize", help="Recognize a CTF challenge from tags/description")
+    p_recognize.add_argument("--tags", required=True,
+                             help="Comma-separated tags (e.g. 'Web,SQL注入')")
+    p_recognize.add_argument("--description", default="",
+                             help="Challenge description text (optional)")
+    p_recognize.add_argument("--title", default="Unknown",
+                             help="Challenge title (optional)")
+    p_recognize.add_argument("--level", type=float, default=0.0,
+                             help="Challenge difficulty level")
+    p_recognize.add_argument("--top", type=int, default=3,
+                             help="Number of top matches to show (default: 3)")
 
     # Group theory subcommands
     p_group = sub.add_parser("group", help="Group theory analysis (FCA, closure, equivalence, gaps, basis)")
@@ -1368,6 +1447,10 @@ def main():
         cmd_ncd(args)
     elif args.command == "causal":
         cmd_causal(args)
+    elif args.command == "patterns":
+        cmd_patterns(args)
+    elif args.command == "recognize":
+        cmd_recognize(args)
     else:
         parser.print_help()
 

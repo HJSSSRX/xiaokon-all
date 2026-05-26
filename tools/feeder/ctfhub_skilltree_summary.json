@@ -1,11 +1,28 @@
 {
-  "captured_at": "2026-05-26 14:23:48",
-  "vuex_top_keys": [],
-  "vuex_skilltree_data": {},
-  "api_endpoints": [],
-  "component_count": 0,
-  "dom_skilltree_element_count": 0,
-  "dom_node_element_count": 0,
-  "clickable_count": 0,
-  "route_count": 0
+  "captured_at": "2026-05-26 14:30:21",
+  "api_endpoints": [
+    "Skill/getTree"
+  ],
+  "vuex_keys": [
+    "app",
+    "header",
+    "permission",
+    "user"
+  ],
+  "has_skill_tree_data": true,
+  "api_data_root_keys": [
+    "finish_count",
+    "id",
+    "level",
+    "pid",
+    "task_container_state",
+    "task_id",
+    "task_title",
+    "tid",
+    "title",
+    "user_record_skill_state",
+    "children"
+  ],
+  "api_status": true,
+  "api_msg": "获取成功"
 }

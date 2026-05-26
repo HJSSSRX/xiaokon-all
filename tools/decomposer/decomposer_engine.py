@@ -351,6 +351,72 @@ _DOMAIN_KEYWORDS = {
 }
 
 
+def detect_vulnerability_types(description: str = "", tags: List[str] = None,
+                               evidence_files: List = None) -> Dict:
+    """Detect CTF vulnerability types using the CTF pattern database.
+
+    Complements the existing _DOMAIN_KEYWORDS (forensic domains) with
+    web/CTF-specific vulnerability pattern recognition.
+
+    Returns:
+        {
+            "vuln_types": [{"name": "SQL注入", "technique": "Boolean盲注", "confidence": 0.8}],
+            "top_match": "Boolean盲注",
+            "suggested_tools": ["blind_sqli_extractor", "sqlmap"],
+            "attack_plan": [...],
+        }
+    """
+    try:
+        from tools.feeder.ctf_patterns import get_pattern_db
+        from tools.feeder.ctf_recognizer import CTFRecognizer, CTFChallenge, get_recognizer
+    except ImportError:
+        return {"vuln_types": [], "top_match": None, "suggested_tools": [], "attack_plan": []}
+
+    recognizer = get_recognizer()
+    challenge = CTFChallenge(
+        challenge_id=0,
+        title="",
+        description=description,
+        tags=tags or [],
+        level=0.0,
+    )
+    result = recognizer.recognize(challenge)
+
+    vuln_types = []
+    for p, score in (result.patterns or [])[:5]:
+        if score > 0.15:
+            vuln_types.append({
+                "name": p.subcategory,
+                "technique": p.technique,
+                "confidence": round(score, 3),
+                "category": p.category,
+            })
+
+    suggested_tools = []
+    if result.top_match:
+        for step in result.top_match.attack_chain:
+            tool = step.get("tool", "")
+            if tool and tool != "manual":
+                suggested_tools.append(tool)
+        # Add default tools based on category
+        if result.top_match.subcategory == "SQL注入":
+            suggested_tools.extend(["blind_sqli_extractor", "sqlmap"])
+        elif result.top_match.subcategory == "SSRF":
+            suggested_tools.append("curl")
+        elif result.top_match.subcategory == "文件包含":
+            suggested_tools.append("session_upload_exploit")
+
+    return {
+        "vuln_types": vuln_types,
+        "top_match": result.top_match.technique if result.top_match else None,
+        "top_match_score": result.top_match_score if result.top_match else 0.0,
+        "suggested_tools": list(set(suggested_tools)),
+        "attack_plan": result.attack_plan,
+        "estimated_difficulty": result.estimated_difficulty,
+        "estimated_time": result.estimated_time,
+    }
+
+
 def _topological_sort(sub_goals: Dict[str, SubGoal]) -> List[List[str]]:
     """Kahn's algorithm with level grouping.
 
