@@ -31,7 +31,9 @@ EXTENSION_TYPE_MAP = {
     # Crypto
     ".enc": "crypto", ".gpg": "crypto", ".hash": "crypto",
     # Logs
-    ".evtx": "log", ".log": "log", ".txt": "log", ".csv": "log",
+    ".evtx": "log", ".log": "log", ".txt": "log", ".csv": "log", ".tsv": "log",
+    # Email
+    ".eml": "misc", ".mbox": "misc", ".pst": "misc", ".ost": "misc",
     # Archives (not a forensic domain, but needs extraction)
     ".zip": "archive", ".rar": "archive", ".7z": "archive", ".gz": "archive",
     ".bz2": "archive", ".xz": "archive", ".tar.gz": "archive",

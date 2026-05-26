@@ -337,7 +337,17 @@ _DOMAIN_KEYWORDS = {
     "malware": ["malware", "木马", "病毒", "ransomware", "勒索", "rootkit", "后门", "trojan"],
     "container": ["container", "docker", "lxc", "k8s", "kubernetes", "容器", "逃逸"],
     "encoding": ["encoding", "编码", "base64", "rot13", "hex", "urlencode", "xor", "解码"],
-    "misc": ["misc", "杂项", "未知", "unknown", "forensic", "triage", "carving", "file_carve"],
+    "misc": ["misc", "杂项", "未知", "unknown", "forensic", "triage", "carving", "file_carve",
+              "qr", "qrcode", "barcode", "条形码", "二维码", "qr_code",
+              "hex", "hexdump", "raw_bytes", "十六进制", "binwalk",
+              "magic_bytes", "file_signature", "magic", "文件头",
+              "methodology", "workflow", "方法论", "工作流",
+              "chainsaw", "evtx_dump", "hayabusa", "chainsaw", "json", "csv",
+              "strings", "字符串", "bulk_extractor", "scalpel",
+              "foremost", "photorec", "数据恢复", "data_recovery",
+              "log_triage", "triage", "日志", "log_analysis",
+              "email", "eml", "mbox", "邮件", "pst", "ost",
+    ],
 }
 
 
