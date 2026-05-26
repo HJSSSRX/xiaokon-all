@@ -1,0 +1,13 @@
+{
+  "status": true,
+  "msg": "启动完成",
+  "data": {
+    "attachment_url": "https://static.ctfhub.com/task/attachment/1207_8577a231de3ed678aa193ccf3e2542f29c4aeda7.zip?1669646961",
+    "end_time": 1779762615,
+    "public_domain": "challenge-62ed0840a851925f.sandbox.ctfhub.com",
+    "public_port": 22180,
+    "start_time": 1779760815,
+    "state": 0,
+    "type": 5
+  }
+}

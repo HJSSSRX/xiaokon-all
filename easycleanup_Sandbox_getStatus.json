@@ -1,0 +1,10 @@
+{
+  "status": false,
+  "msg": "正在启动...",
+  "data": {
+    "state": 1,
+    "countdown": 1796,
+    "start_time": 1779762587,
+    "end_time": 1779764387
+  }
+}

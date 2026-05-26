@@ -1,0 +1,13 @@
+{
+  "status": true,
+  "msg": "启动完成",
+  "data": {
+    "attachment_url": null,
+    "end_time": 1779763731,
+    "public_domain": "challenge-499c3db9317d86b6.sandbox.ctfhub.com",
+    "public_port": 10800,
+    "start_time": 1779761931,
+    "state": 0,
+    "type": 1
+  }
+}

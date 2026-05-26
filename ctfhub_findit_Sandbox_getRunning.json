@@ -1,0 +1,27 @@
+{
+  "status": true,
+  "msg": "获取成功",
+  "data": {
+    "items": [
+      {
+        "end_time": 1779763731,
+        "id": 2041981,
+        "start_time": 1779761931,
+        "state": 1,
+        "task_id": 1165,
+        "type": 1,
+        "title": "challenge_redhatctf_2021_web_find_it"
+      },
+      {
+        "end_time": 1779762615,
+        "id": 2041941,
+        "start_time": 1779760815,
+        "state": 0,
+        "task_id": 1207,
+        "type": 5,
+        "title": "challenge_hitcon_2022_misc_lemminx"
+      }
+    ],
+    "total": 2
+  }
+}

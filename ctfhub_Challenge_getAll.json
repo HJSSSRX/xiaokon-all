@@ -1,0 +1,434 @@
+{
+  "status": true,
+  "msg": "获取成功",
+  "data": {
+    "items": [
+      {
+        "add_time": 1740660562,
+        "category": [
+          {
+            "heat": 126,
+            "id": 28,
+            "title": "hack.lu CTF"
+          },
+          {
+            "heat": 140,
+            "id": 185,
+            "title": "PHP"
+          },
+          {
+            "heat": 148,
+            "id": 186,
+            "title": "弱类型"
+          },
+          {
+            "heat": 3344,
+            "id": 4,
+            "title": "2018"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 301,
+        "id": 1013,
+        "level": 8.9,
+        "refer": "2018-hack.lu-Web-baby",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1215,
+        "title": "Baby PHP",
+        "update_time": 1740661208,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1669646864,
+        "category": [
+          {
+            "heat": 969,
+            "id": 81,
+            "title": "HitCon"
+          },
+          {
+            "heat": 2085,
+            "id": 8,
+            "title": "2022"
+          },
+          {
+            "heat": 225131,
+            "id": 13,
+            "title": "Misc"
+          }
+        ],
+        "finish_count": 5,
+        "id": 1012,
+        "level": 0,
+        "refer": "2022-HitCon-Misc-lemminx",
+        "state": 0,
+        "task_container_state": 0,
+        "task_id": 1207,
+        "title": "lemminx",
+        "update_time": 1669647200,
+        "user_record_challenge_state": 1
+      },
+      {
+        "add_time": 1669641147,
+        "category": [
+          {
+            "heat": 969,
+            "id": 81,
+            "title": "HitCon"
+          },
+          {
+            "heat": 2085,
+            "id": 8,
+            "title": "2022"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 213,
+        "id": 1011,
+        "level": 9.2,
+        "refer": "2022-HitCon-Web-yeeclass",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1206,
+        "title": "yeeclass",
+        "update_time": 1669647219,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1669628853,
+        "category": [
+          {
+            "heat": 504,
+            "id": 184,
+            "title": "RCE"
+          },
+          {
+            "heat": 969,
+            "id": 81,
+            "title": "HitCon"
+          },
+          {
+            "heat": 2085,
+            "id": 8,
+            "title": "2022"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 37,
+        "id": 1010,
+        "level": 9.8,
+        "refer": "2022-HitCon-Web-rce",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1205,
+        "title": "rce",
+        "update_time": 1669647281,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1632971409,
+        "category": [
+          {
+            "heat": 347,
+            "id": 182,
+            "title": "绿城杯"
+          },
+          {
+            "heat": 1778,
+            "id": 7,
+            "title": "2021"
+          },
+          {
+            "heat": 8705,
+            "id": 38,
+            "title": "流量分析"
+          },
+          {
+            "heat": 225131,
+            "id": 13,
+            "title": "Misc"
+          }
+        ],
+        "finish_count": 509,
+        "id": 1008,
+        "level": 8.9,
+        "refer": "2021-绿城杯-Misc-流量分析",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1178,
+        "title": "流量分析",
+        "update_time": 1632971512,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1632383587,
+        "category": [
+          {
+            "heat": 157,
+            "id": 181,
+            "title": "Ruby"
+          },
+          {
+            "heat": 1641,
+            "id": 125,
+            "title": "第五空间智能安全大赛"
+          },
+          {
+            "heat": 1778,
+            "id": 7,
+            "title": "2021"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 365,
+        "id": 1007,
+        "level": 8.4,
+        "refer": "2021-第五空间智能安全大赛-Web-PNG图片转换器",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1177,
+        "title": "PNG图片转换器",
+        "update_time": 1632389117,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1631823977,
+        "category": [
+          {
+            "heat": 1641,
+            "id": 125,
+            "title": "第五空间智能安全大赛"
+          },
+          {
+            "heat": 1778,
+            "id": 7,
+            "title": "2021"
+          },
+          {
+            "heat": 116476,
+            "id": 94,
+            "title": "SQL注入"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 694,
+        "id": 1006,
+        "level": 7.9,
+        "refer": "2021-第五空间智能安全大赛-Web-yet_another_mysql_injection",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1176,
+        "title": "yet_another_mysql_injection",
+        "update_time": 1632321410,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1631822114,
+        "category": [
+          {
+            "heat": 1641,
+            "id": 125,
+            "title": "第五空间智能安全大赛"
+          },
+          {
+            "heat": 1778,
+            "id": 7,
+            "title": "2021"
+          },
+          {
+            "heat": 4834,
+            "id": 49,
+            "title": "反序列化(Unserialize)"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 501,
+        "id": 1005,
+        "level": 5.8,
+        "refer": "2021-第五空间智能安全大赛-Web-pklovecloud",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1175,
+        "title": "pklovecloud",
+        "update_time": 1632321456,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1631779577,
+        "category": [
+          {
+            "heat": 546,
+            "id": 105,
+            "title": "文件包含"
+          },
+          {
+            "heat": 1641,
+            "id": 125,
+            "title": "第五空间智能安全大赛"
+          },
+          {
+            "heat": 1778,
+            "id": 7,
+            "title": "2021"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 268,
+        "id": 1004,
+        "level": 7.4,
+        "refer": "2021-第五空间智能安全大赛-Web-easycleanup",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1174,
+        "title": "EasyCleanup",
+        "update_time": 1632321496,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1622091363,
+        "category": [
+          {
+            "heat": 673,
+            "id": 45,
+            "title": "SSRF"
+          },
+          {
+            "heat": 926,
+            "id": 33,
+            "title": "红帽杯"
+          },
+          {
+            "heat": 1778,
+            "id": 7,
+            "title": "2021"
+          },
+          {
+            "heat": 116476,
+            "id": 94,
+            "title": "SQL注入"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 748,
+        "id": 1003,
+        "level": 7.8,
+        "refer": "2021-第四届红帽杯网络安全大赛-Web-WebsiteManger",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1170,
+        "title": "WebsiteManger",
+        "update_time": 1622091758,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1620653836,
+        "category": [
+          {
+            "heat": 49,
+            "id": 180,
+            "title": "Yii2"
+          },
+          {
+            "heat": 926,
+            "id": 33,
+            "title": "红帽杯"
+          },
+          {
+            "heat": 1778,
+            "id": 7,
+            "title": "2021"
+          },
+          {
+            "heat": 4834,
+            "id": 49,
+            "title": "反序列化(Unserialize)"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 60,
+        "id": 1002,
+        "level": 9.4,
+        "refer": "2021-第四届红帽杯网络安全大赛-Web-framework",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1166,
+        "title": "framework",
+        "update_time": 1620654675,
+        "user_record_challenge_state": 2
+      },
+      {
+        "add_time": 1620647777,
+        "category": [
+          {
+            "heat": 346,
+            "id": 179,
+            "title": "备份文件泄露"
+          },
+          {
+            "heat": 926,
+            "id": 33,
+            "title": "红帽杯"
+          },
+          {
+            "heat": 1778,
+            "id": 7,
+            "title": "2021"
+          },
+          {
+            "heat": 541074,
+            "id": 9,
+            "title": "Web"
+          }
+        ],
+        "finish_count": 1379,
+        "id": 1001,
+        "level": 5.7,
+        "refer": "2021-第四届红帽杯网络安全大赛-Web-find_it",
+        "state": 0,
+        "task_container_state": -1,
+        "task_id": 1165,
+        "title": "find_it",
+        "update_time": 1620654566,
+        "user_record_challenge_state": 2
+      }
+    ],
+    "total": 553
+  }
+}
