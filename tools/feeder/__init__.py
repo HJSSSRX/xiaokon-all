@@ -48,6 +48,9 @@ from .ctf_recognizer import (
 from .ctf_coordinator import CTFCoordinator, SolveResult
 from .blind_sqli_extractor import BlindSqliExtractor, quick_dump
 from .ctfhub_flag_submit import submit_flag
+from .ctf_scanner import (
+    scan_ssrf, scan_lfi, scan_backup, quick_recon, scan_vulnerability,
+)
 
 __all__ = [
     "WebPageParser",
@@ -70,6 +73,8 @@ __all__ = [
     "CTFCoordinator", "SolveResult",
     "BlindSqliExtractor", "quick_dump",
     "submit_flag",
+    # CTF scanners
+    "scan_ssrf", "scan_lfi", "scan_backup", "quick_recon", "scan_vulnerability",
 ]
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"

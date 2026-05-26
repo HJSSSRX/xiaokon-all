@@ -1,5 +1,6 @@
 {
-  "tree": {
+  "captured_at": "2026-05-26 14:41:35",
+  "full_tree": {
     "finish_count": 0,
     "id": 1,
     "level": 0,
@@ -24,249 +25,73 @@
         "user_record_skill_state": 0,
         "children": [
           {
-            "finish_count": 64432,
-            "id": 103,
+            "finish_count": 59377,
+            "id": 8,
             "level": 0,
             "pid": 2,
             "task_container_state": -1,
-            "task_id": 264,
-            "task_title": "skill_basic_check_in",
-            "tid": 1,
-            "title": "签到",
-            "user_record_skill_state": 0,
-            "children": [
-              {
-                "finish_count": 0,
-                "id": 3,
-                "level": 0,
-                "pid": 103,
-                "task_container_state": -1,
-                "task_id": 0,
-                "task_title": null,
-                "tid": 1,
-                "title": "Web",
-                "user_record_skill_state": 1,
-                "children": [
-                  {
-                    "finish_count": 0,
-                    "id": 303,
-                    "level": 0,
-                    "pid": 3,
-                    "task_container_state": -1,
-                    "task_id": 0,
-                    "task_title": null,
-                    "tid": 1,
-                    "title": "Web进阶",
-                    "user_record_skill_state": 2
-                  }
-                ]
-              },
-              {
-                "finish_count": 0,
-                "id": 4,
-                "level": 0,
-                "pid": 103,
-                "task_container_state": -1,
-                "task_id": 0,
-                "task_title": null,
-                "tid": 1,
-                "title": "Pwn",
-                "user_record_skill_state": 2
-              },
-              {
-                "finish_count": 0,
-                "id": 5,
-                "level": 0,
-                "pid": 103,
-                "task_container_state": -1,
-                "task_id": 0,
-                "task_title": null,
-                "tid": 1,
-                "title": "Reverse",
-                "user_record_skill_state": 2
-              },
-              {
-                "finish_count": 0,
-                "id": 6,
-                "level": 0,
-                "pid": 103,
-                "task_container_state": -1,
-                "task_id": 0,
-                "task_title": null,
-                "tid": 1,
-                "title": "Crypto",
-                "user_record_skill_state": 2
-              },
-              {
-                "finish_count": 0,
-                "id": 7,
-                "level": 0,
-                "pid": 103,
-                "task_container_state": -1,
-                "task_id": 0,
-                "task_title": null,
-                "tid": 1,
-                "title": "Misc",
-                "user_record_skill_state": 2
-              },
-              {
-                "finish_count": 1952,
-                "id": 124,
-                "level": 0,
-                "pid": 103,
-                "task_container_state": -1,
-                "task_id": 0,
-                "task_title": null,
-                "tid": 1,
-                "title": "彩蛋",
-                "user_record_skill_state": 2
-              },
-              {
-                "finish_count": 0,
-                "id": 392,
-                "level": 0,
-                "pid": 103,
-                "task_container_state": -1,
-                "task_id": 0,
-                "task_title": null,
-                "tid": 1,
-                "title": "BlockChain",
-                "user_record_skill_state": 2
-              }
-            ]
+            "task_id": 263,
+            "task_title": "skill_basic_ctf",
+            "tid": 2,
+            "title": "CTF简介",
+            "user_record_skill_state": 0
+          },
+          {
+            "finish_count": 54775,
+            "id": 9,
+            "level": 0,
+            "pid": 2,
+            "task_container_state": -1,
+            "task_id": 262,
+            "task_title": "skill_basic_event_class",
+            "tid": 2,
+            "title": "竞赛模式",
+            "user_record_skill_state": 0
+          },
+          {
+            "finish_count": 51350,
+            "id": 10,
+            "level": 0,
+            "pid": 2,
+            "task_container_state": -1,
+            "task_id": 261,
+            "task_title": "skill_basic_event_form",
+            "tid": 2,
+            "title": "比赛形式",
+            "user_record_skill_state": 0
+          },
+          {
+            "finish_count": 51821,
+            "id": 11,
+            "level": 0,
+            "pid": 2,
+            "task_container_state": -1,
+            "task_id": 260,
+            "task_title": "skill_basic_challenge_type",
+            "tid": 2,
+            "title": "题目类型",
+            "user_record_skill_state": 0
           }
         ]
       }
     ]
   },
+  "nodes_captured": 2,
   "stats": {
-    "total": 11,
-    "tasks": [
-      {
-        "path": "CTF/基础知识/签到",
-        "id": 103,
-        "task_id": 264,
-        "title": "skill_basic_check_in",
-        "state": 0,
-        "state_str": "mastered",
-        "finish_count": 64432,
-        "level": 0,
-        "tid": 1,
-        "container_state": -1
-      }
-    ],
-    "categories": [
-      {
-        "path": "CTF",
-        "id": 1,
-        "title": "CTF",
-        "state": 1,
-        "state_str": "learning",
-        "children_count": 1,
-        "level": 0,
-        "pid": 0
-      },
-      {
-        "path": "CTF/基础知识",
-        "id": 2,
-        "title": "基础知识",
-        "state": 0,
-        "state_str": "mastered",
-        "children_count": 1,
-        "level": 0,
-        "pid": 1
-      },
-      {
-        "path": "CTF/基础知识/签到/Web",
-        "id": 3,
-        "title": "Web",
-        "state": 1,
-        "state_str": "learning",
-        "children_count": 1,
-        "level": 0,
-        "pid": 103
-      },
-      {
-        "path": "CTF/基础知识/签到/Web/Web进阶",
-        "id": 303,
-        "title": "Web进阶",
-        "state": 2,
-        "state_str": "unlearned",
-        "children_count": 0,
-        "level": 0,
-        "pid": 3
-      },
-      {
-        "path": "CTF/基础知识/签到/Pwn",
-        "id": 4,
-        "title": "Pwn",
-        "state": 2,
-        "state_str": "unlearned",
-        "children_count": 0,
-        "level": 0,
-        "pid": 103
-      },
-      {
-        "path": "CTF/基础知识/签到/Reverse",
-        "id": 5,
-        "title": "Reverse",
-        "state": 2,
-        "state_str": "unlearned",
-        "children_count": 0,
-        "level": 0,
-        "pid": 103
-      },
-      {
-        "path": "CTF/基础知识/签到/Crypto",
-        "id": 6,
-        "title": "Crypto",
-        "state": 2,
-        "state_str": "unlearned",
-        "children_count": 0,
-        "level": 0,
-        "pid": 103
-      },
-      {
-        "path": "CTF/基础知识/签到/Misc",
-        "id": 7,
-        "title": "Misc",
-        "state": 2,
-        "state_str": "unlearned",
-        "children_count": 0,
-        "level": 0,
-        "pid": 103
-      },
-      {
-        "path": "CTF/基础知识/签到/彩蛋",
-        "id": 124,
-        "title": "彩蛋",
-        "state": 2,
-        "state_str": "unlearned",
-        "children_count": 0,
-        "level": 0,
-        "pid": 103
-      },
-      {
-        "path": "CTF/基础知识/签到/BlockChain",
-        "id": 392,
-        "title": "BlockChain",
-        "state": 2,
-        "state_str": "unlearned",
-        "children_count": 0,
-        "level": 0,
-        "pid": 103
-      }
-    ],
-    "by_state": {
-      "0": 1
+    "total": 6,
+    "tasks": 4,
+    "cats": 2,
+    "task_states": {
+      "0": 4
     },
-    "cat_by_state": {
-      "1": 2,
-      "0": 1,
-      "2": 7
+    "cat_states": {
+      "1": 1,
+      "0": 1
     }
   },
-  "total_nodes": 11,
-  "total_categories": 10,
-  "total_tasks": 1
+  "state_map": {
+    "0": "mastered",
+    "1": "learning",
+    "2": "unlearned"
+  }
 }

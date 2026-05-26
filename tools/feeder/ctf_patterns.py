@@ -612,6 +612,25 @@ class PatternDB:
         return "\n".join(lines)
 
 
+# ── Tag → Category Mapping ──────────────────────────────────────────────────
+
+TAG_TO_CATEGORY = {
+    "sql注入": "SQL注入", "xss": "XSS", "csrf": "CSRF", "ssrf": "SSRF",
+    "rce": "RCE", "文件包含": "文件包含", "反序列化(unserialize)": "反序列化",
+    "反序列化": "反序列化", "unserialize": "反序列化",
+    "备份文件泄露": "备份文件泄露", "弱类型": "弱类型", "ssti": "SSTI",
+    "文件上传": "文件上传", "xxe": "XXE", "命令注入": "RCE",
+    "php": "PHP", "ruby": "Ruby", "yii2": "SSTI", "流量分析": "流量分析",
+}
+
+CATEGORY_DIFFICULTY = {
+    "SQL注入": "medium", "文件包含": "hard", "SSRF": "easy",
+    "反序列化": "hard", "备份文件泄露": "easy", "RCE": "medium",
+    "SSTI": "medium", "弱类型": "medium", "文件上传": "easy",
+    "XSS": "easy", "XXE": "medium", "信息收集": "easy", "流量分析": "medium",
+}
+
+
 # ── Convenience ──
 
 _default_db = None
